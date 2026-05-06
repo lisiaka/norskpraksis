@@ -363,6 +363,7 @@ function renderTabs(){
    {key:"flashcards", label:"🎮 Flashcards"},
    {key:"oppgaver",   label:"✍️ Velg oppgave"},
    {key:"skriv",      label:"📝 Skriv"},
+   {key:"lesing",     label:"📖 Lesing"},
   ].forEach(t=>c.appendChild(el("button",{class:"tab-btn"+(state.tab===t.key?" active":""),click(){setTab(t.key);}},t.label)));
 }
 function setTab(tab){ state.tab=tab; renderTabs(); renderContent(); }
@@ -374,6 +375,7 @@ function renderContent(){
   if(state.tab==="flashcards")  c.appendChild(buildFlashcards());
   if(state.tab==="oppgaver")    c.appendChild(buildOppgaver());
   if(state.tab==="skriv")       c.appendChild(buildSkriv());
+  if(state.tab==="lesing")      c.appendChild(buildLesing());
 }
 
 // ── ORDBANK TAB ───────────────────────────────────────────────────────
@@ -1748,6 +1750,200 @@ function printWords(mode){
 </body></html>`);
     win.document.close();
   }
+}
+
+// ── LESING TAB ───────────────────────────────────────────────────────
+const lesingState = { texts:null, topicFilter:"", grammarFilter:"", search:"", currentText:null };
+
+async function loadLesingTexts(){
+  if(lesingState.texts) return lesingState.texts;
+  try{
+    const r = await fetch("lesing-tekster.json");
+    lesingState.texts = await r.json();
+  } catch(e){ lesingState.texts=[]; }
+  return lesingState.texts;
+}
+
+function buildLesing(){
+  const frag=document.createDocumentFragment();
+
+  // If a text is open, show reader view
+  if(lesingState.currentText){
+    frag.appendChild(buildLesingReader(lesingState.currentText));
+    return frag;
+  }
+
+  // Header card
+  const hdr=el("div",{class:"card"});
+  hdr.appendChild(el("h2",{},"📖 Lesetrening – B2-tekster"));
+  hdr.appendChild(el("p",{style:{color:"#777",fontSize:"13px",marginBottom:"14px"}},"Klikk på en tekst for å lese. Tekster er 200–300 ord på B2-nivå og trener: leddsetninger, som-setninger, konjunksjoner og subjunksjoner."));
+
+  // Search
+  const searchBox=el("input",{class:"search-box",type:"text",placeholder:"🔍 Søk etter tittel eller nøkkelord...",value:lesingState.search,
+    input(e){lesingState.search=e.target.value; refreshLesingList();}});
+  hdr.appendChild(searchBox);
+  frag.appendChild(hdr);
+
+  // Filter bar
+  const filterCard=el("div",{class:"card",style:{paddingBottom:"6px"}});
+  const topicBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"10px"}});
+  topicBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TEMA:"));
+  const LESING_TOPICS=[["","Alle"],["språk","🗣️ Språk"],["integrering","🤝 Integrering"],["utdanning","🎓 Utdanning"],
+    ["familie","👨‍👩‍👧 Familie"],["natur","🌿 Natur"],["politikk","🏛️ Politikk"],["arbeid","💼 Arbeid"],
+    ["helse","🏥 Helse"],["teknologi","💻 Teknologi"],["miljø","♻️ Miljø"],["demokrati","⚖️ Demokrati"],["internasjonalt","🌍 Internasjonalt"]];
+  LESING_TOPICS.forEach(([val,label])=>{
+    topicBar.appendChild(el("button",{class:"topic-chip"+(lesingState.topicFilter===val?" active":""),
+      click(e){lesingState.topicFilter=val;e.currentTarget.parentNode.querySelectorAll('.topic-chip').forEach(b=>b.classList.remove('active'));e.currentTarget.classList.add('active');refreshLesingList();}},label));
+  });
+  filterCard.appendChild(topicBar);
+
+  // Grammar filter
+  const grammarBar=el("div",{class:"topic-filter-bar"});
+  grammarBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"GRAMMATIKK:"));
+  [["","Alle"],["leddsetning","Leddsetning"],["som-setning","Som-setning"],["konjunksjon","Konjunksjon"],["subjunksjon","Subjunksjon"],["passiv","Passiv"]].forEach(([val,label])=>{
+    grammarBar.appendChild(el("button",{class:"topic-chip"+(lesingState.grammarFilter===val?" active":""),
+      click(e){lesingState.grammarFilter=val;e.currentTarget.parentNode.querySelectorAll('.topic-chip').forEach(b=>b.classList.remove('active'));e.currentTarget.classList.add('active');refreshLesingList();}},label));
+  });
+  filterCard.appendChild(grammarBar);
+  frag.appendChild(filterCard);
+
+  // Text list container
+  const listDiv=el("div",{id:"lesing-list"});
+  frag.appendChild(listDiv);
+
+  // Load and render
+  loadLesingTexts().then(()=>refreshLesingList());
+
+  return frag;
+}
+
+function refreshLesingList(){
+  const listDiv=$("lesing-list");
+  if(!listDiv) return;
+  listDiv.innerHTML="";
+  if(!lesingState.texts || lesingState.texts.length===0){
+    listDiv.appendChild(el("div",{class:"empty-state"},[el("div",{class:"big"},"📭"),el("p",{},"Ingen tekster lastet")]));
+    return;
+  }
+  let filtered=lesingState.texts.filter(t=>{
+    if(lesingState.topicFilter && t.topic!==lesingState.topicFilter) return false;
+    if(lesingState.grammarFilter && !t.grammarFocus.some(g=>g.includes(lesingState.grammarFilter.split("-")[0]))) return false;
+    if(lesingState.search){
+      const q=lesingState.search.toLowerCase();
+      return t.title.toLowerCase().includes(q)||t.text.toLowerCase().includes(q)||(t.keyWords||[]).some(w=>w.toLowerCase().includes(q));
+    }
+    return true;
+  });
+
+  if(filtered.length===0){
+    listDiv.appendChild(el("div",{class:"empty-state"},[el("div",{class:"big"},"🔍"),el("p",{},"Ingen tekster passer søket")]));
+    return;
+  }
+
+  const TOPIC_META={
+    "språk":{emoji:"🗣️",color:"#4a90d9"},"integrering":{emoji:"🤝",color:"#e8832a"},"utdanning":{emoji:"🎓",color:"#9b59b6"},
+    "familie":{emoji:"👨‍👩‍👧",color:"#e74c3c"},"natur":{emoji:"🌿",color:"#27ae60"},"politikk":{emoji:"🏛️",color:"#2980b9"},
+    "arbeid":{emoji:"💼",color:"#7f8c8d"},"helse":{emoji:"🏥",color:"#e91e63"},"teknologi":{emoji:"💻",color:"#1abc9c"},
+    "miljø":{emoji:"♻️",color:"#16a085"},"demokrati":{emoji:"⚖️",color:"#8e44ad"},"internasjonalt":{emoji:"🌍",color:"#d35400"}
+  };
+
+  const grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:"12px"}});
+  filtered.forEach(text=>{
+    const meta=TOPIC_META[text.topic]||{emoji:"📄",color:"#888"};
+    const card=el("div",{style:{background:"#fff",borderRadius:"14px",padding:"18px",boxShadow:"0 1px 8px rgba(0,0,0,.07)",borderLeft:`4px solid ${meta.color}`,cursor:"pointer",transition:"box-shadow .2s"},
+      click(){lesingState.currentText=text; renderContent();}});
+    card.addEventListener("mouseenter",()=>{card.style.boxShadow="0 4px 20px rgba(0,0,0,.13)";});
+    card.addEventListener("mouseleave",()=>{card.style.boxShadow="0 1px 8px rgba(0,0,0,.07)";});
+    card.appendChild(el("div",{style:{fontSize:"11px",color:meta.color,fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},`${meta.emoji} ${text.topic}`));
+    card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"15px",color:"#222",marginBottom:"8px",lineHeight:"1.3"}},text.title));
+    card.appendChild(el("div",{style:{fontSize:"12px",color:"#999",marginBottom:"10px"}},text.text.substring(0,120)+"…"));
+    const tagRow=el("div",{style:{display:"flex",gap:"5px",flexWrap:"wrap"}});
+    (text.grammarFocus||[]).slice(0,3).forEach(g=>{
+      const short=g.replace("subjunksjon-","subj: ").replace("konjunksjon-","konj: ");
+      tagRow.appendChild(el("span",{style:{padding:"2px 8px",borderRadius:"10px",fontSize:"11px",background:"#f0f4f8",color:"#666",fontWeight:"600"}},short));
+    });
+    card.appendChild(tagRow);
+    grid.appendChild(card);
+  });
+  listDiv.appendChild(el("div",{style:{fontSize:"12px",color:"#999",marginBottom:"12px"}},`${filtered.length} tekst${filtered.length!==1?"er":""} funnet`));
+  listDiv.appendChild(grid);
+}
+
+function buildLesingReader(text){
+  const TOPIC_META={
+    "språk":{emoji:"🗣️",color:"#4a90d9"},"integrering":{emoji:"🤝",color:"#e8832a"},"utdanning":{emoji:"🎓",color:"#9b59b6"},
+    "familie":{emoji:"👨‍👩‍👧",color:"#e74c3c"},"natur":{emoji:"🌿",color:"#27ae60"},"politikk":{emoji:"🏛️",color:"#2980b9"},
+    "arbeid":{emoji:"💼",color:"#7f8c8d"},"helse":{emoji:"🏥",color:"#e91e63"},"teknologi":{emoji:"💻",color:"#1abc9c"},
+    "miljø":{emoji:"♻️",color:"#16a085"},"demokrati":{emoji:"⚖️",color:"#8e44ad"},"internasjonalt":{emoji:"🌍",color:"#d35400"}
+  };
+  const meta=TOPIC_META[text.topic]||{emoji:"📄",color:"#888"};
+  const frag=document.createDocumentFragment();
+
+  // Back button
+  const backBtn=el("button",{class:"btn-io",style:{marginBottom:"14px",display:"flex",alignItems:"center",gap:"6px"},
+    click(){lesingState.currentText=null; renderContent();}});
+  backBtn.innerHTML="← Tilbake til tekstlisten";
+  frag.appendChild(backBtn);
+
+  // Reader card
+  const card=el("div",{class:"card",style:{maxWidth:"720px",margin:"0 auto"}});
+  card.appendChild(el("div",{style:{fontSize:"12px",color:meta.color,fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"8px"}},`${meta.emoji} ${text.topic} · B2`));
+  card.appendChild(el("h2",{style:{fontSize:"22px",fontWeight:"800",color:"#1a1a1a",marginBottom:"16px",lineHeight:"1.3"}},text.title));
+
+  // Grammar tags
+  const tagRow=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"18px"}});
+  (text.grammarFocus||[]).forEach(g=>{
+    tagRow.appendChild(el("span",{style:{padding:"4px 12px",borderRadius:"12px",fontSize:"12px",background:"#e8f5ee",color:"#1a6b4a",fontWeight:"700"}},g));
+  });
+  card.appendChild(tagRow);
+
+  // Main text
+  const textDiv=el("div",{style:{fontSize:"16px",lineHeight:"1.85",color:"#333",whiteSpace:"pre-wrap",fontFamily:"Georgia,serif",letterSpacing:".01em"}});
+  textDiv.textContent=text.text;
+  card.appendChild(textDiv);
+
+  // Divider
+  card.appendChild(el("hr",{style:{border:"none",borderTop:"1px solid #eee",margin:"20px 0"}}));
+
+  // Key words
+  if(text.keyWords && text.keyWords.length>0){
+    card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"13px",color:"#555",marginBottom:"8px"}},"🔑 Nøkkelord i teksten:"));
+    const kwRow=el("div",{style:{display:"flex",gap:"7px",flexWrap:"wrap",marginBottom:"14px"}});
+    text.keyWords.forEach(w=>{
+      kwRow.appendChild(el("span",{style:{padding:"4px 12px",borderRadius:"12px",fontSize:"13px",background:"#fff8dc",color:"#776",border:"1px solid #e8d87a",fontWeight:"600"}},w));
+    });
+    card.appendChild(kwRow);
+  }
+
+  // Source
+  if(text.source){
+    card.appendChild(el("div",{style:{fontSize:"12px",color:"#bbb"}},`Kilde: ${text.source}`));
+  }
+
+  frag.appendChild(card);
+
+  // Navigation (prev/next in filtered list)
+  if(lesingState.texts){
+    let filtered=lesingState.texts.filter(t=>{
+      if(lesingState.topicFilter && t.topic!==lesingState.topicFilter) return false;
+      if(lesingState.grammarFilter && !t.grammarFocus.some(g=>g.includes(lesingState.grammarFilter.split("-")[0]))) return false;
+      return true;
+    });
+    const idx=filtered.findIndex(t=>t.id===text.id);
+    if(filtered.length>1){
+      const navRow=el("div",{style:{display:"flex",justifyContent:"space-between",maxWidth:"720px",margin:"14px auto 0"}});
+      if(idx>0){
+        const prevBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx-1];renderContent();}},"← "+filtered[idx-1].title.substring(0,30));
+        navRow.appendChild(prevBtn);
+      } else { navRow.appendChild(el("span",{})); }
+      if(idx<filtered.length-1){
+        const nextBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx+1];renderContent();}},(filtered[idx+1].title.substring(0,30))+" →");
+        navRow.appendChild(nextBtn);
+      }
+      frag.appendChild(navRow);
+    }
+  }
+  return frag;
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────
