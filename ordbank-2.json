@@ -1,0 +1,374 @@
+[
+  {
+    "word": "nedlegge",
+    "meaning": "lukke, stenge",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "skremmende",
+    "meaning": "til å bli redd av",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "det gikk opp for meg",
+    "meaning": "jeg skjønte",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "å kjempe",
+    "meaning": "å slåss",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å beholde",
+    "meaning": "fortsette å ha",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å ta fra",
+    "meaning": "å fjerne",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å samle",
+    "meaning": "å plukke sammen",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "deretter",
+    "meaning": "etterpå",
+    "category": "koblingsord",
+    "topic": ""
+  },
+  {
+    "word": "grunnleggende",
+    "meaning": "fundamental",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å bekjempe",
+    "meaning": "å slåss mot",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å ta noe alvorlig",
+    "meaning": "forstå at noe er viktig",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "tilskuer",
+    "meaning": "publikum",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "vektlegge",
+    "meaning": "emphasize",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å offentliggjøre",
+    "meaning": "publish",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "dermed",
+    "meaning": "Thereby",
+    "category": "koblingsord",
+    "topic": ""
+  },
+  {
+    "word": "redegjør",
+    "meaning": "explains",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "frammøte",
+    "meaning": "attendance",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "årskull",
+    "meaning": "Age Group",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "egnethet",
+    "meaning": "• Suitability;",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å utelukke",
+    "meaning": "to exclude",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "fremdeles",
+    "meaning": "still",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "innflytelse",
+    "meaning": "Social influence",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "dessuten",
+    "meaning": "furthermore",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "dersom",
+    "meaning": "If",
+    "category": "koblingsord",
+    "topic": ""
+  },
+  {
+    "word": "jeg tror at",
+    "meaning": "I believe that",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "jeg synes at",
+    "meaning": "I think that",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "jeg mener at",
+    "meaning": "I mean that",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "jeg er sikker på at",
+    "meaning": "I am sure that",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "det har du rett i",
+    "meaning": "You are right.",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "Jeg er enig i at",
+    "meaning": "I agree that",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "Etter min mening",
+    "meaning": "In my opinion",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "På den ene siden",
+    "meaning": "ON THE ONE HAND :",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "På den andre siden",
+    "meaning": "On the other hand",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "Likevel",
+    "meaning": "Nevertheless …",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å grue seg",
+    "meaning": "to dread",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å skryte av noe",
+    "meaning": "to boast about something",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å ta del i noe",
+    "meaning": "to take part in something",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "å greie seg",
+    "meaning": "to cope",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "å bli kvitt noe",
+    "meaning": "to get rid of something",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "I ferd med",
+    "meaning": "In progress",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "det forandret seg",
+    "meaning": "it changed",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "flau",
+    "meaning": "Embarrassment",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å såre noen",
+    "meaning": "to hurt someone",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "nemlig",
+    "meaning": "That's right,",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "ferdighet",
+    "meaning": "Abilities",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "egentlig",
+    "meaning": "i virkeligheten",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "antakelig",
+    "meaning": "probably",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "befinne seg",
+    "meaning": "være",
+    "category": "uttrykk",
+    "topic": ""
+  },
+  {
+    "word": "merkelig",
+    "meaning": "odd",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "et krav",
+    "meaning": "noe man må gjøre",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "et opptak",
+    "meaning": "det å bli tatt opp og få plass",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "ansvarliggjøring",
+    "meaning": "accountability",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "altså",
+    "meaning": "Av den grunn",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "å gidde",
+    "meaning": "orke",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "tilfredstilt",
+    "meaning": "satisfied",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "skynde seg",
+    "meaning": "hurry up",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "astrengende",
+    "meaning": "strenuous",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "innadvendt",
+    "meaning": "introvert",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "skaffe seg",
+    "meaning": "obtain",
+    "category": "enkeltord",
+    "topic": ""
+  },
+  {
+    "word": "sysselsetting",
+    "meaning": "Employment",
+    "category": "enkeltord",
+    "topic": "arbveidsliv"
+  },
+  {
+    "word": "henvende seg til",
+    "meaning": "to contact",
+    "category": "enkeltord",
+    "topic": "helse"
+  },
+  {
+    "word": "fortvilet",
+    "meaning": "Despairing.",
+    "category": "enkeltord",
+    "topic": ""
+  }
+]

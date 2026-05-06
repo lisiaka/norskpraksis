@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>B2 Norsk Trening</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:#f0f4f8;min-height:100vh;color:#222;}
+button{cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s;}
+button:hover{opacity:.85;}
+button:active{transform:scale(.97);}
+input,select,textarea{font-family:inherit;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shadow:0 0 0 3px rgba(45,158,107,.13);}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-thumb{background:#b5cdb8;border-radius:3px;}
+
+/* Layout */
+#app{max-width:980px;margin:0 auto;padding:20px 16px 60px;}
+
+/* Header */
+.header{background:linear-gradient(135deg,#1a6b4a,#2d9e6b);border-radius:18px;padding:22px 28px;margin-bottom:22px;color:#fff;box-shadow:0 4px 20px rgba(26,107,74,.22);}
+.header h1{font-size:24px;font-weight:800;margin-bottom:4px;}
+.header p{opacity:.83;font-size:14px;}
+
+/* Tabs */
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+.tab-btn{padding:10px 22px;border-radius:10px;border:2px solid #e0e8e0;background:#fff;color:#444;font-weight:500;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.tab-btn.active{background:#1a6b4a;border-color:#1a6b4a;color:#fff;font-weight:700;box-shadow:0 2px 12px rgba(26,107,74,.2);}
+
+/* Cards */
+.card{background:#fff;border-radius:14px;padding:20px;box-shadow:0 1px 8px rgba(0,0,0,.07);margin-bottom:14px;}
+.card h2{font-size:16px;color:#1a6b4a;font-weight:700;margin-bottom:14px;}
+
+/* Form row */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.form-row3{display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end;}
+.field-label{font-size:11px;color:#777;display:block;margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.text-input{width:100%;padding:10px 13px;border-radius:9px;border:1px solid #dde;font-size:14px;}
+.sel{padding:10px 13px;border-radius:9px;border:1px solid #dde;font-size:14px;background:#fff;width:100%;}
+.btn-add{padding:10px 24px;background:#1a6b4a;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;box-shadow:0 2px 10px rgba(26,107,74,.28);}
+.hint{font-size:12px;color:#bbb;margin-top:6px;}
+
+/* Word list */
+.cat-section{background:#fff;border-radius:14px;padding:18px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);}
+.cat-title{font-size:12px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:7px;}
+.cat-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.word-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;}
+.word-chip{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 12px;background:#f8fdf9;border-radius:9px;border-left:3px solid var(--c);}
+.word-chip .wn{font-weight:600;color:#222;font-size:14px;word-break:break-word;}
+.word-chip .wm{color:#999;font-size:12px;margin-top:2px;word-break:break-word;}
+.btn-del{background:none;border:none;color:#ccc;font-size:18px;padding:0 3px;line-height:1;flex-shrink:0;margin-left:6px;}
+.btn-del:hover{color:#e05c5c;}
+.empty-state{text-align:center;padding:56px 20px;background:#fff;border-radius:14px;color:#bbb;}
+.empty-state .big{font-size:48px;margin-bottom:12px;}
+
+/* Search */
+.search-box{width:100%;padding:10px 14px;border-radius:10px;border:1px solid #dde;font-size:14px;background:#fff;margin-bottom:14px;}
+
+/* Topic grid */
+.topic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+.topic-card{background:#fff;border-radius:16px;padding:22px 20px;box-shadow:0 1px 8px rgba(0,0,0,.07);border:2px solid transparent;transition:border-color .2s,box-shadow .2s;}
+.topic-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.12);}
+.topic-card.selected{border-color:var(--tc);}
+.topic-emoji{font-size:36px;margin-bottom:10px;}
+.topic-name{font-weight:700;font-size:16px;color:#222;margin-bottom:4px;}
+.topic-count{font-size:13px;color:#999;margin-bottom:14px;}
+.topic-badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;background:var(--tbg);color:var(--tc);}
+
+/* Write layout */
+.write-layout{display:grid;grid-template-columns:1fr 280px;gap:16px;align-items:start;}
+@media(max-width:700px){.write-layout{grid-template-columns:1fr;}.form-row3{grid-template-columns:1fr 1fr;}}
+
+/* Prompt box */
+.prompt-box{border-radius:14px;padding:20px;margin-bottom:14px;border-left:4px solid var(--tc);}
+.prompt-box .topic-tag{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;}
+.prompt-box p{font-size:15px;line-height:1.7;color:#2a2a2a;}
+.hint-bar{margin-top:12px;padding:8px 12px;background:#fff;border-radius:8px;font-size:13px;color:#444;}
+
+/* Progress */
+.progress-wrap{margin-bottom:10px;}
+.progress-meta{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:#666;}
+.progress-track{background:#e8eef0;border-radius:6px;height:7px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:6px;transition:width .4s;}
+.success-msg{text-align:center;color:#2d9e6b;font-size:13px;margin-top:6px;font-weight:600;}
+
+/* Essay textarea */
+.essay-area{width:100%;min-height:340px;padding:18px;border-radius:13px;border:1px solid #dde;font-size:15px;line-height:1.8;resize:vertical;}
+.essay-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#999;}
+.action-row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
+.btn-sec{padding:9px 18px;background:#f0f4f8;border:1px solid #dde;border-radius:9px;font-size:13px;color:#555;}
+
+/* Sidebar */
+.sidebar{position:sticky;top:16px;}
+.sidebar .card{margin-bottom:12px;}
+.sidebar .card h3{font-size:14px;color:#1a6b4a;font-weight:700;margin-bottom:12px;}
+.word-list-scroll{max-height:460px;overflow-y:auto;padding-right:4px;display:grid;gap:5px;}
+.wb-chip{padding:7px 10px;border-radius:8px;border-left:3px solid var(--c);}
+.wb-chip.used{background:#edfaf3;border-color:#2d9e6b!important;}
+.wb-chip.used .wn{color:#1a6b4a;font-weight:700;}
+.wb-chip .wn{font-size:13px;font-weight:600;color:#444;}
+.wb-chip .wm{font-size:11px;color:#bbb;margin-top:1px;}
+
+/* Tips */
+.tips-box{background:#fffdf0;border-radius:12px;padding:14px;border:1px solid #f0e68c;}
+.tips-title{font-size:12px;font-weight:700;color:#b8860b;margin-bottom:8px;}
+.tip-item{font-size:12px;color:#776;margin-bottom:4px;display:flex;gap:6px;}
+.tip-dot{color:#f0c040;flex-shrink:0;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <h1>🇳🇴 B2 Prøve i Norsk — Treningsverktøy</h1>
+    <p>Bygg ordforrådet ditt · Øv på å skrive sammenhengende tekster</p>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div id="content"></div>
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────
+const CATEGORIES = [
+  {key:"enkeltord",  label:"Enkeltord",        color:"#4f6ef7"},
+  {key:"uttrykk",   label:"Uttrykk / fraser",  color:"#2d9e6b"},
+  {key:"koblingsord",label:"Koblingsord",       color:"#e8901a"},
+  {key:"temaord",   label:"Temaord",            color:"#e05c5c"},
+];
+
+const TOPICS = {
+  samfunn:    {name:"Samfunn",               emoji:"🏙️", color:"#4f6ef7"},
+  teknologi:  {name:"Teknologi",             emoji:"💻", color:"#7c4dff"},
+  miljo:      {name:"Miljø og klima",        emoji:"🌿", color:"#2d9e6b"},
+  helse:      {name:"Helse",                 emoji:"🏥", color:"#e05c5c"},
+  utdanning:  {name:"Utdanning og arbeidsliv",emoji:"🎓", color:"#e8901a"},
+  integrering:{name:"Integrering og kultur",  emoji:"🤝", color:"#1a9ec4"},
+};
+
+const PROMPTS = {
+  samfunn:[
+    {title:"Sosiale utfordringer", text:"Mange opplever utenforskap og ensomhet i det moderne samfunnet. Skriv en sammenhengende tekst der du diskuterer årsaker til dette, og foreslår tiltak som kan bidra til et mer inkluderende samfunn."},
+    {title:"Sosiale medier", text:"Sosiale medier har forandret måten vi kommuniserer og lever på. Diskuter fordeler og ulemper ved sosiale medier – både for enkeltpersoner og for samfunnet som helhet."},
+    {title:"Likestilling", text:"Til tross for store fremskritt er det fortsatt ulikheter mellom kvinner og menn i arbeidslivet. Skriv en tekst der du diskuterer hva som kan gjøres for å oppnå reell likestilling."},
+    {title:"Frivillig arbeid", text:"Frivillig arbeid spiller en viktig rolle i det norske samfunnet. Skriv en tekst der du argumenterer for at frivillig arbeid bør anerkjennes og verdsettes høyere i samfunnet."},
+  ],
+  teknologi:[
+    {title:"Kunstig intelligens", text:"Kunstig intelligens endrer arbeidsmarkedet i stor fart. Skriv en tekst der du diskuterer hvilke muligheter og utfordringer denne utviklingen skaper for fremtidige generasjoner."},
+    {title:"Teknologiavhengighet", text:"Mange mener at vi er blitt for avhengige av smarttelefoner og digitale verktøy. Hva mener du? Diskuter konsekvensene av teknologiavhengighet og mulige løsninger."},
+    {title:"Personvern", text:"Digitale selskaper samler enorme mengder data om oss. Skriv en tekst om personvern i den digitale tidsalderen – hva er farene, og hva kan vi gjøre for å beskytte oss?"},
+    {title:"Teknologi i skolen", text:"Teknologi brukes i stadig større grad i skolen. Diskuter om dette er en fordel eller ulempe for elevenes læring og utvikling."},
+  ],
+  miljo:[
+    {title:"Klimaansvar", text:"Klimaendringene er vår tids største utfordring. Skriv en tekst der du argumenterer for hva enkeltpersoner, bedrifter og myndigheter bør gjøre for å bremse klimaendringene."},
+    {title:"Grønn livsstil", text:"Mange ønsker å leve mer miljøvennlig, men opplever at det er vanskelig i praksis. Diskuter hindringer for en grønn livsstil og hva som kan gjøres for å gjøre det enklere."},
+    {title:"Kosthold og klima", text:"Mange eksperter mener at vi bør spise mindre kjøtt av hensyn til klimaet. Hva mener du? Skriv en tekst der du diskuterer sammenhengen mellom matvalg og miljøpåvirkning."},
+    {title:"Forbrukssamfunnet", text:"Vi lever i et forbrukssamfunn der vi kjøper mer enn vi trenger. Diskuter konsekvensene av dette og hva som må til for å endre forbruksmønstrene våre."},
+  ],
+  helse:[
+    {title:"Psykisk helse", text:"Psykiske lidelser er blitt en av de største helseutfordringene i Norge. Skriv en tekst der du diskuterer årsaker og mulige tiltak – både på individnivå og samfunnsnivå."},
+    {title:"Livsstil og helse", text:"Livsstilssykdommer er en voksende utfordring i mange land. Skriv en tekst om sammenhengen mellom livsstil og helse, og hva samfunnet kan gjøre for å bedre folkehelsen."},
+    {title:"Velferdsstaten", text:"Norge har et av verdens beste helsevesen. Diskuter fordeler og utfordringer ved den norske velferdsstaten, og hva som trengs for å bevare den i fremtiden."},
+    {title:"Rus og avhengighet", text:"Rus og avhengighet er et sammensatt samfunnsproblem. Skriv en tekst om hvordan samfunnet bør håndtere utfordringer knyttet til rusmiddelbruk."},
+  ],
+  utdanning:[
+    {title:"Utdanningssystemet", text:"Mange debatterer om det norske utdanningssystemet er godt nok tilpasset fremtidens arbeidsmarked. Skriv en tekst der du diskuterer hva som fungerer bra og hva som kan forbedres."},
+    {title:"Høyere utdanning", text:"Er høyere utdanning nødvendig for å lykkes i arbeidslivet? Diskuter dette spørsmålet med argumenter for og imot, og trekk gjerne inn egne erfaringer."},
+    {title:"Yrkesfag vs. akademia", text:"Det er stort behov for fagarbeidere i Norge, men mange unge velger akademiske utdanninger. Skriv en tekst om statusforskjeller mellom yrkesfag og akademisk utdanning."},
+    {title:"Livslang læring", text:"I en tid med rask teknologisk utvikling er livslang læring viktigere enn noen gang. Diskuter hva dette betyr i praksis og hvilke krav det stiller til den enkelte og til samfunnet."},
+  ],
+  integrering:[
+    {title:"Integrering", text:"Integrering av innvandrere er et viktig og omdiskutert tema i Norge. Skriv en tekst om hva som skal til for å lykkes med integrering, og hva som er de største hindringene."},
+    {title:"Å lære seg norsk", text:"Å lære seg norsk er en av de viktigste faktorene for å bli inkludert i det norske samfunnet. Skriv om din egen erfaring med å lære norsk og hvilke utfordringer du har møtt."},
+    {title:"Kulturmøter", text:"Norge er blitt et flerkulturelt samfunn. Skriv en tekst om fordeler og utfordringer ved å leve i et samfunn med mange kulturer, og hva som fremmer gjensidig respekt."},
+    {title:"Arbeidsmarkedet", text:"Mange innvandrere med god utdanning opplever diskriminering i arbeidsmarkedet. Diskuter årsaker og konsekvenser av dette, og hva som kan gjøres for å endre situasjonen."},
+  ],
+};
+
+const TIPS = [
+  "Bruk koblingsord: imidlertid, likevel, til tross for, dermed",
+  "Gi eksempler: for eksempel, blant annet, slik som",
+  "Vis to sider: på den ene siden… på den andre siden",
+  "Avslutt med din mening: etter min mening, jeg mener at",
+  "Unngå å gjenta de samme ordene – variér!",
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────
+let state = {
+  tab: "ordbank",
+  words: [],
+  newWord: {word:"", meaning:"", category:"enkeltord"},
+  search: "",
+  currentTopic: null,
+  currentPrompt: null,
+  essay: "",
+};
+
+function loadStorage(){
+  try { state.words = JSON.parse(localStorage.getItem("b2_words")||"[]"); } catch{}
+}
+function saveStorage(){
+  try { localStorage.setItem("b2_words", JSON.stringify(state.words)); } catch{}
+}
+loadStorage();
+
+// ── HELPERS ─────────────────────────────────────────────────────────
+function h(tag, attrs, ...children){
+  const el = document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs||{})){
+    if(k.startsWith("on")) el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if(k==="style") Object.assign(el.style, v);
+    else if(k==="class") el.className = v;
+    else el.setAttribute(k, v);
+  }
+  children.flat().forEach(c => {
+    if(c === null || c === undefined) return;
+    el.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  });
+  return el;
+}
+
+function catColor(key){ return (CATEGORIES.find(c=>c.key===key)||{}).color||"#aaa"; }
+function catLabel(key){ return (CATEGORIES.find(c=>c.key===key)||{}).label||key; }
+
+function detectUsed(essay, words){
+  const used = new Set();
+  if(!essay.trim()) return used;
+  const lower = essay.toLowerCase();
+  words.forEach(w => {
+    if(w.word.length>=2 && lower.includes(w.word.toLowerCase())) used.add(w.id);
+  });
+  return used;
+}
+
+function wordCount(text){
+  return text.trim() ? text.trim().split(/\s+/).length : 0;
+}
+
+function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+// ── RENDER ───────────────────────────────────────────────────────────
+function render(){
+  renderTabs();
+  renderContent();
+}
+
+function renderTabs(){
+  const tabs = document.getElementById("tabs");
+  tabs.innerHTML = "";
+  const items = [
+    {key:"ordbank",  label:`📚 Ordbank${state.words.length ? ` (${state.words.length})` : ""}`},
+    {key:"oppgaver", label:"✍️ Velg oppgave"},
+    {key:"skriv",    label:"📝 Skriv"},
+  ];
+  items.forEach(t => {
+    const btn = h("button", {
+      class: "tab-btn" + (state.tab===t.key ? " active" : ""),
+      onClick(){ state.tab=t.key; render(); }
+    }, t.label);
+    tabs.appendChild(btn);
+  });
+}
+
+function renderContent(){
+  const c = document.getElementById("content");
+  c.innerHTML = "";
+  if(state.tab==="ordbank") c.appendChild(renderOrdbank());
+  if(state.tab==="oppgaver") c.appendChild(renderOppgaver());
+  if(state.tab==="skriv") c.appendChild(renderSkriv());
+}
+
+// ── ORDBANK ─────────────────────────────────────────────────────────
+function renderOrdbank(){
+  const frag = document.createDocumentFragment();
+
+  // Add word form
+  const card = h("div",{class:"card"});
+  card.appendChild(h("h2",{},"➕ Legg til nytt ord eller uttrykk"));
+
+  // Row 1: word + meaning
+  const row1 = h("div",{class:"form-row"});
+  const wField = h("div",{});
+  wField.appendChild(h("label",{class:"field-label"},"Norsk ord / uttrykk *"));
+  const wInput = h("input",{
+    class:"text-input", type:"text", placeholder:"f.eks. imidlertid",
+    value: state.newWord.word,
+    onInput(e){ state.newWord.word=e.target.value; },
+    onKeydown(e){ if(e.key==="Enter") addWord(wInput); },
+  });
+  wField.appendChild(wInput);
+  row1.appendChild(wField);
+
+  const mField = h("div",{});
+  mField.appendChild(h("label",{class:"field-label"},"Betydning / eksempel"));
+  const mInput = h("input",{
+    class:"text-input", type:"text", placeholder:"f.eks. however / likevel",
+    value: state.newWord.meaning,
+    onInput(e){ state.newWord.meaning=e.target.value; },
+    onKeydown(e){ if(e.key==="Enter") addWord(wInput); },
+  });
+  mField.appendChild(mInput);
+  row1.appendChild(mField);
+  card.appendChild(row1);
+
+  // Row 2: category + button
+  const row2 = h("div",{style:{display:"flex",gap:"10px",alignItems:"flex-end",flexWrap:"wrap"}});
+  const cField = h("div",{style:{flex:"1",minWidth:"160px"}});
+  cField.appendChild(h("label",{class:"field-label"},"Kategori"));
+  const sel = h("select",{class:"sel", onChange(e){ state.newWord.category=e.target.value; }});
+  CATEGORIES.forEach(cat => {
+    const opt = h("option",{value:cat.key},cat.label);
+    if(cat.key===state.newWord.category) opt.selected=true;
+    sel.appendChild(opt);
+  });
+  cField.appendChild(sel);
+  row2.appendChild(cField);
+
+  row2.appendChild(h("button",{
+    class:"btn-add",
+    onClick(){ addWord(wInput); }
+  },"+ Legg til"));
+  card.appendChild(row2);
+  card.appendChild(h("p",{class:"hint"},"Tips: trykk Enter for å legge til raskt"));
+  frag.appendChild(card);
+
+  // Search
+  if(state.words.length>5){
+    const srch = h("input",{
+      class:"search-box", type:"text", placeholder:"🔍 Søk i ordbanken...",
+      value: state.search,
+      onInput(e){ state.search=e.target.value; renderContent(); },
+    });
+    frag.appendChild(srch);
+  }
+
+  // Word list by category
+  const filtered = state.search
+    ? state.words.filter(w=>w.word.toLowerCase().includes(state.search.toLowerCase())||w.meaning.toLowerCase().includes(state.search.toLowerCase()))
+    : state.words;
+
+  if(state.words.length===0){
+    frag.appendChild(h("div",{class:"empty-state"},
+      h("div",{class:"big"},"📖"),
+      h("p",{style:{fontSize:"16px",marginBottom:"6px"}},"Ingen ord ennå!"),
+      h("p",{style:{fontSize:"14px"}},"Legg til ord fra boken din ovenfor."),
+    ));
+  } else {
+    CATEGORIES.forEach(cat => {
+      const cw = filtered.filter(w=>w.category===cat.key);
+      if(!cw.length) return;
+      const sec = h("div",{class:"cat-section"});
+      const title = h("div",{class:"cat-title"});
+      title.appendChild(h("span",{class:"cat-dot",style:{background:cat.color}}));
+      title.appendChild(document.createTextNode(`${cat.label} (${cw.length})`));
+      sec.appendChild(title);
+      const grid = h("div",{class:"word-grid"});
+      cw.forEach(w => {
+        const chip = h("div",{class:"word-chip",style:{"--c":cat.color}});
+        const info = h("div",{style:{flex:"1",minWidth:"0"}});
+        info.appendChild(h("div",{class:"wn"},w.word));
+        if(w.meaning) info.appendChild(h("div",{class:"wm"},w.meaning));
+        chip.appendChild(info);
+        chip.appendChild(h("button",{
+          class:"btn-del", title:"Fjern",
+          onClick(){ state.words=state.words.filter(x=>x.id!==w.id); saveStorage(); renderContent(); renderTabs(); }
+        },"×"));
+        grid.appendChild(chip);
+      });
+      sec.appendChild(grid);
+      frag.appendChild(sec);
+    });
+    if(filtered.length===0){
+      frag.appendChild(h("div",{class:"empty-state"},
+        h("p",{},"Ingen ord matcher søket.")
+      ));
+    }
+  }
+  return frag;
+}
+
+function addWord(wInput){
+  const word = state.newWord.word.trim();
+  if(!word) { wInput.focus(); return; }
+  state.words.push({id:Date.now(), word, meaning:state.newWord.meaning.trim(), category:state.newWord.category});
+  state.newWord = {word:"", meaning:"", category:state.newWord.category};
+  saveStorage();
+  renderContent();
+  renderTabs();
+  // re-focus the word input
+  setTimeout(()=>{ const i=document.querySelector(".text-input"); if(i) i.focus(); },10);
+}
+
+// ── OPPGAVER ─────────────────────────────────────────────────────────
+function renderOppgaver(){
+  const frag = document.createDocumentFragment();
+  const intro = h("p",{style:{color:"#555",marginBottom:"18px",fontSize:"15px",lineHeight:"1.6"}},
+    "Velg et tema for å få en B2-skriveoppgave. Oppgaven oppfordrer deg til å bruke ordene fra ordbanken din!"
+  );
+  frag.appendChild(intro);
+  const grid = h("div",{class:"topic-grid"});
+  Object.entries(TOPICS).forEach(([key,meta]) => {
+    const card = h("div",{
+      class:"topic-card" + (state.currentTopic===key?" selected":""),
+      style:{"--tc":meta.color,"--tbg":meta.color+"18"},
+      onClick(){
+        const list = PROMPTS[key];
+        state.currentPrompt = pickRandom(list);
+        state.currentTopic = key;
+        state.essay = "";
+        state.tab = "skriv";
+        render();
+      }
+    });
+    card.appendChild(h("div",{class:"topic-emoji"},meta.emoji));
+    card.appendChild(h("div",{class:"topic-name"},meta.name));
+    card.appendChild(h("div",{class:"topic-count"},PROMPTS[key].length+" oppgaver"));
+    card.appendChild(h("div",{class:"topic-badge",style:{"--tc":meta.color,"--tbg":meta.color+"18"}},"Velg tema →"));
+    grid.appendChild(card);
+  });
+  frag.appendChild(grid);
+  return frag;
+}
+
+// ── SKRIV ─────────────────────────────────────────────────────────────
+function renderSkriv(){
+  if(!state.currentPrompt){
+    const empty = h("div",{class:"empty-state",style:{padding:"70px 20px"}});
+    empty.appendChild(h("div",{class:"big"},"✍️"));
+    empty.appendChild(h("p",{style:{fontSize:"17px",marginBottom:"16px"}},"Velg et tema for å begynne å skrive!"));
+    empty.appendChild(h("button",{
+      style:{padding:"11px 28px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"10px",fontSize:"15px",fontWeight:"700"},
+      onClick(){ state.tab="oppgaver"; render(); }
+    },"Velg oppgave →"));
+    return empty;
+  }
+
+  const meta = TOPICS[state.currentTopic];
+  const used = detectUsed(state.essay, state.words);
+  const wc = wordCount(state.essay);
+  const goal = Math.min(5, state.words.length);
+  const usedCount = used.size;
+
+  const layout = h("div",{class:"write-layout"});
+
+  // ── Left ──
+  const left = h("div",{});
+
+  // Prompt
+  const promptBox = h("div",{class:"prompt-box",style:{background:meta.color+"12","--tc":meta.color}});
+  const topRow = h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}});
+  topRow.appendChild(h("div",{class:"topic-tag",style:{color:meta.color}},
+    `${meta.emoji} ${state.currentPrompt.title} — ${meta.name}`
+  ));
+  topRow.appendChild(h("button",{
+    style:{background:"#fff",border:"1px solid "+meta.color+"66",borderRadius:"7px",padding:"4px 12px",fontSize:"12px",color:meta.color,fontWeight:"600"},
+    onClick(){
+      const others = PROMPTS[state.currentTopic].filter(p=>p.text!==state.currentPrompt.text);
+      state.currentPrompt = pickRandom(others.length?others:PROMPTS[state.currentTopic]);
+      state.essay="";
+      renderContent();
+    }
+  },"🔄 Ny oppgave"));
+  promptBox.appendChild(topRow);
+  promptBox.appendChild(h("p",{},state.currentPrompt.text));
+  if(state.words.length>0){
+    promptBox.appendChild(h("div",{class:"hint-bar"},
+      "💡 Prøv å bruke minst ",
+      h("strong",{style:{color:"#1a6b4a"}},String(goal)),
+      " av ordene fra ordbanken din. Anbefalt lengde: 250–350 ord."
+    ));
+  }
+  left.appendChild(promptBox);
+
+  // Progress
+  if(state.words.length>0){
+    const pw = h("div",{class:"progress-wrap"});
+    const pm = h("div",{class:"progress-meta"});
+    pm.appendChild(h("span",{},
+      "Ordbank-ord brukt: ",
+      h("strong",{style:{color:usedCount>=goal?"#1a6b4a":"#e8901a"}},String(usedCount)),
+      ` / ${state.words.length}`
+    ));
+    const wcColor = wc>=250&&wc<=350?"#1a6b4a":wc>350?"#e05c5c":"#aaa";
+    pm.appendChild(h("span",{style:{color:wcColor}},
+      `${wc} ord${wc>350?" (for lang!)":""}`
+    ));
+    pw.appendChild(pm);
+    const track = h("div",{class:"progress-track"});
+    const fillW = goal>0?Math.min(100,(usedCount/goal)*100):0;
+    track.appendChild(h("div",{class:"progress-fill",style:{
+      width:fillW+"%",
+      background:usedCount>=goal?"#2d9e6b":"#e8901a"
+    }}));
+    pw.appendChild(track);
+    if(usedCount>=goal){
+      pw.appendChild(h("div",{class:"success-msg"},"🎉 Bra! Du har nådd målet ditt med ordbank-ord!"));
+    }
+    left.appendChild(pw);
+  }
+
+  // Textarea
+  const ta = h("textarea",{
+    class:"essay-area",
+    placeholder:"Skriv teksten din her...\n\nHusk:\n• Innledning: presenter temaet\n• Hoveddel: argumenter og eksempler\n• Avslutning: oppsummer og gi din mening",
+    onInput(e){ state.essay=e.target.value; renderContent(); }
+  });
+  ta.value = state.essay;
+  left.appendChild(ta);
+
+  left.appendChild(h("div",{class:"essay-meta"},
+    h("span",{},`Ord: ${wc}`),
+    h("span",{},wc>=250&&wc<=350?"✓ Bra lengde!":wc>350?"For lang – prøv å korte ned":"Mål: 250–350 ord")
+  ));
+
+  const actions = h("div",{class:"action-row"});
+  actions.appendChild(h("button",{class:"btn-sec",onClick(){ state.essay=""; renderContent(); }},"🗑️ Tøm tekst"));
+  actions.appendChild(h("button",{class:"btn-sec",onClick(){ state.tab="oppgaver"; render(); }},"🔀 Bytt tema"));
+  left.appendChild(actions);
+  layout.appendChild(left);
+
+  // ── Right (sidebar) ──
+  const sidebar = h("div",{class:"sidebar"});
+
+  const wbCard = h("div",{class:"card"});
+  wbCard.appendChild(h("h3",{},`📚 Ordbank (${usedCount}/${state.words.length} brukt)`));
+
+  if(state.words.length===0){
+    wbCard.appendChild(h("p",{style:{fontSize:"13px",color:"#bbb",marginBottom:"10px"}},"Ingen ord ennå."));
+    wbCard.appendChild(h("button",{
+      style:{fontSize:"13px",padding:"7px 14px",borderRadius:"8px",border:"1px solid #dde",background:"#f8f8f8"},
+      onClick(){ state.tab="ordbank"; render(); }
+    },"+ Legg til ord"));
+  } else {
+    const scroll = h("div",{class:"word-list-scroll"});
+    // Used first
+    state.words.filter(w=>used.has(w.id)).forEach(w=>{
+      const chip = h("div",{class:"wb-chip used",style:{"--c":"#2d9e6b"}});
+      chip.appendChild(h("div",{class:"wn"},`✓ ${w.word}`));
+      if(w.meaning) chip.appendChild(h("div",{class:"wm"},w.meaning));
+      scroll.appendChild(chip);
+    });
+    // Unused
+    state.words.filter(w=>!used.has(w.id)).forEach(w=>{
+      const c = catColor(w.category);
+      const chip = h("div",{class:"wb-chip",style:{"--c":c}});
+      chip.appendChild(h("div",{class:"wn"},w.word));
+      if(w.meaning) chip.appendChild(h("div",{class:"wm"},w.meaning));
+      scroll.appendChild(chip);
+    });
+    wbCard.appendChild(scroll);
+  }
+  sidebar.appendChild(wbCard);
+
+  // Tips
+  const tips = h("div",{class:"tips-box"});
+  tips.appendChild(h("div",{class:"tips-title"},"💡 Skrivetips B2"));
+  TIPS.forEach(tip=>{
+    const row = h("div",{class:"tip-item"});
+    row.appendChild(h("span",{class:"tip-dot"},"•"));
+    row.appendChild(h("span",{},tip));
+    tips.appendChild(row);
+  });
+  sidebar.appendChild(tips);
+
+  layout.appendChild(sidebar);
+
+  // After rendering, focus textarea & restore scroll position
+  setTimeout(()=>{
+    const t = document.querySelector(".essay-area");
+    if(t){ const v=t.value; t.value=""; t.value=v; }
+  },0);
+
+  return layout;
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>

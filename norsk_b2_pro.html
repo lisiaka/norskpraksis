@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>B2 Norsk Trening</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:#f0f4f8;min-height:100vh;color:#222;}
+button{cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s;}
+button:hover{opacity:.85;}
+button:active{transform:scale(.97);}
+input,select,textarea{font-family:inherit;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shadow:0 0 0 3px rgba(45,158,107,.13);}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-thumb{background:#b5cdb8;border-radius:3px;}
+#app{max-width:980px;margin:0 auto;padding:20px 16px 60px;}
+.header{background:linear-gradient(135deg,#1a6b4a,#2d9e6b);border-radius:18px;padding:22px 28px;margin-bottom:22px;color:#fff;box-shadow:0 4px 20px rgba(26,107,74,.22);}
+.header h1{font-size:24px;font-weight:800;margin-bottom:4px;}
+.header p{opacity:.83;font-size:14px;}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+.tab-btn{padding:10px 22px;border-radius:10px;border:2px solid #e0e8e0;background:#fff;color:#444;font-weight:500;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.tab-btn.active{background:#1a6b4a;border-color:#1a6b4a;color:#fff;font-weight:700;box-shadow:0 2px 12px rgba(26,107,74,.2);}
+.card{background:#fff;border-radius:14px;padding:20px;box-shadow:0 1px 8px rgba(0,0,0,.07);margin-bottom:14px;}
+.card h2{font-size:16px;color:#1a6b4a;font-weight:700;margin-bottom:14px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.form-row2{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+.form-row3{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:flex-end;margin-bottom:10px;}
+.field-label{font-size:11px;color:#777;display:block;margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.text-input{width:100%;padding:10px 13px;border-radius:9px;border:1.5px solid #dde;font-size:14px;background:#fff;}
+.sel{padding:10px 13px;border-radius:9px;border:1.5px solid #dde;font-size:14px;background:#fff;width:100%;}
+.btn-add{padding:10px 24px;background:#1a6b4a;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;box-shadow:0 2px 10px rgba(26,107,74,.28);white-space:nowrap;}
+.hint{font-size:12px;color:#bbb;margin-top:6px;}
+.io-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.btn-io{padding:8px 16px;background:#fff;border:1.5px solid #dde;border-radius:9px;font-size:13px;color:#555;font-weight:600;}
+.btn-io:hover{border-color:#2d9e6b;color:#1a6b4a;}
+.io-hint{font-size:12px;color:#bbb;margin-left:4px;}
+.search-box{width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #dde;font-size:14px;background:#fff;margin-bottom:14px;}
+.topic-filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:#f9f9f9;border-radius:10px;align-items:center;}
+.topic-chip{padding:6px 14px;border-radius:18px;font-size:13px;font-weight:600;background:#f0f0f0;border:1.5px solid #ddd;color:#555;cursor:pointer;transition:all .2s;}
+.topic-chip:hover{border-color:#2d9e6b;background:#e8f5ee;}
+.topic-chip.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;}
+.word-topic-tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:#f0e68c;color:#776;}
+.cat-section{background:#fff;border-radius:14px;padding:18px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);}
+.cat-title{font-size:12px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:7px;}
+.cat-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.word-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;}
+.word-chip{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 12px;background:#f8fdf9;border-radius:9px;border-left:3px solid #ddd;}
+.word-chip .wn{font-weight:600;color:#222;font-size:14px;word-break:break-word;}
+.word-chip .wm{color:#999;font-size:12px;margin-top:2px;word-break:break-word;}
+.btn-del{background:none;border:none;color:#ccc;font-size:18px;padding:0 3px;line-height:1;flex-shrink:0;margin-left:6px;}
+.btn-del:hover{color:#e05c5c;opacity:1;}
+.empty-state{text-align:center;padding:56px 20px;background:#fff;border-radius:14px;color:#bbb;}
+.empty-state .big{font-size:48px;margin-bottom:12px;}
+.topic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+.topic-card{background:#fff;border-radius:16px;padding:22px 20px;box-shadow:0 1px 8px rgba(0,0,0,.07);border:2px solid transparent;cursor:pointer;transition:border-color .2s,box-shadow .2s;text-align:left;}
+.topic-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.12);}
+.topic-emoji{font-size:36px;margin-bottom:10px;}
+.topic-name{font-weight:700;font-size:16px;color:#222;margin-bottom:4px;}
+.topic-count{font-size:13px;color:#999;margin-bottom:14px;}
+.topic-badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;}
+.write-layout{display:grid;grid-template-columns:1fr 290px;gap:16px;align-items:start;}
+@media(max-width:720px){.write-layout{grid-template-columns:1fr;}}
+.prompt-box{border-radius:14px;padding:20px;margin-bottom:14px;}
+.prompt-box .prompt-tag{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+.prompt-box .prompt-text{font-size:15px;line-height:1.7;color:#2a2a2a;}
+.prompt-box .hint-bar{margin-top:12px;padding:8px 12px;background:#fff;border-radius:8px;font-size:13px;color:#444;}
+.progress-wrap{margin-bottom:10px;}
+.progress-meta{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:#666;}
+.progress-track{background:#e8eef0;border-radius:6px;height:7px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:6px;transition:width .4s;}
+.success-msg{text-align:center;color:#2d9e6b;font-size:13px;margin-top:6px;font-weight:600;}
+.essay-area{width:100%;min-height:340px;padding:18px;border-radius:13px;border:1.5px solid #dde;font-size:15px;line-height:1.8;resize:vertical;background:#fff;}
+.essay-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#999;}
+.action-row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
+.btn-sec{padding:9px 18px;background:#f0f4f8;border:1.5px solid #dde;border-radius:9px;font-size:13px;color:#555;font-weight:500;}
+.sidebar{position:sticky;top:16px;}
+.sidebar .card{margin-bottom:12px;}
+.sidebar .card h3{font-size:14px;color:#1a6b4a;font-weight:700;margin-bottom:12px;}
+.sidebar-chips{max-height:440px;overflow-y:auto;padding-right:2px;display:grid;gap:5px;}
+.wb-chip{padding:7px 10px;border-radius:8px;border-left:3px solid #ddd;background:#f9f9f9;}
+.wb-chip.used{background:#edfaf3;border-left-color:#2d9e6b;}
+.wb-chip.used .wn{color:#1a6b4a;font-weight:700;}
+.wb-chip .wn{font-size:13px;font-weight:600;color:#444;}
+.wb-chip .wm{font-size:11px;color:#bbb;margin-top:1px;}
+.essay-word-list{max-height:300px;overflow-y:auto;padding-right:2px;display:grid;gap:4px;font-size:12px;}
+.essay-word-item{padding:6px 8px;border-radius:7px;background:#f8fdf9;border-left:3px solid #2d9e6b;}
+.essay-word-item .wn{font-weight:600;color:#1a6b4a;margin-bottom:2px;}
+.essay-word-item .wm{color:#999;font-size:11px;}
+.essay-word-item .sent{color:#555;font-size:11px;margin-top:3px;font-style:italic;max-height:40px;overflow-y:auto;}
+.tips-box{background:#fffdf0;border-radius:12px;padding:14px;border:1px solid #f0e68c;}
+.tips-title{font-size:12px;font-weight:700;color:#b8860b;margin-bottom:8px;}
+.tip-item{font-size:12px;color:#776;margin-bottom:4px;display:flex;gap:6px;}
+.tip-dot{color:#f0c040;flex-shrink:0;}
+/* Settings card */
+.settings-card{background:#fff;border-radius:12px;padding:14px 18px;box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:14px;border:1.5px dashed #dde;}
+.settings-card h3{font-size:13px;color:#888;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.key-row{display:flex;gap:8px;align-items:center;}
+.key-input{flex:1;padding:8px 12px;border-radius:8px;border:1.5px solid #dde;font-size:13px;font-family:monospace;background:#fafafa;letter-spacing:.5px;}
+.key-input:focus{border-color:#2d9e6b!important;box-shadow:0 0 0 3px rgba(45,158,107,.1);}
+.btn-save-key{padding:8px 16px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0;}
+.key-status{font-size:12px;margin-top:6px;min-height:16px;}
+/* Grammar / Claude result */
+.grammar-result{margin-top:14px;}
+.grammar-ok{padding:10px 14px;background:#edfaf3;border-left:4px solid #2d9e6b;color:#1a6b4a;border-radius:8px;font-weight:600;font-size:13px;}
+.grammar-error{background:#fff5f5;border-left:3px solid #e05c5c;padding:8px 10px;margin-bottom:6px;border-radius:6px;font-size:12px;color:#555;}
+.grammar-error .em{color:#e05c5c;font-weight:700;}
+.claude-result{border-radius:12px;overflow:hidden;border:1px solid #e0e8e0;}
+.claude-header{padding:12px 16px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px;}
+.claude-header.ok{background:#edfaf3;color:#1a6b4a;}
+.claude-header.err{background:#fff5f5;color:#c0392b;}
+.claude-header.warn{background:#fffdf0;color:#b8860b;}
+.claude-body{padding:14px 16px;background:#fff;}
+.claude-overall{font-size:13px;color:#444;margin-bottom:10px;line-height:1.55;}
+.claude-error-card{background:#fff5f5;border-left:3px solid #e05c5c;border-radius:6px;padding:8px 12px;margin-bottom:7px;}
+.claude-error-text{font-weight:700;color:#e05c5c;font-size:12px;margin-bottom:2px;}
+.claude-error-issue{font-size:12px;color:#666;margin-bottom:3px;}
+.claude-error-fix{font-size:12px;color:#2d9e6b;font-weight:600;}
+.claude-improved{background:#f0f8f4;border-left:3px solid #2d9e6b;border-radius:6px;padding:10px 12px;margin-top:8px;}
+.claude-improved-label{font-size:10px;color:#2d9e6b;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;}
+.claude-improved-text{font-size:14px;color:#222;font-style:italic;line-height:1.5;}
+.claude-tip{background:#fffdf0;border-left:3px solid #f0c040;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:#776;line-height:1.5;}
+.grammar-error .sug{color:#2d9e6b;margin-left:4px;}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:11px 24px;border-radius:12px;font-size:14px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;}
+.toast.show{opacity:1;}
+.word-input-row{display:flex;gap:6px;}
+.btn-lookup{padding:10px 13px;background:#f0f4f8;border:1.5px solid #dde;border-radius:9px;font-size:16px;flex-shrink:0;color:#555;line-height:1;}
+.btn-lookup:hover{background:#e8f5ee;border-color:#2d9e6b;}
+.btn-lookup:disabled{opacity:.45;cursor:default;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinning{display:inline-block;animation:spin .8s linear infinite;}
+.lookup-status{font-size:12px;margin-top:5px;min-height:16px;line-height:1.5;}
+.lookup-status a{color:#1a6b4a;text-decoration:none;font-weight:600;}
+.lookup-status a:hover{text-decoration:underline;}
+/* ── Sentence practice ── */
+.sent-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+.sent-progress{font-size:13px;color:#888;}
+.sent-progress strong{color:#444;}
+.btn-nav{padding:8px 18px;background:#fff;border:1.5px solid #dde;border-radius:9px;font-size:13px;color:#444;font-weight:600;}
+.btn-nav:hover{border-color:#2d9e6b;color:#1a6b4a;}
+.btn-nav:disabled{opacity:.3;cursor:default;pointer-events:none;}
+.sent-card{background:#fff;border-radius:18px;padding:30px 28px 24px;box-shadow:0 1px 10px rgba(0,0,0,.08);margin-bottom:14px;}
+.sent-word{font-size:34px;font-weight:800;color:#1a6b4a;margin-bottom:10px;word-break:break-word;line-height:1.2;}
+.sent-meta{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.sent-cat{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+.sent-topic-badge{display:inline-block;padding:4px 10px;border-radius:16px;font-size:11px;font-weight:700;background:#f0e68c;color:#776;}
+.sent-meaning{font-size:14px;color:#777;font-style:italic;}
+.sent-prompt{font-size:14px;font-weight:600;color:#333;margin-bottom:8px;}
+.sent-area{width:100%;padding:14px 16px;border-radius:10px;border:1.5px solid #dde;font-size:15px;line-height:1.6;resize:none;min-height:88px;background:#fff;font-family:inherit;}
+.sent-area:focus{border-color:#2d9e6b!important;box-shadow:0 0 0 3px rgba(45,158,107,.13);}
+.sent-feedback{font-size:13px;margin-top:10px;min-height:20px;display:flex;align-items:center;gap:8px;}
+.sent-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center;}
+.btn-next-sent{padding:10px 22px;background:#1a6b4a;border:none;border-radius:9px;font-size:14px;color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(26,107,74,.25);}
+.btn-skip{padding:10px 16px;background:#f0f4f8;border:1.5px solid #dde;border-radius:9px;font-size:13px;color:#666;font-weight:500;}
+.sent-badge{background:#edfaf3;color:#2d9e6b;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;}
+.sent-saved-label{font-size:12px;color:#aaa;}
+.sent-done-box{background:#fff;border-radius:18px;padding:50px 30px;text-align:center;box-shadow:0 1px 10px rgba(0,0,0,.08);}
+.prev-sentences{margin-top:20px;}
+.prev-sentences h3{font-size:13px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:12px;}
+.prev-sent-item{background:#f8fdf9;border-radius:9px;padding:10px 14px;margin-bottom:8px;border-left:3px solid #2d9e6b;}
+.prev-sent-word{font-size:12px;color:#1a6b4a;font-weight:700;margin-bottom:3px;}
+.prev-sent-text{font-size:14px;color:#333;line-height:1.5;}
+/* ── Flashcards ── */
+.fc-setup{background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 8px rgba(0,0,0,.07);margin-bottom:14px;}
+.fc-section-label{font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:block;}
+.fc-mode-row{display:flex;gap:10px;margin-bottom:4px;flex-wrap:wrap;}
+.fc-mode-btn{flex:1;min-width:180px;padding:14px 16px;border-radius:12px;border:2px solid #dde;background:#f8f8f8;font-size:14px;font-weight:600;color:#555;text-align:left;cursor:pointer;transition:all .2s;}
+.fc-mode-btn.active{border-color:#1a6b4a;background:#edfaf3;color:#1a6b4a;}
+.fc-mode-btn .mode-icon{font-size:24px;display:block;margin-bottom:6px;}
+.fc-mode-btn .mode-desc{font-size:12px;font-weight:400;color:#999;margin-top:3px;}
+.fc-mode-btn.active .mode-desc{color:#2d9e6b;}
+.fc-filter-bar{background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.fc-score-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:10px 16px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);flex-wrap:wrap;gap:8px;}
+.fc-score-nums{display:flex;gap:16px;}
+.fc-score-ok{font-size:15px;font-weight:700;color:#2d9e6b;}
+.fc-score-err{font-size:15px;font-weight:700;color:#e05c5c;}
+.fc-progress-wrap{height:5px;background:#eee;border-radius:4px;margin-bottom:18px;overflow:hidden;}
+.fc-progress-fill{height:100%;background:#2d9e6b;border-radius:4px;transition:width .35s;}
+.fc-card{background:#fff;border-radius:18px;padding:36px 28px 28px;text-align:center;box-shadow:0 2px 16px rgba(0,0,0,.09);margin-bottom:18px;}
+.fc-word{font-size:38px;font-weight:800;color:#1a6b4a;margin-bottom:8px;word-break:break-word;line-height:1.2;}
+.fc-sub{font-size:14px;color:#aaa;margin-bottom:6px;font-style:italic;}
+.fc-question{font-size:13px;font-weight:600;color:#888;margin-top:10px;text-transform:uppercase;letter-spacing:.4px;}
+.fc-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+@media(max-width:520px){.fc-options{grid-template-columns:1fr;}}
+.fc-opt{padding:14px 16px;border-radius:12px;border:2px solid #dde;background:#fff;font-size:14px;font-weight:600;color:#333;text-align:center;cursor:pointer;transition:all .15s;line-height:1.4;}
+.fc-opt:hover:not([disabled]){border-color:#2d9e6b;background:#edfaf3;color:#1a6b4a;}
+.fc-opt.correct{border-color:#2d9e6b!important;background:#edfaf3!important;color:#1a6b4a!important;}
+.fc-opt.wrong{border-color:#e05c5c!important;background:#fff5f5!important;color:#e05c5c!important;}
+.fc-opt.reveal{border-color:#2d9e6b;background:#f0fdf6;color:#1a6b4a;opacity:.65;}
+.fc-opt[disabled]{cursor:default;}
+.fc-feedback{text-align:center;margin-bottom:14px;min-height:48px;}
+.fc-feedback-ok{font-size:20px;font-weight:800;color:#2d9e6b;margin-bottom:4px;}
+.fc-feedback-err{font-size:20px;font-weight:800;color:#e05c5c;margin-bottom:4px;}
+.fc-correct-hint{font-size:13px;color:#888;}
+.fc-nav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.btn-fc-next{padding:12px 32px;background:#1a6b4a;border:none;border-radius:10px;font-size:15px;color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(26,107,74,.22);cursor:pointer;}
+.fc-done{background:#fff;border-radius:18px;padding:50px 30px;text-align:center;box-shadow:0 1px 10px rgba(0,0,0,.08);}
+.fc-done-emoji{font-size:60px;margin-bottom:14px;}
+.fc-done-score{font-size:28px;font-weight:800;color:#1a6b4a;margin-bottom:6px;}
+.fc-done-pct{font-size:17px;color:#888;margin-bottom:28px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <h1>🇳🇴 B2 Prøve i Norsk — Treningsverktøy</h1>
+    <p>Bygg ordforrådet ditt · Automatisk oversettelse · Importer / eksporter · Øv på å skrive</p>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div id="content"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const CATS = [
+  {key:"enkeltord",   label:"Enkeltord",        color:"#4f6ef7"},
+  {key:"uttrykk",    label:"Uttrykk / fraser",  color:"#2d9e6b"},
+  {key:"koblingsord",label:"Koblingsord",        color:"#e8901a"},
+];
+const CAT_MAP = Object.fromEntries(CATS.map(c => [c.key, c]));
+
+const TOPICS = {
+  samfunn:    {name:"Samfunn",                emoji:"🏙️", color:"#4f6ef7"},
+  teknologi:  {name:"Teknologi",              emoji:"💻", color:"#7c4dff"},
+  miljo:      {name:"Miljø og klima",          emoji:"🌿", color:"#2d9e6b"},
+  helse:      {name:"Helse",                  emoji:"🏥", color:"#e05c5c"},
+  utdanning:  {name:"Utdanning og arbeidsliv", emoji:"🎓", color:"#e8901a"},
+  integrering:{name:"Integrering og kultur",   emoji:"🤝", color:"#1a9ec4"},
+};
+
+const PROMPTS = {
+  samfunn:[
+    {title:"Sosiale utfordringer",text:"Mange opplever utenforskap og ensomhet i det moderne samfunnet. Skriv en sammenhengende tekst der du diskuterer årsaker til dette, og foreslår tiltak som kan bidra til et mer inkluderende samfunn."},
+    {title:"Sosiale medier",text:"Sosiale medier har forandret måten vi kommuniserer og lever på. Diskuter fordeler og ulemper ved sosiale medier – både for enkeltpersoner og for samfunnet som helhet."},
+    {title:"Likestilling",text:"Til tross for store fremskritt er det fortsatt ulikheter mellom kvinner og menn i arbeidslivet. Skriv en tekst der du diskuterer hva som kan gjøres for å oppnå reell likestilling."},
+    {title:"Frivillig arbeid",text:"Frivillig arbeid spiller en viktig rolle i det norske samfunnet. Skriv en tekst der du argumenterer for at frivillig arbeid bør anerkjennes og verdsettes høyere."},
+  ],
+  teknologi:[
+    {title:"Kunstig intelligens",text:"Kunstig intelligens endrer arbeidsmarkedet i stor fart. Skriv en tekst der du diskuterer hvilke muligheter og utfordringer denne utviklingen skaper for fremtidige generasjoner."},
+    {title:"Teknologiavhengighet",text:"Mange mener at vi er blitt for avhengige av smarttelefoner og digitale verktøy. Hva mener du? Diskuter konsekvensene og mulige løsninger."},
+    {title:"Personvern",text:"Digitale selskaper samler enorme mengder data om oss. Skriv en tekst om personvern i den digitale tidsalderen – hva er farene, og hva kan vi gjøre?"},
+    {title:"Teknologi i skolen",text:"Teknologi brukes i stadig større grad i skolen. Diskuter om dette er en fordel eller ulempe for elevenes læring og utvikling."},
+  ],
+  miljo:[
+    {title:"Klimaansvar",text:"Klimaendringene er vår tids største utfordring. Skriv en tekst der du argumenterer for hva enkeltpersoner, bedrifter og myndigheter bør gjøre for å bremse klimaendringene."},
+    {title:"Grønn livsstil",text:"Mange ønsker å leve mer miljøvennlig, men opplever at det er vanskelig i praksis. Diskuter hindringer for en grønn livsstil og hva som kan gjøre det enklere."},
+    {title:"Kosthold og klima",text:"Mange eksperter mener at vi bør spise mindre kjøtt av hensyn til klimaet. Hva mener du? Diskuter sammenhengen mellom matvalg og miljøpåvirkning."},
+    {title:"Forbrukssamfunnet",text:"Vi lever i et forbrukssamfunn der vi kjøper mer enn vi trenger. Diskuter konsekvensene og hva som må til for å endre forbruksmønstrene våre."},
+  ],
+  helse:[
+    {title:"Psykisk helse",text:"Psykiske lidelser er blitt en av de største helseutfordringene i Norge. Skriv en tekst der du diskuterer årsaker og mulige tiltak – både på individnivå og samfunnsnivå."},
+    {title:"Livsstil og helse",text:"Livsstilssykdommer er en voksende utfordring i mange land. Skriv en tekst om sammenhengen mellom livsstil og helse, og hva samfunnet kan gjøre for å bedre folkehelsen."},
+    {title:"Velferdsstaten",text:"Norge har et av verdens beste helsevesen. Diskuter fordeler og utfordringer ved den norske velferdsstaten, og hva som trengs for å bevare den i fremtiden."},
+    {title:"Rus og avhengighet",text:"Rus og avhengighet er et sammensatt samfunnsproblem. Skriv en tekst om hvordan samfunnet bør håndtere utfordringer knyttet til rusmiddelbruk."},
+  ],
+  utdanning:[
+    {title:"Utdanningssystemet",text:"Mange debatterer om det norske utdanningssystemet er godt nok tilpasset fremtidens arbeidsmarked. Skriv en tekst der du diskuterer hva som fungerer bra og hva som kan forbedres."},
+    {title:"Høyere utdanning",text:"Er høyere utdanning nødvendig for å lykkes i arbeidslivet? Diskuter dette spørsmålet med argumenter for og imot, og trekk gjerne inn egne erfaringer."},
+    {title:"Yrkesfag vs. akademia",text:"Det er stort behov for fagarbeidere i Norge, men mange unge velger akademiske utdanninger. Skriv en tekst om statusforskjeller mellom yrkesfag og akademisk utdanning."},
+    {title:"Livslang læring",text:"I en tid med rask teknologisk utvikling er livslang læring viktigere enn noen gang. Diskuter hva dette betyr i praksis og hvilke krav det stiller til den enkelte og samfunnet."},
+  ],
+  integrering:[
+    {title:"Integrering",text:"Integrering av innvandrere er et viktig og omdiskutert tema i Norge. Skriv en tekst om hva som skal til for å lykkes med integrering, og hva som er de største hindringene."},
+    {title:"Å lære seg norsk",text:"Å lære seg norsk er en av de viktigste faktorene for å bli inkludert i det norske samfunnet. Skriv om din erfaring med å lære norsk og hvilke utfordringer du har møtt."},
+    {title:"Kulturmøter",text:"Norge er blitt et flerkulturelt samfunn. Skriv en tekst om fordeler og utfordringer ved å leve i et samfunn med mange kulturer, og hva som fremmer gjensidig respekt."},
+    {title:"Arbeidsmarkedet",text:"Mange innvandrere med god utdanning opplever diskriminering i arbeidsmarkedet. Diskuter årsaker og konsekvenser av dette, og hva som kan gjøres for å endre situasjonen."},
+  ],
+};
+
+// Maps essay topic keys → word-bank topic tags (from Her på berget chapters)
+const ESSAY_TOPIC_TO_WORD_TOPICS = {
+  samfunn:    ["politikk","demokrati","integrering","internasjonalt","familie"],
+  teknologi:  ["teknologi"],
+  miljo:      ["miljø","natur"],
+  helse:      ["helse"],
+  utdanning:  ["utdanning","arbeid","språk"],
+  integrering:["integrering","språk","familie"],
+};
+
+const TIPS = [
+  "Bruk koblingsord: imidlertid, likevel, til tross for, dermed",
+  "Gi eksempler: for eksempel, blant annet, slik som",
+  "Vis to sider: på den ene siden… på den andre siden",
+  "Avslutt med din mening: etter min mening, jeg mener at",
+  "Unngå å gjenta de samme ordene – variér!",
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────
+const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, currentTopic:null, currentPrompt:null, essay:"",
+  wordIdx:0, sentences:{}, claudeKey:"", sentTopicFilter:"" }; // sentences: {wordId: "written sentence"}
+
+// Flashcard game state (separate from main state so it survives tab switches)
+const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, started:false, writeInput:"", writeChecked:false, writeResult:false};
+
+// Load Claude key immediately
+state.claudeKey = localStorage.getItem("b2_claude_key")||"";
+
+// Show a banner if served from file:// (Claude API won't work)
+if(window.location.protocol==="file:"){
+  document.addEventListener("DOMContentLoaded",()=>{
+    const banner=document.createElement("div");
+    banner.style.cssText="background:#fffbe6;border-bottom:1px solid #f0e68c;padding:9px 20px;font-size:13px;color:#7a6000;text-align:center;";
+    banner.innerHTML='⚠️ Kjører fra lokal fil — Claude API er ikke tilgjengelig. Kjør <code style="background:#f0e5a0;padding:1px 6px;border-radius:4px">python3 start_server.py</code> og åpne appen via localhost for full funksjonalitet.';
+    document.body.prepend(banner);
+  });
+}
+// Form inputs are tracked separately so they never cause re-renders
+const form = { word:"", meaning:"", category:"enkeltord", topic:"" };
+
+// ── STORAGE ───────────────────────────────────────────────────────────
+const SK = "b2_words_v2";
+function loadStorage(){ try{ state.words = JSON.parse(localStorage.getItem(SK)||"[]"); }catch{} }
+function saveStorage(){ try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{} }
+loadStorage();
+
+// ── MINI DOM HELPER ───────────────────────────────────────────────────
+function el(tag, props, ...kids){
+  const e = document.createElement(tag);
+  for(const [k,v] of Object.entries(props||{})){
+    if(k==="class") e.className=v;
+    else if(k==="style"&&typeof v==="object") Object.assign(e.style,v);
+    else if(typeof v==="function") e.addEventListener(k,v);
+    else if(v!==null&&v!==undefined&&v!==false) e.setAttribute(k,v);
+  }
+  kids.flat(3).forEach(c=>{ if(c!=null) e.appendChild(typeof c==="string"?document.createTextNode(c):c); });
+  return e;
+}
+const $=id=>document.getElementById(id);
+
+// ── TOAST ─────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg){
+  const t=$("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2800);
+}
+
+// ── HELPER: Get unique topics ────────────────────────────────────────
+function getTopics(){
+  const topics = new Set();
+  state.words.forEach(w=>{ if(w.topic && w.topic.trim()) topics.add(w.topic.trim()); });
+  return Array.from(topics).sort();
+}
+
+// Returns word-bank topic tags that are relevant to the current essay topic
+function getEssayRelevantTopics(){
+  return ESSAY_TOPIC_TO_WORD_TOPICS[state.currentTopic]||[];
+}
+
+// Returns words for the sentence tab, respecting topic filter
+function getSentWords(){
+  return state.sentTopicFilter
+    ? state.words.filter(w=>w.topic===state.sentTopicFilter)
+    : state.words;
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────
+function renderTabs(){
+  const c=$("tabs"); c.innerHTML="";
+  const doneCount=Object.keys(state.sentences).filter(id=>state.sentences[id]?.trim()).length;
+  [{key:"ordbank",     label:`📚 Ordbank${state.words.length?` (${state.words.length})`:""}`},
+   {key:"setninger",  label:`💬 Setninger${doneCount?` (${doneCount}/${state.words.length})`:""}`},
+   {key:"flashcards", label:"🎮 Flashcards"},
+   {key:"oppgaver",   label:"✍️ Velg oppgave"},
+   {key:"skriv",      label:"📝 Skriv"},
+  ].forEach(t=>c.appendChild(el("button",{class:"tab-btn"+(state.tab===t.key?" active":""),click(){setTab(t.key);}},t.label)));
+}
+function setTab(tab){ state.tab=tab; renderTabs(); renderContent(); }
+
+function renderContent(){
+  const c=$("content"); c.innerHTML="";
+  if(state.tab==="ordbank")     c.appendChild(buildOrdbank());
+  if(state.tab==="setninger")   c.appendChild(buildSetninger());
+  if(state.tab==="flashcards")  c.appendChild(buildFlashcards());
+  if(state.tab==="oppgaver")    c.appendChild(buildOppgaver());
+  if(state.tab==="skriv")       c.appendChild(buildSkriv());
+}
+
+// ── ORDBANK TAB ───────────────────────────────────────────────────────
+function buildOrdbank(){
+  const frag=document.createDocumentFragment();
+
+  // ── Add-word card ──
+  const card=el("div",{class:"card"});
+  card.appendChild(el("h2",{},"➕ Legg til nytt ord eller uttrykk"));
+
+  const row1=el("div",{class:"form-row"});
+  // Word field — with inline lookup button
+  const wDiv=el("div",{});
+  wDiv.appendChild(el("label",{class:"field-label",for:"fi-word"},"Norsk ord / uttrykk *"));
+  const wRow=el("div",{class:"word-input-row"});
+  const wIn=el("input",{
+    id:"fi-word",class:"text-input",type:"text",placeholder:"f.eks. imidlertid",
+    input(e){form.word=e.target.value;},
+    keydown(e){if(e.key==="Enter")addWord();},
+  });
+  const btnLookup=el("button",{id:"btn-lookup",class:"btn-lookup",title:"Hent oversettelse fra MyMemory",click:lookupWord},"🔍");
+  wRow.appendChild(wIn); wRow.appendChild(btnLookup);
+  wDiv.appendChild(wRow);
+  wDiv.appendChild(el("div",{id:"lookup-status",class:"lookup-status"}));
+  row1.appendChild(wDiv);
+  // Meaning field
+  const mDiv=el("div",{});
+  mDiv.appendChild(el("label",{class:"field-label",for:"fi-meaning"},"Betydning / eksempel"));
+  const mIn=el("input",{
+    id:"fi-meaning",class:"text-input",type:"text",placeholder:"f.eks. however / likevel",
+    input(e){form.meaning=e.target.value;},
+    keydown(e){if(e.key==="Enter")addWord();},
+  });
+  mDiv.appendChild(mIn); row1.appendChild(mDiv);
+  card.appendChild(row1);
+
+  // Category + Topic + button row
+  const row2=el("div",{class:"form-row3"});
+  const cDiv=el("div",{});
+  cDiv.appendChild(el("label",{class:"field-label",for:"fi-cat"},"Kategori"));
+  const sel=el("select",{id:"fi-cat",class:"sel",change(e){form.category=e.target.value;}});
+  CATS.forEach(c=>{ const o=el("option",{value:c.key},c.label); if(c.key===form.category)o.selected=true; sel.appendChild(o); });
+  cDiv.appendChild(sel); row2.appendChild(cDiv);
+
+  // Topic field with datalist
+  const tDiv=el("div",{});
+  tDiv.appendChild(el("label",{class:"field-label",for:"fi-topic"},"Tema (valgfritt)"));
+  const tIn=el("input",{
+    id:"fi-topic",class:"text-input",type:"text",placeholder:"f.eks. klima",
+    list:"topic-list",
+    input(e){form.topic=e.target.value;},
+    keydown(e){if(e.key==="Enter")addWord();},
+  });
+  tDiv.appendChild(tIn);
+  const dl=el("datalist",{id:"topic-list"});
+  getTopics().forEach(t=>dl.appendChild(el("option",{value:t})));
+  tDiv.appendChild(dl);
+  row2.appendChild(tDiv);
+
+  row2.appendChild(el("button",{class:"btn-add",style:{whiteSpace:"nowrap"},click:addWord},"+ Legg til"));
+  card.appendChild(row2);
+  card.appendChild(el("p",{class:"hint"},"Tips: trykk Enter for å legge til · klikk 🔍 for automatisk oversettelse (krever internett)"));
+  frag.appendChild(card);
+
+  // ── Search (only shown when list is long) ──
+  if(state.words.length>5){
+    const srch=el("input",{class:"search-box",type:"text",placeholder:"🔍 Søk i ordbanken...",
+      input(e){state.search=e.target.value; renderWordList();}});
+    srch.value=state.search;
+    frag.appendChild(srch);
+  }
+
+  // ── Filter section (topic + time) + print buttons ──
+  if(state.words.length>0){
+    const filterSection=el("div",{style:{marginBottom:"14px"}});
+
+    // Topic filter row
+    if(getTopics().length>0){
+      const topicBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"8px"}});
+      topicBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TEMA:"));
+      [["","Alle"],...getTopics().map(t=>[t,t])].forEach(([val,label])=>{
+        topicBar.appendChild(el("button",{class:"topic-chip"+(state.topicFilter===val?" active":""),
+          click(e){state.topicFilter=val;e.currentTarget.parentNode.querySelectorAll('.topic-chip').forEach(b=>b.classList.remove('active'));e.currentTarget.classList.add('active');renderWordList();}},label));
+      });
+      filterSection.appendChild(topicBar);
+    }
+
+    // Time filter row
+    const timeBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"8px"}});
+    timeBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TID:"));
+    [[0,"Alle"],[7,"Siste 7 dager"],[30,"Siste 30 dager"],[90,"Siste 3 måneder"]].forEach(([val,label])=>{
+      timeBar.appendChild(el("button",{class:"topic-chip"+(state.timeFilter===val?" active":""),
+        click(e){state.timeFilter=val;e.currentTarget.parentNode.querySelectorAll('.topic-chip').forEach(b=>b.classList.remove('active'));e.currentTarget.classList.add('active');renderWordList();}},label));
+    });
+    filterSection.appendChild(timeBar);
+
+    // Print buttons row
+    const printBar=el("div",{class:"io-bar",style:{marginBottom:"0",paddingTop:"4px"}});
+    printBar.appendChild(el("button",{class:"btn-io",click(){printWords("cloud");}},"🖨️ Skriv ut ordsky"));
+    printBar.appendChild(el("button",{class:"btn-io",click(){printWords("list");}},"🖨️ Skriv ut ordliste"));
+    filterSection.appendChild(printBar);
+
+    frag.appendChild(filterSection);
+  }
+
+  // ── Import / Export bar ──
+  const ioBar=el("div",{class:"io-bar"});
+  ioBar.appendChild(el("button",{class:"btn-io",click:exportWords},"⬇️ Eksporter ordbank"));
+  const fileIn=el("input",{id:"import-file",type:"file",accept:".json,.csv,.txt",style:{display:"none"},
+    change(e){const f=e.target.files[0];if(f)importWords(f);e.target.value="";}});
+  ioBar.appendChild(fileIn);
+  ioBar.appendChild(el("button",{class:"btn-io",click(){$("import-file").click();}},"⬆️ Importer fra fil"));
+  ioBar.appendChild(el("span",{class:"io-hint"},"JSON, CSV, eller tekst (ett ord per linje)"));
+  frag.appendChild(ioBar);
+
+  // ── Claude API key settings ──
+  const settCard=el("div",{class:"settings-card"});
+  settCard.appendChild(el("h3",{},"⚙️ Claude API-nøkkel  ",
+    el("span",{style:{fontWeight:"400",color:"#bbb",fontSize:"11px"}},"(valgfritt – brukes for grammatikksjekk)")));
+  const keyRow=el("div",{class:"key-row"});
+  const keyIn=el("input",{
+    id:"key-input",class:"key-input",type:"password",
+    placeholder:"sk-ant-api03-…",
+    value:state.claudeKey,
+    input(e){state.claudeKey=e.target.value;},
+  });
+  keyRow.appendChild(keyIn);
+  keyRow.appendChild(el("button",{class:"btn-save-key",click(){
+    const k=($("key-input")?.value||"").trim();
+    state.claudeKey=k;
+    try{if(k)localStorage.setItem("b2_claude_key",k);else localStorage.removeItem("b2_claude_key");}catch{}
+    const s=$("key-status");
+    if(s){ s.textContent=k?"✓ Nøkkel lagret – grammatikksjekk er klar!":"Nøkkel fjernet.";
+           s.style.color=k?"#2d9e6b":"#888"; }
+  }},"Lagre"));
+  settCard.appendChild(keyRow);
+  const keyStatus=el("div",{id:"key-status",class:"key-status"});
+  keyStatus.textContent=state.claudeKey?"✓ Claude API-nøkkel er lagret":"Ingen nøkkel lagret – grammatikksjekk bruker LanguageTool";
+  keyStatus.style.color=state.claudeKey?"#2d9e6b":"#aaa";
+  settCard.appendChild(keyStatus);
+  frag.appendChild(settCard);
+
+  // ── Word list container (populated separately so form is never re-rendered) ──
+  const wlDiv=el("div",{id:"word-list"});
+  frag.appendChild(wlDiv);
+  requestAnimationFrame(()=>renderWordList());
+
+  return frag;
+}
+
+// Returns words matching current topic + time + search filters
+function getFilteredWords(){
+  let filtered=state.words;
+  if(state.topicFilter) filtered=filtered.filter(w=>w.topic===state.topicFilter);
+  if(state.timeFilter){
+    const cutoff=Date.now()-state.timeFilter*24*60*60*1000;
+    filtered=filtered.filter(w=>(w.createdAt||0)>=cutoff);
+  }
+  if(state.search) filtered=filtered.filter(w=>
+    w.word.toLowerCase().includes(state.search.toLowerCase())||
+    w.meaning.toLowerCase().includes(state.search.toLowerCase()));
+  return filtered;
+}
+
+// Renders only the word-list section — never touches the form inputs
+function renderWordList(){
+  const container=$("word-list"); if(!container)return;
+  container.innerHTML="";
+  const filtered=getFilteredWords();
+
+  if(state.words.length===0){
+    container.appendChild(el("div",{class:"empty-state"},
+      el("div",{class:"big"},"📖"),
+      el("p",{style:{fontSize:"16px",marginBottom:"6px"}},"Ingen ord ennå!"),
+      el("p",{style:{fontSize:"14px"}},"Legg til ord fra boken din ovenfor, eller importer en fil.")));
+    return;
+  }
+  let anyShown=false;
+  CATS.forEach(cat=>{
+    const cw=filtered.filter(w=>(w.category===cat.key || (w.category==="temaord" && cat.key==="enkeltord")));
+    if(!cw.length)return;
+    anyShown=true;
+    const sec=el("div",{class:"cat-section"});
+    const title=el("div",{class:"cat-title"});
+    title.appendChild(el("span",{class:"cat-dot",style:{background:cat.color}}));
+    title.appendChild(document.createTextNode(`${cat.label} (${cw.length})`));
+    sec.appendChild(title);
+    const grid=el("div",{class:"word-grid"});
+    cw.forEach(w=>{
+      const chip=el("div",{class:"word-chip",style:{borderLeftColor:cat.color}});
+      const info=el("div",{style:{flex:"1",minWidth:"0"}});
+      const wn=el("div",{class:"wn"},w.word);
+      if(w.topic) wn.appendChild(el("span",{class:"word-topic-tag"},w.topic));
+      info.appendChild(wn);
+      if(w.meaning)info.appendChild(el("div",{class:"wm"},w.meaning));
+      chip.appendChild(info);
+      chip.appendChild(el("button",{class:"btn-del",title:"Fjern",
+        click(){state.words=state.words.filter(x=>x.id!==w.id);saveStorage();renderWordList();renderTabs();}
+      },"×"));
+      grid.appendChild(chip);
+    });
+    sec.appendChild(grid); container.appendChild(sec);
+  });
+  if(!anyShown) container.appendChild(el("div",{class:"empty-state"},el("p",{},state.search?`Ingen ord matcher søket "${state.search}"`:state.topicFilter?`Ingen ord i tema "${state.topicFilter}"`:"Ingen ord i denne kategorien")));
+}
+
+// ── DICTIONARY LOOKUP ────────────────────────────────────────────────
+async function lookupWord(){
+  const word=($("fi-word")?.value||form.word).trim();
+  if(!word){$("fi-word")?.focus();return;}
+
+  const btn=$("btn-lookup"), status=$("lookup-status");
+  if(!status)return;
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinning">⏳</span>';
+  status.innerHTML='<span style="color:#999">Henter oversettelse…</span>';
+
+  try{
+    const url=`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=no|en`;
+    const res=await fetch(url);
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    const data=await res.json();
+
+    if(data.responseStatus===200&&data.responseData?.translatedText){
+      const tr=data.responseData.translatedText;
+      const mi=$("fi-meaning");
+      if(mi){mi.value=tr;form.meaning=tr;}
+      const orbUrl=`https://ordbokene.no/bm,nn/search?q=${encodeURIComponent(word)}`;
+      status.innerHTML=`<span style="color:#2d9e6b">✓ <strong>${tr}</strong></span>&ensp;·&ensp;<a href="${orbUrl}" target="_blank">Se i Bokmålsordboka →</a>`;
+    } else {
+      const orbUrl=`https://ordbokene.no/bm,nn/search?q=${encodeURIComponent(word)}`;
+      status.innerHTML=`<span style="color:#e8901a">Ingen automatisk oversettelse.</span>&ensp;<a href="${orbUrl}" target="_blank">Slå opp i Bokmålsordboka →</a>`;
+    }
+  }catch{
+    const orbUrl=`https://ordbokene.no/bm,nn/search?q=${encodeURIComponent(word)}`;
+    status.innerHTML=`<span style="color:#e8901a">Trenger internett-tilkobling.</span>&ensp;<a href="${orbUrl}" target="_blank">Slå opp i Bokmålsordboka →</a>`;
+  }
+  btn.disabled=false; btn.textContent="🔍";
+}
+
+function addWord(){
+  const word=form.word.trim(); if(!word){$("fi-word")?.focus();return;}
+  state.words.push({id:Date.now(),word,meaning:form.meaning.trim(),category:form.category,topic:form.topic.trim(),createdAt:Date.now()});
+  form.word=""; form.meaning=""; form.topic="";
+  saveStorage();
+  const wi=$("fi-word"),mi=$("fi-meaning"),ti=$("fi-topic");
+  if(wi){wi.value="";wi.focus();} if(mi)mi.value=""; if(ti)ti.value="";
+  renderWordList(); renderTabs();
+}
+
+// ── IMPORT / EXPORT ───────────────────────────────────────────────────
+function exportWords(){
+  if(!state.words.length){toast("Ingen ord å eksportere.");return;}
+  const data=JSON.stringify(state.words.map(({word,meaning,category,topic,createdAt})=>({word,meaning,category,topic:topic||"",createdAt:createdAt||Date.now()})),null,2);
+  const a=el("a",{href:URL.createObjectURL(new Blob([data],{type:"application/json"})),download:"ordbank.json"});
+  a.click(); URL.revokeObjectURL(a.href);
+  toast(`✓ ${state.words.length} ord eksportert som ordbank.json`);
+}
+
+function importWords(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const text=e.target.result; let imported=[];
+    try{
+      if(file.name.endsWith(".json")){
+        const p=JSON.parse(text);
+        if(Array.isArray(p)) imported=p.filter(w=>w.word).map(w=>({
+          word:String(w.word).trim(),
+          meaning:String(w.meaning||"").trim(),
+          category:CAT_MAP[w.category]?w.category:"enkeltord",
+          topic:String(w.topic||"").trim(),
+          createdAt:w.createdAt||Date.now(),
+        }));
+      } else {
+        text.split(/\r?\n/).filter(l=>l.trim()&&!l.startsWith("#")).forEach(line=>{
+          const parts=line.split(/[,;\t]/).map(s=>s.trim());
+          if(parts[0]){
+            let word=parts[0], meaning=parts[1]||"", category=parts[2]||"enkeltord", topic=parts[3]||"";
+            if(parts.length===1){
+              const m=line.match(/^(.+?)\s*[-:]\s*(.+)$/);
+              if(m){word=m[1].trim();meaning=m[2].trim();}
+            }
+            if(!CAT_MAP[category])category="enkeltord";
+            imported.push({word,meaning,category,topic,createdAt:Date.now()});
+          }
+        });
+      }
+    }catch{toast("Kunne ikke lese filen. Sjekk formatet.");return;}
+    if(!imported.length){toast("Ingen ord funnet i filen.");return;}
+    const existing=new Set(state.words.map(w=>w.word.toLowerCase()));
+    let added=0;
+    imported.forEach(w=>{
+      if(!existing.has(w.word.toLowerCase())){
+        state.words.push({id:Date.now()+Math.random()*9999,...w});
+        existing.add(w.word.toLowerCase()); added++;
+      }
+    });
+    saveStorage(); renderWordList(); renderTabs();
+    toast(`✓ ${added} nye ord importert! (${imported.length-added} duplikater hoppet over)`);
+  };
+  reader.readAsText(file,"UTF-8");
+}
+
+// ── SETNINGER TAB ────────────────────────────────────────────────────
+function buildSetninger(){
+  const frag=document.createDocumentFragment();
+
+  if(state.words.length===0){
+    frag.appendChild(el("div",{class:"empty-state",style:{padding:"60px 20px"}},
+      el("div",{class:"big"},"💬"),
+      el("p",{style:{fontSize:"16px",marginBottom:"8px"}},"Ingen ord i ordbanken ennå!"),
+      el("p",{style:{fontSize:"14px",marginBottom:"16px"}},"Legg til ord først, så kan du øve på å bruke dem i setninger."),
+      el("button",{style:{padding:"10px 24px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"9px",fontSize:"14px",fontWeight:"700"},
+        click(){setTab("ordbank");}
+      },"+ Legg til ord")));
+    return frag;
+  }
+
+  // ── Topic filter bar ──
+  const topics=getTopics();
+  if(topics.length>0){
+    const filterBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"14px"}});
+    filterBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TEMA:"));
+    const allCount=state.words.length;
+    filterBar.appendChild(el("button",{class:"topic-chip"+(state.sentTopicFilter===""?" active":""),
+      click(){state.sentTopicFilter="";state.wordIdx=0;renderContent();}},`Alle (${allCount})`));
+    topics.forEach(topic=>{
+      const count=state.words.filter(w=>w.topic===topic).length;
+      filterBar.appendChild(el("button",{class:"topic-chip"+(state.sentTopicFilter===topic?" active":""),
+        click(){state.sentTopicFilter=topic;state.wordIdx=0;renderContent();}},`${topic} (${count})`));
+    });
+    frag.appendChild(filterBar);
+  }
+
+  const sentWords=getSentWords();
+  if(sentWords.length===0){
+    frag.appendChild(el("div",{class:"empty-state"},
+      el("p",{style:{fontSize:"15px"}},`Ingen ord med tema "${state.sentTopicFilter}".`)));
+    return frag;
+  }
+
+  // Clamp index
+  if(state.wordIdx>=sentWords.length) state.wordIdx=0;
+  const word=sentWords[state.wordIdx];
+  const actualCat=word.category==="temaord"?"enkeltord":word.category;
+  const cat=CAT_MAP[actualCat]||CATS[0];
+  const total=sentWords.length;
+  const doneCount=sentWords.filter(w=>state.sentences[w.id]?.trim()).length;
+  const currentSentence=state.sentences[word.id]||"";
+
+  // ── Navigation bar ──
+  const nav=el("div",{class:"sent-nav"});
+  nav.appendChild(el("button",{class:"btn-nav",disabled:state.wordIdx===0?"":null,
+    click(){state.wordIdx--;renderContent();}
+  },"← Forrige"));
+  nav.appendChild(el("div",{class:"sent-progress"},
+    el("strong",{},`${state.wordIdx+1} / ${total}`),` ord  ·  ${doneCount} setninger skrevet`));
+  nav.appendChild(el("button",{class:"btn-nav",disabled:state.wordIdx===total-1?"":null,
+    click(){state.wordIdx++;renderContent();}
+  },"Neste →"));
+  frag.appendChild(nav);
+
+  // ── Word card ──
+  const card=el("div",{class:"sent-card"});
+  card.appendChild(el("div",{class:"sent-word"},word.word));
+  const meta=el("div",{class:"sent-meta"});
+  meta.appendChild(el("span",{class:"sent-cat",style:{background:cat.color+"18",color:cat.color}},cat.label));
+  if(word.topic) meta.appendChild(el("span",{class:"sent-topic-badge"},word.topic));
+  if(word.meaning) meta.appendChild(el("span",{class:"sent-meaning"},word.meaning));
+  card.appendChild(meta);
+
+  const hints={
+    enkeltord:`Bruk ordet "${word.word}" i en fullstendig setning. Tenk på riktig bøyning!`,
+    uttrykk:`Bruk uttrykket "${word.word}" naturlig i en setning. Jobb med kontekst og flyt.`,
+    koblingsord:`Koble to tanker med "${word.word}". Koblingsord skaper logisk sammenheng mellom setningsdeler.`,
+  };
+  card.appendChild(el("p",{class:"sent-prompt"},hints[actualCat]||`Lag en setning med "${word.word}".`));
+
+  const ta=el("textarea",{id:"sent-ta",class:"sent-area",
+    placeholder:`Skriv én setning med "${word.word}" her…`,
+    input:onSentenceInput});
+  ta.value=currentSentence;
+  card.appendChild(ta);
+
+  const fb=el("div",{id:"sent-feedback",class:"sent-feedback"});
+  fillSentenceFeedback(fb,currentSentence,word);
+  card.appendChild(fb);
+
+  const grammarDiv=el("div",{id:"grammar-result",class:"grammar-result",style:{display:"none"}});
+  card.appendChild(grammarDiv);
+
+  // Action buttons
+  const actions=el("div",{class:"sent-actions"});
+  actions.appendChild(el("button",{class:"btn-next-sent",
+    click(){
+      const t=$("sent-ta"); if(t) state.sentences[word.id]=t.value;
+      saveSentences();
+      if(state.wordIdx<total-1){state.wordIdx++;renderContent();}
+      else{renderContent();}
+    }
+  },state.wordIdx<total-1?"Lagre og neste ord →":"Lagre"));
+
+  const gramLabel=state.claudeKey?"🤖 Sjekk med Claude":"🔎 Sjekk grammatikk";
+  actions.appendChild(el("button",{class:"btn-sec",title:state.claudeKey?"Grammatikksjekk via Claude API":"Grammatikksjekk via LanguageTool",
+    click:()=>checkGrammar(word.word, $("sent-ta")?.value||currentSentence)},gramLabel));
+
+  if(currentSentence.trim()){
+    actions.appendChild(el("button",{class:"btn-skip",
+      click(){
+        const t=$("sent-ta"); if(t){t.value="";state.sentences[word.id]="";}
+        saveSentences(); updateSentencePanel();
+      }
+    },"Slett setning"));
+  }
+  actions.appendChild(el("button",{class:"btn-skip",
+    click(){
+      const unwritten=sentWords.map((w,i)=>({w,i})).filter(({w})=>!state.sentences[w.id]?.trim());
+      if(unwritten.length){state.wordIdx=unwritten[Math.floor(Math.random()*unwritten.length)].i;renderContent();}
+      else toast("Alle ord har setninger!");
+    }
+  },"Tilfeldig ord"));
+  card.appendChild(actions);
+  frag.appendChild(card);
+
+  // ── Previously written sentences ──
+  const written=sentWords.filter(w=>state.sentences[w.id]?.trim()&&w.id!==word.id);
+  if(written.length){
+    const prev=el("div",{class:"prev-sentences"});
+    prev.appendChild(el("h3",{},"Setninger du har skrevet"));
+    written.slice().reverse().forEach(w=>{
+      const item=el("div",{class:"prev-sent-item",
+        click(){state.wordIdx=sentWords.indexOf(w);renderContent();}});
+      item.style.cursor="pointer";
+      item.appendChild(el("div",{class:"prev-sent-word"},w.word));
+      item.appendChild(el("div",{class:"prev-sent-text"},state.sentences[w.id]));
+      prev.appendChild(item);
+    });
+    frag.appendChild(prev);
+  }
+
+  const exportBtn=el("button",{class:"btn-io",style:{marginTop:"14px",marginBottom:"14px"},
+    click:exportSentencesByTopic},"⬇️ Eksporter setninger");
+  frag.appendChild(exportBtn);
+  return frag;
+}
+
+async function checkGrammar(word, sentence){
+  if(!sentence.trim()){toast("Skriv en setning først.");return;}
+  const grammarDiv=$("grammar-result");
+  if(!grammarDiv)return;
+  grammarDiv.innerHTML='';
+  grammarDiv.style.display="block";
+
+  // Loading indicator
+  const loading=el("div",{style:{color:"#888",fontSize:"13px",padding:"8px 0"}},
+    state.claudeKey?"🤖 Spør Claude…":"🔎 Sjekker grammatikk…");
+  grammarDiv.appendChild(loading);
+
+  if(state.claudeKey){
+    await checkWithClaude(word, sentence, grammarDiv);
+  } else {
+    await checkWithLanguageTool(sentence, grammarDiv);
+  }
+}
+
+// ── Claude API grammar check ──────────────────────────────────────────
+async function checkWithClaude(word, sentence, container){
+  // Claude API is blocked from file:// by browser CORS rules.
+  // Must be served via localhost — run start_server.py.
+  if(window.location.protocol==="file:"){
+    container.innerHTML="";
+    const box=el("div",{style:{background:"#fffdf0",borderLeft:"4px solid #f0c040",borderRadius:"10px",padding:"14px 16px",fontSize:"13px",lineHeight:"1.7",color:"#555"}});
+    box.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"6px",color:"#b8860b"}},"⚠️ Kan ikke nå Claude API fra en lokal fil"));
+    box.appendChild(document.createTextNode("Nettleseren blokkerer API-kall fra "));
+    box.appendChild(el("code",{style:{background:"#f0f0f0",padding:"2px 6px",borderRadius:"4px"}},"file://"));
+    box.appendChild(document.createTextNode(" av sikkerhetsgrunner. Løsningen er enkel:"));
+    box.appendChild(el("ol",{style:{marginTop:"8px",marginLeft:"18px",lineHeight:"2"}},
+      el("li",{},"Åpne en terminal i samme mappe som HTML-filen"),
+      el("li",{},el("span",{},"Kjør: "),el("code",{style:{background:"#f0f0f0",padding:"2px 8px",borderRadius:"4px",fontWeight:"700"}},"python3 start_server.py")),
+      el("li",{},"Åpne ",el("a",{href:"http://localhost:8080/norsk_b2_pro.html",target:"_blank",style:{color:"#1a6b4a",fontWeight:"700"}},"http://localhost:8080/norsk_b2_pro.html"))
+    ));
+    container.appendChild(box);
+    return;
+  }
+  const systemPrompt=`You are a Norwegian language teacher evaluating a sentence written by a B2-level learner. Respond ONLY with valid JSON — no prose, no markdown — in exactly this structure:
+{
+  "correct": boolean,
+  "natural": boolean,
+  "overall": "1–2 sentence assessment in English",
+  "errors": [{"text":"problematic word or phrase","issue":"brief explanation","fix":"corrected form"}],
+  "improved": "full improved sentence, or null if already correct and natural",
+  "tip": "one short pedagogical tip, or null"
+}`;
+
+  const userMsg=`I'm a Norwegian learner (B2 level) practicing the word/expression: "${word}"\n\nPlease evaluate this sentence:\n"${sentence}"`;
+
+  try{
+    const res=await fetch("/proxy/claude",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+      },
+      body:JSON.stringify({
+        __api_key__:state.claudeKey,
+        model:"claude-haiku-4-5-20251001",
+        max_tokens:600,
+        system:systemPrompt,
+        messages:[{role:"user",content:userMsg}],
+      }),
+    });
+
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      throw new Error(err.error?.message||`HTTP ${res.status}`);
+    }
+
+    const data=await res.json();
+    const rawText=data.content?.[0]?.text||"{}";
+    // Strip any accidental markdown fences
+    const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
+    const result=JSON.parse(jsonText);
+    renderClaudeResult(result, container);
+
+  }catch(err){
+    container.innerHTML="";
+    const isKeyError=err.message?.includes("401")||err.message?.includes("403")||err.message?.includes("invalid");
+    container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},
+      isKeyError
+        ? "❌ Ugyldig API-nøkkel. Sjekk nøkkelen i Ordbank-innstillingene."
+        : `❌ Feil: ${err.message}. Prøv igjen, eller bruk LanguageTool (fjern nøkkelen).`
+    ));
+  }
+}
+
+function renderClaudeResult(r, container){
+  container.innerHTML="";
+  const isOk=r.correct&&r.natural;
+  const isPartial=r.correct&&!r.natural;
+
+  // Header
+  const hdr=el("div",{class:`claude-header ${isOk?"ok":isPartial?"warn":"err"}`});
+  hdr.appendChild(document.createTextNode(
+    isOk?"✓ Korrekt og naturlig!":isPartial?"~ Grammatisk riktig, men litt unaturlig":"✗ Feil funnet"
+  ));
+  const resultBox=el("div",{class:"claude-result"});
+  resultBox.appendChild(hdr);
+
+  const body=el("div",{class:"claude-body"});
+  if(r.overall) body.appendChild(el("div",{class:"claude-overall"},r.overall));
+
+  // Errors
+  if(r.errors&&r.errors.length){
+    r.errors.forEach(e=>{
+      const card=el("div",{class:"claude-error-card"});
+      if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
+      if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
+      if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
+      body.appendChild(card);
+    });
+  }
+
+  // Improved sentence
+  if(r.improved){
+    const imp=el("div",{class:"claude-improved"});
+    imp.appendChild(el("div",{class:"claude-improved-label"},"Forbedret setning"));
+    imp.appendChild(el("div",{class:"claude-improved-text"},r.improved));
+    body.appendChild(imp);
+  }
+
+  // Tip
+  if(r.tip) body.appendChild(el("div",{class:"claude-tip"},`💡 ${r.tip}`));
+
+  resultBox.appendChild(body);
+  container.appendChild(resultBox);
+}
+
+// ── LanguageTool fallback ─────────────────────────────────────────────
+async function checkWithLanguageTool(sentence, container){
+  try{
+    const res=await fetch("https://api.languagetool.org/v2/check",{
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:`text=${encodeURIComponent(sentence)}&language=nb`,
+    });
+    const data=await res.json();
+    container.innerHTML="";
+    if(!data.matches||data.matches.length===0){
+      container.appendChild(el("div",{class:"grammar-ok"},"✓ Ingen grammatikkfeil funnet (LanguageTool)"));
+    } else {
+      data.matches.forEach(m=>{
+        const card=el("div",{class:"grammar-error"});
+        card.appendChild(el("div",{},el("span",{class:"em"},m.message)));
+        if(m.replacements?.length)
+          card.appendChild(el("div",{style:{fontSize:"12px",color:"#2d9e6b",marginTop:"3px"}},
+            `Forslag: ${m.replacements.slice(0,3).map(r=>r.value).join(", ")}`));
+        container.appendChild(card);
+      });
+    }
+  }catch{
+    container.innerHTML='<span style="color:#e8901a;font-size:13px">Ingen internettforbindelse. Legg til Claude API-nøkkel for offline-bruk.</span>';
+  }
+}
+
+function exportSentencesByTopic(){
+  const byTopic = {};
+  const noTopic = [];
+
+  state.words.forEach(w=>{
+    const sent = state.sentences[w.id];
+    if(sent && sent.trim()){
+      if(w.topic && w.topic.trim()){
+        if(!byTopic[w.topic]) byTopic[w.topic] = [];
+        byTopic[w.topic].push({word: w.word, sent});
+      } else {
+        noTopic.push({word: w.word, sent});
+      }
+    }
+  });
+
+  let content = "";
+  Object.keys(byTopic).sort().forEach(topic=>{
+    content += `=== TEMA: ${topic.charAt(0).toUpperCase() + topic.slice(1)} ===\n\n`;
+    byTopic[topic].forEach(({word, sent})=>{
+      content += `${word}\n→ ${sent}\n\n`;
+    });
+  });
+
+  if(noTopic.length>0){
+    content += `=== UTEN TEMA ===\n\n`;
+    noTopic.forEach(({word, sent})=>{
+      content += `${word}\n→ ${sent}\n\n`;
+    });
+  }
+
+  const a=el("a",{href:URL.createObjectURL(new Blob([content],{type:"text/plain"})),download:"setninger.txt"});
+  a.click(); URL.revokeObjectURL(a.href);
+  toast("✓ Setninger eksportert som setninger.txt");
+}
+
+function onSentenceInput(e){
+  const word=state.words[state.wordIdx]; if(!word)return;
+  state.sentences[word.id]=e.target.value;
+  const fb=$("sent-feedback"); if(fb)fillSentenceFeedback(fb,e.target.value,word);
+  const grammarDiv=$("grammar-result");
+  if(grammarDiv)grammarDiv.style.display="none";
+  renderTabs();
+}
+
+function fillSentenceFeedback(container,sentence,word){
+  container.innerHTML="";
+  if(!sentence.trim()){
+    container.appendChild(el("span",{style:{color:"#bbb"}},"Begynn å skrive…"));
+    return;
+  }
+  const used=sentence.toLowerCase().includes(word.word.toLowerCase());
+  const wc=sentence.trim().split(/\s+/).length;
+  if(used){
+    container.appendChild(el("span",{class:"sent-badge"},"✓ Ordet er brukt!"));
+  } else {
+    container.appendChild(el("span",{style:{color:"#e8901a",fontSize:"13px"}},`Husk å bruke "${word.word}" i setningen.`));
+  }
+  container.appendChild(el("span",{style:{color:"#bbb",marginLeft:"8px",fontSize:"12px"}},`${wc} ord`));
+}
+
+function updateSentencePanel(){
+  const word=state.words[state.wordIdx]; if(!word)return;
+  const sentence=state.sentences[word.id]||"";
+  const fb=$("sent-feedback"); if(fb)fillSentenceFeedback(fb,sentence,word);
+  renderTabs();
+}
+
+function saveSentences(){
+  try{localStorage.setItem("b2_sentences_v2",JSON.stringify(state.sentences));}catch{}
+}
+function loadSentences(){
+  try{state.sentences=JSON.parse(localStorage.getItem("b2_sentences_v2")||"{}");}catch{}
+}
+loadSentences();
+
+// ── OPPGAVER TAB ──────────────────────────────────────────────────────
+function buildOppgaver(){
+  const frag=document.createDocumentFragment();
+  frag.appendChild(el("p",{style:{color:"#555",marginBottom:"18px",fontSize:"15px",lineHeight:"1.6"}},
+    "Velg et tema for å få en B2-skriveoppgave. Oppgaven oppfordrer deg til å bruke ordene fra ordbanken din!"));
+  const grid=el("div",{class:"topic-grid"});
+  Object.entries(TOPICS).forEach(([key,meta])=>{
+    const card=el("div",{
+      class:"topic-card"+(state.currentTopic===key?" active":""),
+      style:{"--tc":meta.color,"borderColor":state.currentTopic===key?meta.color:"transparent"},
+      click(){pickPrompt(key);},
+      mouseenter(e){e.currentTarget.style.boxShadow="0 4px 20px rgba(0,0,0,.14)";},
+      mouseleave(e){e.currentTarget.style.boxShadow="0 1px 8px rgba(0,0,0,.07)";},
+    });
+    card.appendChild(el("div",{class:"topic-emoji"},meta.emoji));
+    card.appendChild(el("div",{class:"topic-name"},meta.name));
+    card.appendChild(el("div",{class:"topic-count"},PROMPTS[key].length+" oppgaver"));
+    const badge=el("div",{class:"topic-badge",style:{background:meta.color+"18",color:meta.color}},"Velg tema →");
+    card.appendChild(badge);
+    grid.appendChild(card);
+  });
+  frag.appendChild(grid);
+  return frag;
+}
+
+function pickPrompt(topicKey){
+  state.currentPrompt=pickRandom(PROMPTS[topicKey]);
+  state.currentTopic=topicKey; state.essay=""; state.tab="skriv";
+  renderTabs(); renderContent();
+}
+function shufflePrompt(){
+  const others=PROMPTS[state.currentTopic].filter(p=>p.text!==state.currentPrompt.text);
+  state.currentPrompt=pickRandom(others.length?others:PROMPTS[state.currentTopic]);
+  state.essay=""; renderContent();
+}
+function pickRandom(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// ── SKRIV TAB ─────────────────────────────────────────────────────────
+function buildSkriv(){
+  if(!state.currentPrompt) return el("div",{class:"empty-state",style:{padding:"70px 20px"}},
+    el("div",{class:"big"},"✍️"),
+    el("p",{style:{fontSize:"17px",marginBottom:"16px"}},"Velg et tema for å begynne å skrive!"),
+    el("button",{style:{padding:"11px 28px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"10px",fontSize:"15px",fontWeight:"700"},
+      click(){setTab("oppgaver");}
+    },"Velg oppgave →"));
+
+  const meta=TOPICS[state.currentTopic];
+  const used=detectUsed(state.essay,state.words);
+  const wc=wcCount(state.essay);
+  const goal=Math.min(5,state.words.length);
+  const layout=el("div",{class:"write-layout"});
+
+  // ── Left column ──
+  const left=el("div",{});
+
+  // Prompt box
+  const pb=el("div",{class:"prompt-box",style:{background:meta.color+"12",borderLeft:"4px solid "+meta.color}});
+  const ptag=el("div",{class:"prompt-tag"});
+  ptag.appendChild(el("span",{style:{color:meta.color}},`${meta.emoji} ${state.currentPrompt.title} — ${meta.name}`));
+  ptag.appendChild(el("button",{
+    style:{background:"#fff",border:"1px solid "+meta.color+"66",borderRadius:"7px",padding:"4px 12px",fontSize:"12px",color:meta.color,fontWeight:"600",flexShrink:"0"},
+    click:shufflePrompt},"🔄 Ny oppgave"));
+  pb.appendChild(ptag);
+  pb.appendChild(el("p",{class:"prompt-text"},state.currentPrompt.text));
+  if(state.words.length>0){
+    const relTopicsHint=getEssayRelevantTopics();
+    const hb=el("div",{class:"hint-bar"});
+    hb.appendChild(document.createTextNode("💡 Prøv å bruke minst "));
+    hb.appendChild(el("strong",{style:{color:"#1a6b4a"}},String(goal)));
+    hb.appendChild(document.createTextNode(" av ordene fra ordbanken din. Anbefalt lengde: 250–350 ord."));
+    if(relTopicsHint.length){
+      const relCount=state.words.filter(w=>relTopicsHint.includes(w.topic)).length;
+      if(relCount>0){
+        hb.appendChild(el("div",{style:{marginTop:"7px",fontSize:"12px",color:"#1a6b4a",fontWeight:"600",
+          background:"#edfaf3",borderRadius:"6px",padding:"5px 9px"}},
+          `✨ ${relCount} ord fra ordbanken din passer spesielt godt for denne oppgaven `+
+          `(temaer: ${relTopicsHint.join(", ")}). Se dem fremhevet i sidepanelet →`));
+      }
+    }
+    pb.appendChild(hb);
+  }
+  left.appendChild(pb);
+
+  // Progress bar
+  if(state.words.length>0){
+    const pw=el("div",{id:"write-stats",class:"progress-wrap"});
+    fillWriteStats(pw,used,wc,goal);
+    left.appendChild(pw);
+  }
+
+  // Essay textarea
+  const ta=el("textarea",{
+    id:"essay-ta",class:"essay-area",
+    placeholder:"Skriv teksten din her...\n\nHusk:\n• Innledning: presenter temaet\n• Hoveddel: argumenter og eksempler\n• Avslutning: oppsummer og gi din mening",
+    input:onEssayInput,
+  });
+  ta.value=state.essay;
+  left.appendChild(ta);
+
+  // Word count line
+  const meta2=el("div",{id:"essay-meta",class:"essay-meta"});
+  fillEssayMeta(meta2,wc);
+  left.appendChild(meta2);
+
+  // Buttons
+  const ar=el("div",{class:"action-row"});
+  ar.appendChild(el("button",{class:"btn-sec",click(){
+    state.essay=""; const t=$("essay-ta"); if(t)t.value=""; updateWritePanel();
+    const egr=$("essay-grammar-result"); if(egr){egr.innerHTML="";egr.style.display="none";}
+  }},"🗑️ Tøm tekst"));
+  ar.appendChild(el("button",{class:"btn-sec",click(){setTab("oppgaver");}},"🔀 Bytt tema"));
+  ar.appendChild(el("button",{
+    class:"btn-sec",
+    style:{background:state.claudeKey?"#edfaf3":"#f9f9f9",borderColor:state.claudeKey?"#2d9e6b":"#dde",color:state.claudeKey?"#1a6b4a":"#aaa",fontWeight:"700"},
+    title:state.claudeKey?"Sjekk teksten din med Claude AI":"Krever Claude API-nøkkel – legg den til i Ordbank-innstillingene",
+    click(){
+      if(!state.claudeKey){toast("Legg til Claude API-nøkkel i Ordbank → innstillinger");return;}
+      const essay=($("essay-ta")?.value||state.essay).trim();
+      if(!essay){toast("Skriv litt tekst først!");return;}
+      const container=$("essay-grammar-result");
+      if(container){container.style.display="block";checkEssayWithClaude(essay,container);}
+    }
+  },"🤖 Sjekk tekst med Claude"));
+  left.appendChild(ar);
+
+  // Essay Claude result area
+  const essayGrammarDiv=el("div",{id:"essay-grammar-result",class:"grammar-result",style:{display:"none",marginTop:"14px"}});
+  left.appendChild(essayGrammarDiv);
+
+  layout.appendChild(left);
+
+  // ── Right column (sidebar) ──
+  const sb=el("div",{class:"sidebar"});
+  const wbCard=el("div",{class:"card"});
+  wbCard.appendChild(el("h3",{id:"sb-title"},`📚 Ordbank (${used.size}/${state.words.length} brukt)`));
+  if(state.words.length===0){
+    wbCard.appendChild(el("p",{style:{fontSize:"13px",color:"#bbb",marginBottom:"10px"}},"Ingen ord ennå."));
+    wbCard.appendChild(el("button",{style:{fontSize:"13px",padding:"7px 14px",borderRadius:"8px",border:"1px solid #dde",background:"#f8f8f8"},
+      click(){setTab("ordbank");}
+    },"+ Legg til ord"));
+  } else {
+    const chips=el("div",{id:"sb-chips",class:"sidebar-chips"});
+    fillSidebarChips(chips,used,getEssayRelevantTopics());
+    wbCard.appendChild(chips);
+  }
+  sb.appendChild(wbCard);
+
+  // Word bank words with topics section
+  const wordsWithTopics = state.words.filter(w => w.topic && w.topic.trim());
+  if(wordsWithTopics.length > 0){
+    const ewCard = el("div", {class:"card"});
+    ewCard.appendChild(el("h3", {}, "📖 Ord fra ordbanken"));
+    const ewList = el("div", {class:"essay-word-list"});
+    wordsWithTopics.forEach(w=>{
+      const item = el("div", {class:"essay-word-item"});
+      item.appendChild(el("div", {class:"wn"}, w.word));
+      if(w.meaning) item.appendChild(el("div", {class:"wm"}, w.meaning));
+      if(state.sentences[w.id]){
+        item.appendChild(el("div", {class:"sent"}, `"${state.sentences[w.id]}"`));
+      }
+      ewList.appendChild(item);
+    });
+    ewCard.appendChild(ewList);
+    sb.appendChild(ewCard);
+  }
+
+  // Tips box
+  const tb=el("div",{class:"tips-box"});
+  tb.appendChild(el("div",{class:"tips-title"},"💡 Skrivetips B2"));
+  TIPS.forEach(tip=>{
+    const row=el("div",{class:"tip-item"});
+    row.appendChild(el("span",{class:"tip-dot"},"•"));
+    row.appendChild(el("span",{},tip));
+    tb.appendChild(row);
+  });
+  sb.appendChild(tb);
+  layout.appendChild(sb);
+  return layout;
+}
+
+function onEssayInput(e){
+  state.essay=e.target.value;
+  updateWritePanel();
+  // Hide essay check result when user edits
+  const egr=$("essay-grammar-result");
+  if(egr&&egr.children.length) egr.style.display="none";
+}
+
+// ── Essay Claude check ────────────────────────────────────────────────
+async function checkEssayWithClaude(essay, container){
+  container.innerHTML="";
+  const loading=el("div",{style:{color:"#888",fontSize:"13px",padding:"8px 0"}},"🤖 Analyserer teksten din med Claude…");
+  container.appendChild(loading);
+
+  if(window.location.protocol==="file:"){
+    container.innerHTML="";
+    const box=el("div",{style:{background:"#fffdf0",borderLeft:"4px solid #f0c040",borderRadius:"10px",padding:"14px 16px",fontSize:"13px",lineHeight:"1.7",color:"#555"}});
+    box.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"6px",color:"#b8860b"}},"⚠️ Kan ikke nå Claude API fra en lokal fil"));
+    box.appendChild(document.createTextNode("Kjør "));
+    box.appendChild(el("code",{style:{background:"#f0f0f0",padding:"2px 6px",borderRadius:"4px"}},"python3 start_server.py"));
+    box.appendChild(document.createTextNode(" og åpne appen via localhost."));
+    container.appendChild(box);
+    return;
+  }
+
+  const systemPrompt=`You are a Norwegian language teacher evaluating a written essay by a B2-level learner. Respond ONLY with valid JSON — no prose, no markdown — in exactly this structure:
+{
+  "level": "A1|A2|B1|B2|C1|C2",
+  "levelComment": "1-2 sentences explaining why this level",
+  "grammarErrors": [{"text":"problematic word or phrase","issue":"brief explanation in English","fix":"corrected form"}],
+  "strengths": ["strength 1","strength 2"],
+  "improvements": ["suggestion 1","suggestion 2","suggestion 3"],
+  "overall": "2-3 sentence overall assessment in English"
+}
+Keep grammarErrors to the most important 3-5 errors. Keep strengths and improvements to 2-4 items each.`;
+
+  const userMsg=`Please evaluate this Norwegian essay written by a B2-level learner:\n\n${essay}`;
+
+  try{
+    const res=await fetch("/proxy/claude",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        __api_key__:state.claudeKey,
+        model:"claude-haiku-4-5-20251001",
+        max_tokens:900,
+        system:systemPrompt,
+        messages:[{role:"user",content:userMsg}],
+      }),
+    });
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      throw new Error(err.error?.message||`HTTP ${res.status}`);
+    }
+    const data=await res.json();
+    const rawText=data.content?.[0]?.text||"{}";
+    const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
+    const result=JSON.parse(jsonText);
+    renderEssayClaudeResult(result, container);
+  }catch(err){
+    container.innerHTML="";
+    const isKeyError=err.message?.includes("401")||err.message?.includes("403")||err.message?.includes("invalid");
+    container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},
+      isKeyError
+        ? "❌ Ugyldig API-nøkkel. Sjekk nøkkelen i Ordbank-innstillingene."
+        : `❌ Feil: ${err.message}. Prøv igjen.`
+    ));
+  }
+}
+
+function renderEssayClaudeResult(r, container){
+  container.innerHTML="";
+
+  // Level colours
+  const levelColors={A1:"#e05c5c",A2:"#e8901a",B1:"#f0c040",B2:"#2d9e6b",C1:"#4f6ef7",C2:"#7c4dff"};
+  const lv=r.level||"B1";
+  const lvColor=levelColors[lv]||"#2d9e6b";
+
+  const box=el("div",{class:"claude-result"});
+
+  // Header with level badge
+  const hdr=el("div",{class:"claude-header",style:{background:lvColor+"18",borderBottom:"1px solid "+lvColor+"33",paddingBottom:"14px",gap:"12px",alignItems:"center",flexWrap:"wrap"}});
+  hdr.appendChild(el("span",{style:{background:lvColor,color:"#fff",borderRadius:"8px",padding:"5px 14px",fontSize:"17px",fontWeight:"800",letterSpacing:".5px",flexShrink:"0"}},lv));
+  hdr.appendChild(el("span",{style:{color:"#444",fontWeight:"600",fontSize:"14px",flex:"1"}},r.levelComment||""));
+  box.appendChild(hdr);
+
+  const body=el("div",{class:"claude-body",style:{display:"grid",gap:"12px"}});
+
+  // Overall
+  if(r.overall) body.appendChild(el("div",{class:"claude-overall",style:{background:"#f8f9fa",borderRadius:"8px",padding:"10px 12px"}},r.overall));
+
+  // Grammar errors
+  if(r.grammarErrors&&r.grammarErrors.length){
+    const errSec=el("div",{});
+    errSec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#e05c5c",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"✗ Grammatikkfeil"));
+    r.grammarErrors.forEach(e=>{
+      const card=el("div",{class:"claude-error-card"});
+      if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
+      if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
+      if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
+      errSec.appendChild(card);
+    });
+    body.appendChild(errSec);
+  }
+
+  // Two-column: strengths + improvements
+  const twoCol=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}});
+  if(r.strengths&&r.strengths.length){
+    const sec=el("div",{style:{background:"#edfaf3",borderRadius:"8px",padding:"10px 12px"}});
+    sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#1a6b4a",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"✓ Styrker"));
+    r.strengths.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"12px",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},"• "+s)));
+    twoCol.appendChild(sec);
+  }
+  if(r.improvements&&r.improvements.length){
+    const sec=el("div",{style:{background:"#fffdf0",borderRadius:"8px",padding:"10px 12px"}});
+    sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#b8860b",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"💡 Forbedring"));
+    r.improvements.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"12px",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},"→ "+s)));
+    twoCol.appendChild(sec);
+  }
+  if(twoCol.children.length) body.appendChild(twoCol);
+
+  box.appendChild(body);
+  container.appendChild(box);
+}
+function updateWritePanel(){
+  const used=detectUsed(state.essay,state.words);
+  const wc=wcCount(state.essay);
+  const goal=Math.min(5,state.words.length);
+  const relTopics=getEssayRelevantTopics();
+  const stats=$("write-stats"); if(stats)fillWriteStats(stats,used,wc,goal);
+  const meta=$("essay-meta");  if(meta)fillEssayMeta(meta,wc);
+  const chips=$("sb-chips");   if(chips)fillSidebarChips(chips,used,relTopics);
+  const title=$("sb-title");   if(title)title.textContent=`📚 Ordbank (${used.size}/${state.words.length} brukt)`;
+}
+
+function fillWriteStats(el2,used,wc,goal){
+  el2.innerHTML="";
+  const pm=document.createElement("div"); pm.className="progress-meta";
+  const s1=document.createElement("span");
+  s1.innerHTML=`Ordbank-ord brukt: <strong style="color:${used.size>=goal?"#1a6b4a":"#e8901a"}">${used.size}</strong> / ${state.words.length}`;
+  const s2=document.createElement("span");
+  s2.textContent=`${wc} ord${wc>350?" (for lang!)":""}`;
+  s2.style.color=wc>=250&&wc<=350?"#1a6b4a":wc>350?"#e05c5c":"#aaa";
+  pm.appendChild(s1); pm.appendChild(s2); el2.appendChild(pm);
+  const track=document.createElement("div"); track.className="progress-track";
+  const fill=document.createElement("div"); fill.className="progress-fill";
+  fill.style.width=(goal>0?Math.min(100,(used.size/goal)*100):0)+"%";
+  fill.style.background=used.size>=goal?"#2d9e6b":"#e8901a";
+  track.appendChild(fill); el2.appendChild(track);
+  if(used.size>=goal){ const sm=document.createElement("div"); sm.className="success-msg"; sm.textContent="🎉 Bra! Du har nådd målet ditt med ordbank-ord!"; el2.appendChild(sm); }
+}
+
+function fillEssayMeta(el2,wc){
+  el2.innerHTML="";
+  const s1=document.createElement("span"); s1.textContent="Ord: "+wc; el2.appendChild(s1);
+  const s2=document.createElement("span");
+  s2.textContent=wc>=250&&wc<=350?"✓ Bra lengde!":wc>350?"For lang – prøv å korte ned":"Mål: 250–350 ord";
+  s2.style.color=wc>=250&&wc<=350?"#1a6b4a":wc>350?"#e05c5c":"#aaa";
+  el2.appendChild(s2);
+}
+
+function fillSidebarChips(container, used, relevantTopics){
+  container.innerHTML="";
+  const relTopics = relevantTopics && relevantTopics.length ? relevantTopics : null;
+
+  function makeUsedChip(w){
+    const c=el("div",{class:"wb-chip used"});
+    c.appendChild(el("div",{class:"wn"},`✓ ${w.word}`));
+    if(w.meaning)c.appendChild(el("div",{class:"wm"},w.meaning));
+    container.appendChild(c);
+  }
+  function makeUnusedChip(w, highlight){
+    const actualCat=w.category==="temaord"?"enkeltord":w.category;
+    const col=(CAT_MAP[actualCat]||CATS[0]).color;
+    const style=highlight
+      ?{background:"#f0faf5",borderLeftColor:"#2d9e6b"}
+      :{borderLeftColor:col};
+    const c=el("div",{class:"wb-chip",style});
+    const wn=el("div",{class:"wn",style:highlight?{color:"#1a6b4a"}:{}},w.word);
+    c.appendChild(wn);
+    if(w.meaning)c.appendChild(el("div",{class:"wm"},w.meaning));
+    if(highlight&&w.topic)c.appendChild(el("div",{style:{fontSize:"10px",color:"#2d9e6b",fontWeight:"600",marginTop:"2px"}},w.topic));
+    container.appendChild(c);
+  }
+  function sectionLabel(text, color){
+    container.appendChild(el("div",{style:{fontSize:"10px",fontWeight:"700",textTransform:"uppercase",
+      letterSpacing:".5px",color:color||"#bbb",margin:"8px 0 4px",
+      paddingBottom:"3px",borderBottom:"1px solid "+(color?"#2d9e6b22":"#eee")}},text));
+  }
+
+  if(relTopics){
+    const relUsed    = state.words.filter(w=>used.has(w.id)   &&  relTopics.includes(w.topic));
+    const relUnused  = state.words.filter(w=>!used.has(w.id)  &&  relTopics.includes(w.topic));
+    const otherUsed  = state.words.filter(w=>used.has(w.id)   && !relTopics.includes(w.topic));
+    const otherUnused= state.words.filter(w=>!used.has(w.id)  && !relTopics.includes(w.topic));
+
+    if(relUsed.length||relUnused.length){
+      sectionLabel("✨ Anbefalt for dette temaet","#2d9e6b");
+      relUsed.forEach(makeUsedChip);
+      relUnused.forEach(w=>makeUnusedChip(w,true));
+    }
+    if(otherUsed.length||otherUnused.length){
+      if(relUsed.length||relUnused.length) sectionLabel("Andre ord i ordbanken",null);
+      otherUsed.forEach(makeUsedChip);
+      otherUnused.forEach(w=>makeUnusedChip(w,false));
+    }
+  } else {
+    state.words.filter(w=>used.has(w.id)).forEach(makeUsedChip);
+    state.words.filter(w=>!used.has(w.id)).forEach(w=>makeUnusedChip(w,false));
+  }
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────
+function detectUsed(essay,words){
+  const used=new Set(); if(!essay.trim())return used;
+  const low=essay.toLowerCase();
+  words.forEach(w=>{ if(w.word.length>=2&&low.includes(w.word.toLowerCase()))used.add(w.id); });
+  return used;
+}
+function wcCount(t){return t.trim()?t.trim().split(/\s+/).length:0;}
+
+// ── FLASHCARDS TAB ───────────────────────────────────────────────────
+function buildFlashcards(){
+  const frag=document.createDocumentFragment();
+  if(!fc.started) return buildFcSetup(frag);
+  if(fc.idx>=fc.queue.length) return buildFcDone(frag);
+  return buildFcCard(frag);
+}
+
+function buildFcSetup(frag){
+  if(state.words.length<2){
+    frag.appendChild(el("div",{class:"empty-state"},
+      el("div",{class:"big"},"🎮"),
+      el("p",{style:{fontSize:"16px",marginBottom:"8px"}},"Trenger minst 2 ord!"),
+      el("p",{style:{fontSize:"14px"}},"Legg til ord i ordbanken for å spille.")));
+    return frag;
+  }
+
+  const card=el("div",{class:"fc-setup"});
+  card.appendChild(el("h2",{style:{fontSize:"18px",color:"#1a6b4a",marginBottom:"6px"}},"🎮 Flashcard-spill"));
+
+  // Description
+  const desc=el("div",{style:{background:"#f0f8f4",borderRadius:"10px",padding:"12px 16px",marginBottom:"18px",fontSize:"13px",color:"#555",lineHeight:"1.6"}});
+  desc.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"4px",color:"#1a6b4a"}},"Blandet modus — to typer kort:"));
+  desc.appendChild(el("div",{},"📖  Norsk ord vises → velg riktig engelsk oversettelse (flervalg)"));
+  desc.appendChild(el("div",{},"✍️  Engelsk oversettelse vises → skriv det norske ordet"));
+  card.appendChild(desc);
+
+  // Filters
+  const topics=getTopics();
+  if(topics.length>0||state.words.length>0){
+    card.appendChild(el("span",{class:"fc-section-label"},"FILTRER ORD (valgfritt)"));
+    if(topics.length>0){
+      const tBar=el("div",{class:"fc-filter-bar"});
+      tBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"TEMA: "));
+      [["","Alle"],...topics.map(t=>[t,t])].forEach(([val,label])=>
+        tBar.appendChild(el("button",{class:"topic-chip"+(fc.topicFilter===val?" active":""),
+          click(){fc.topicFilter=val;renderContent();}},label)));
+      card.appendChild(tBar);
+    }
+    const dBar=el("div",{class:"fc-filter-bar"});
+    dBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"TID: "));
+    [[0,"Alle"],[7,"Siste 7 dager"],[30,"Siste 30 dager"],[90,"Siste 3 måneder"]].forEach(([val,label])=>
+      dBar.appendChild(el("button",{class:"topic-chip"+(fc.timeFilter===val?" active":""),
+        click(){fc.timeFilter=val;renderContent();}},label)));
+    card.appendChild(dBar);
+  }
+
+  const avail=getFcWords();
+  card.appendChild(el("p",{style:{marginTop:"16px",fontSize:"13px",color:"#999"}},
+    `${avail.length} ord tilgjengelig med gjeldende filter`));
+  card.appendChild(el("button",{
+    class:"btn-add",style:{marginTop:"18px",padding:"13px 36px",fontSize:"15px"},
+    disabled:avail.length<2?"":null,
+    click:startFlashcards,
+  },avail.length>=2?"▶  Start spill":"Trenger minst 2 ord"));
+
+  frag.appendChild(card);
+  return frag;
+}
+
+// Shared score bar + progress for all card types
+function buildFcHeader(frag){
+  const bar=el("div",{class:"fc-score-bar"});
+  const nums=el("div",{class:"fc-score-nums"});
+  nums.appendChild(el("span",{class:"fc-score-ok"},`✓ ${fc.correct}`));
+  nums.appendChild(el("span",{class:"fc-score-err"},`✗ ${fc.wrong}`));
+  bar.appendChild(nums);
+  bar.appendChild(el("span",{style:{fontSize:"13px",color:"#aaa"}},`${fc.idx+1} / ${fc.queue.length}`));
+  bar.appendChild(el("button",{class:"btn-skip",style:{fontSize:"12px",padding:"6px 12px"},
+    click(){fc.started=false;renderContent();}},"⏹ Avslutt"));
+  frag.appendChild(bar);
+  const prog=el("div",{class:"fc-progress-wrap"});
+  prog.appendChild(el("div",{class:"fc-progress-fill",style:{width:(fc.idx/fc.queue.length*100)+"%"}}));
+  frag.appendChild(prog);
+}
+
+function buildFcCard(frag){
+  const item=fc.queue[fc.idx];
+  buildFcHeader(frag);
+  if(item._type==="write") buildFcWriteCard(frag,item);
+  else                      buildFcChoiceCard(frag,item);
+  return frag;
+}
+
+// ── Choice card: show Norwegian word → pick English meaning ──
+function buildFcChoiceCard(frag,word){
+  const opts=word._options;
+
+  const card=el("div",{class:"fc-card"});
+  const typeBadge=el("div",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"12px"}},"📖 Velg oversettelse");
+  card.appendChild(typeBadge);
+  card.appendChild(el("div",{class:"fc-word"},word.word));
+  if(word.topic) card.appendChild(el("div",{class:"fc-sub"},el("span",{class:"sent-topic-badge"},word.topic)));
+  card.appendChild(el("div",{class:"fc-question"},"— Hva betyr dette ordet? —"));
+  frag.appendChild(card);
+
+  const grid=el("div",{class:"fc-options"});
+  opts.forEach((opt,i)=>{
+    let cls="fc-opt";
+    if(fc.answered){
+      if(opt.correct) cls+=" correct";
+      else if(i===fc.chosenIdx) cls+=" wrong";
+      else cls+=" reveal";
+    }
+    grid.appendChild(el("button",{class:cls,disabled:fc.answered?"":null,
+      click(){
+        if(fc.answered)return;
+        fc.answered=true; fc.chosenIdx=i;
+        if(opt.correct)fc.correct++; else fc.wrong++;
+        renderContent();
+      }
+    },opt.text));
+  });
+  frag.appendChild(grid);
+
+  if(fc.answered){
+    const wasOk=opts[fc.chosenIdx]?.correct;
+    const fb=el("div",{class:"fc-feedback"});
+    fb.appendChild(el("div",{class:wasOk?"fc-feedback-ok":"fc-feedback-err"},wasOk?"✓ Riktig!":"✗ Feil"));
+    if(!wasOk){
+      const right=opts.find(o=>o.correct);
+      fb.appendChild(el("div",{class:"fc-correct-hint"},`Riktig svar: ${right?.text||""}`));
+    }
+    frag.appendChild(fb);
+    frag.appendChild(el("div",{class:"fc-nav"},
+      el("button",{class:"btn-fc-next",click(){
+        fc.idx++; fc.answered=false; fc.chosenIdx=null; renderContent();
+      }},fc.idx<fc.queue.length-1?"Neste →":"Se resultat →")));
+  }
+}
+
+// ── Write card: show English meaning → type Norwegian word ──
+function buildFcWriteCard(frag,word){
+  const meaning=word.meaning||"(ingen oversettelse)";
+  const actualCat=word.category==="temaord"?"enkeltord":word.category;
+  const cat=CAT_MAP[actualCat]||CATS[0];
+
+  const card=el("div",{class:"fc-card"});
+  card.appendChild(el("div",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"12px"}},"✍️ Skriv det norske ordet"));
+  card.appendChild(el("div",{class:"fc-word",style:{fontSize:"28px",color:"#333",fontWeight:"700"}},meaning));
+  card.appendChild(el("div",{class:"fc-sub"},el("span",{class:"sent-cat",style:{background:cat.color+"18",color:cat.color}},cat.label)));
+  card.appendChild(el("div",{class:"fc-question"},"— Hva er det norske ordet? —"));
+  frag.appendChild(card);
+
+  if(!fc.writeChecked){
+    // Input row
+    const row=el("div",{style:{display:"flex",gap:"10px",maxWidth:"520px",margin:"0 auto 16px"}});
+    const inp=el("input",{
+      id:"fc-write-inp",class:"text-input",type:"text",
+      placeholder:"Skriv norsk ord her…",
+      style:{fontSize:"16px",padding:"12px 16px",flex:"1"},
+      keydown(e){if(e.key==="Enter")fcCheckWrite(inp.value,word);}
+    });
+    inp.value=fc.writeInput;
+    row.appendChild(inp);
+    row.appendChild(el("button",{class:"btn-add",style:{whiteSpace:"nowrap",padding:"12px 20px",flexShrink:"0"},
+      click(){fcCheckWrite(inp.value,word);}
+    },"Sjekk →"));
+    frag.appendChild(row);
+    requestAnimationFrame(()=>{const i=$("fc-write-inp");if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}});
+  } else {
+    // Result
+    const wasOk=fc.writeResult;
+    const fb=el("div",{class:"fc-feedback"});
+    fb.appendChild(el("div",{style:{fontSize:"13px",color:"#bbb",marginBottom:"6px"}},`Du svarte: "${fc.writeInput}"`));
+    fb.appendChild(el("div",{class:wasOk?"fc-feedback-ok":"fc-feedback-err"},wasOk?"✓ Riktig!":"✗ Feil"));
+    if(!wasOk) fb.appendChild(el("div",{class:"fc-correct-hint"},`Riktig svar: ${word.word}`));
+    frag.appendChild(fb);
+    frag.appendChild(el("div",{class:"fc-nav"},
+      el("button",{class:"btn-fc-next",click(){
+        fc.idx++; fc.answered=false; fc.chosenIdx=null;
+        fc.writeInput=""; fc.writeChecked=false; fc.writeResult=false;
+        renderContent();
+      }},fc.idx<fc.queue.length-1?"Neste →":"Se resultat →")));
+  }
+}
+
+function fcCheckWrite(input,word){
+  fc.writeInput=input.trim();
+  const normalize=s=>s.toLowerCase().trim().replace(/^å\s+/,"").replace(/\s+/g," ");
+  fc.writeResult=normalize(fc.writeInput)===normalize(word.word);
+  fc.writeChecked=true;
+  if(fc.writeResult) fc.correct++; else fc.wrong++;
+  renderContent();
+}
+
+function buildFcDone(frag){
+  const total=fc.correct+fc.wrong;
+  const pct=total?Math.round(fc.correct/total*100):0;
+  const emoji=pct>=80?"🎉":pct>=60?"👍":"💪";
+  const msg=pct>=80?"Utmerket!":pct>=60?"Bra jobbet!":"Øv mer – du klarer det!";
+
+  const done=el("div",{class:"fc-done"});
+  done.appendChild(el("div",{class:"fc-done-emoji"},emoji));
+  done.appendChild(el("div",{class:"fc-done-score"},`${fc.correct} / ${total} riktig`));
+  done.appendChild(el("div",{class:"fc-done-pct"},`${pct}% — ${msg}`));
+  const nav=el("div",{class:"fc-nav"});
+  nav.appendChild(el("button",{class:"btn-fc-next",click:startFlashcards},"🔄 Spill igjen"));
+  nav.appendChild(el("button",{class:"btn-sec",style:{padding:"12px 28px",fontSize:"14px"},
+    click(){fc.started=false;renderContent();}},"⚙️ Endre innstillinger"));
+  done.appendChild(nav);
+  frag.appendChild(done);
+  return frag;
+}
+
+function getFcWords(){
+  let w=state.words.slice();
+  if(fc.topicFilter) w=w.filter(x=>x.topic===fc.topicFilter);
+  if(fc.timeFilter){const cut=Date.now()-fc.timeFilter*24*60*60*1000;w=w.filter(x=>(x.createdAt||0)>=cut);}
+  return w;
+}
+
+function startFlashcards(){
+  const words=getFcWords();
+  if(words.length<2){toast("Trenger minst 2 ord med gjeldende filter.");return;}
+  // Randomly assign card type and pre-generate options so they never reshuffle on re-render
+  fc.queue=shuffle(words).map(w=>{
+    const type=Math.random()<0.5?"write":"choice";
+    return {...w,_type:type,_options:type==="choice"?fcGetOptions(w):null};
+  });
+  fc.idx=0; fc.correct=0; fc.wrong=0;
+  fc.answered=false; fc.chosenIdx=null;
+  fc.writeInput=""; fc.writeChecked=false; fc.writeResult=false;
+  fc.started=true;
+  renderContent();
+}
+
+function fcGetOptions(word){
+  const correct=word.meaning||word.word;
+  const pool=shuffle(state.words.filter(w=>w.id!==word.id&&w.meaning&&w.meaning.trim())).slice(0,3).map(w=>w.meaning);
+  while(pool.length<3) pool.push("—");
+  return shuffle([{text:correct,correct:true},...pool.map(t=>({text:t,correct:false}))]);
+}
+
+// ── PRINT ─────────────────────────────────────────────────────────────
+function printWords(mode){
+  const filtered=getFilteredWords();
+  if(!filtered.length){toast("Ingen ord å skrive ut med gjeldende filter.");return;}
+
+  const parts=[];
+  if(state.topicFilter) parts.push("Tema: "+state.topicFilter);
+  if(state.timeFilter)  parts.push("Siste "+state.timeFilter+" dager");
+  const filterDesc=parts.length?parts.join(" · "):"Alle ord";
+
+  const win=window.open("","_blank");
+  if(!win){toast("Popup ble blokkert – tillat popup for å skrive ut.");return;}
+
+  if(mode==="cloud"){
+    const colors=["#1a6b4a","#4f6ef7","#e8901a","#7c4dff","#e05c5c","#2d9e6b","#1a9ec4","#b8860b","#c0392b","#16a085"];
+    const sizes=[16,18,20,22,26,30,34,38,44,50];
+    const wordsHtml=filtered.map(w=>{
+      const size=sizes[Math.floor(Math.random()*sizes.length)];
+      const color=colors[Math.floor(Math.random()*colors.length)];
+      const rot=Math.floor(Math.random()*26)-13;
+      return `<span style="font-size:${size}px;color:${color};transform:rotate(${rot}deg);display:inline-block;font-weight:700;margin:8px 14px;line-height:1.2;white-space:nowrap">${w.word}</span>`;
+    }).join("");
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordsky</title>
+<style>
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
+  h1{text-align:center;color:#1a6b4a;font-size:26px;margin-bottom:6px;}
+  .sub{text-align:center;color:#aaa;font-size:13px;margin-bottom:30px;}
+  .cloud{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;padding:20px 10px;max-width:720px;margin:0 auto;}
+  @media print{@page{margin:1.5cm;}body{padding:10px;}}
+</style></head><body>
+<h1>🇳🇴 Norsk Ordsky</h1>
+<div class="sub">${filterDesc} &nbsp;·&nbsp; ${filtered.length} ord</div>
+<div class="cloud">${wordsHtml}</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`);
+    win.document.close();
+
+  } else {
+    const rows=filtered.map(w=>{
+      const tag=w.topic?`<span style="padding:1px 7px;border-radius:10px;background:#f0e68c;color:#776;font-size:11px;margin-left:7px">${w.topic}</span>`:"";
+      return `<tr><td style="font-weight:700;color:#1a6b4a;padding:9px 14px;border-bottom:1px solid #eee;font-size:14px">${w.word}${tag}</td><td style="color:#555;padding:9px 14px;border-bottom:1px solid #eee;font-size:14px">${w.meaning||""}</td></tr>`;
+    }).join("");
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordliste</title>
+<style>
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
+  h1{text-align:center;color:#1a6b4a;font-size:26px;margin-bottom:6px;}
+  .sub{text-align:center;color:#aaa;font-size:13px;margin-bottom:24px;}
+  table{width:100%;border-collapse:collapse;}
+  th{background:#1a6b4a;color:#fff;padding:10px 14px;text-align:left;font-size:13px;font-weight:700;}
+  tr:nth-child(even) td{background:#f9fdf9;}
+  @media print{@page{margin:1.5cm;}body{padding:0;}}
+</style></head><body>
+<h1>🇳🇴 Norsk Ordliste</h1>
+<div class="sub">${filterDesc} &nbsp;·&nbsp; ${filtered.length} ord</div>
+<table><thead><tr><th>Norsk ord / uttrykk</th><th>Betydning</th></tr></thead><tbody>${rows}</tbody></table>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`);
+    win.document.close();
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────
+renderTabs();
+renderContent();
+</script>
+</body>
+</html>
