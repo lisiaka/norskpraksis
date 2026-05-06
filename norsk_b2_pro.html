@@ -129,6 +129,32 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .btn-lookup:disabled{opacity:.45;cursor:default;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinning{display:inline-block;animation:spin .8s linear infinite;}
+/* ── Essay bank ── */
+.essay-bank-panel{background:#f8fdf9;border-radius:14px;border:1.5px solid #d4edda;padding:16px;margin-top:14px;}
+.essay-bank-panel h3{font-size:13px;color:#1a6b4a;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.essay-bank-empty{font-size:13px;color:#bbb;text-align:center;padding:18px 0;}
+.saved-essay-row{background:#fff;border-radius:10px;border:1.5px solid #e8f0e8;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;transition:border-color .2s;}
+.saved-essay-row:hover{border-color:#2d9e6b;}
+.saved-essay-info{flex:1;min-width:0;}
+.saved-essay-title{font-weight:700;font-size:14px;color:#222;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.saved-essay-meta{font-size:12px;color:#999;line-height:1.5;}
+.saved-essay-level{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-left:6px;}
+.saved-essay-actions{display:flex;gap:6px;flex-shrink:0;}
+.btn-load-essay{padding:5px 12px;background:#edfaf3;border:1.5px solid #2d9e6b;border-radius:7px;font-size:12px;color:#1a6b4a;font-weight:700;}
+.btn-del-essay{padding:5px 10px;background:#fff5f5;border:1.5px solid #e05c5c;border-radius:7px;font-size:12px;color:#e05c5c;font-weight:700;}
+/* ── Print / PDF export ── */
+#pdf-print-area{display:none;}
+@media print{
+  body>*{display:none!important;}
+  #pdf-print-area{display:block!important;font-family:'Georgia',serif;max-width:720px;margin:0 auto;padding:20px;}
+  #pdf-print-area .pdf-header{border-bottom:2px solid #1a6b4a;padding-bottom:12px;margin-bottom:20px;}
+  #pdf-print-area .pdf-app-name{font-size:11px;color:#888;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;}
+  #pdf-print-area .pdf-title{font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px;}
+  #pdf-print-area .pdf-topic{font-size:13px;color:#555;}
+  #pdf-print-area .pdf-prompt{background:#f5f5f5;border-left:4px solid #1a6b4a;padding:10px 14px;border-radius:4px;margin-bottom:20px;font-size:13px;line-height:1.6;color:#333;}
+  #pdf-print-area .pdf-body{font-size:15px;line-height:1.9;color:#222;white-space:pre-wrap;}
+  #pdf-print-area .pdf-footer{border-top:1px solid #ddd;margin-top:24px;padding-top:10px;font-size:11px;color:#aaa;display:flex;justify-content:space-between;}
+}
 .lookup-status{font-size:12px;margin-top:5px;min-height:16px;line-height:1.5;}
 .lookup-status a{color:#1a6b4a;text-decoration:none;font-weight:600;}
 .lookup-status a:hover{text-decoration:underline;}
@@ -210,6 +236,20 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
   <div id="content"></div>
 </div>
 <div class="toast" id="toast"></div>
+<!-- Hidden print area for PDF export -->
+<div id="pdf-print-area">
+  <div class="pdf-header">
+    <div class="pdf-app-name">B2 Norsk Treningsverktøy</div>
+    <div class="pdf-title" id="pdf-title"></div>
+    <div class="pdf-topic" id="pdf-topic"></div>
+  </div>
+  <div class="pdf-prompt" id="pdf-prompt-text"></div>
+  <div class="pdf-body" id="pdf-body"></div>
+  <div class="pdf-footer">
+    <span id="pdf-date"></span>
+    <span id="pdf-wordcount"></span>
+  </div>
+</div>
 
 <script>
 // ── DATA ──────────────────────────────────────────────────────────────
@@ -312,6 +352,112 @@ const form = { word:"", meaning:"", category:"enkeltord", topic:"" };
 const SK = "b2_words_v2";
 function loadStorage(){ try{ state.words = JSON.parse(localStorage.getItem(SK)||"[]"); }catch{} }
 function saveStorage(){ try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{} }
+
+const SK_ESSAYS = "b2_essay_bank_v1";
+function loadEssayBank(){ try{ return JSON.parse(localStorage.getItem(SK_ESSAYS)||"[]"); }catch{ return []; } }
+function saveEssayBank(bank){ try{ localStorage.setItem(SK_ESSAYS, JSON.stringify(bank)); }catch{} }
+
+function saveCurrentEssay(){
+  const ta=$("essay-ta");
+  const essayText=(ta?ta.value:state.essay).trim();
+  if(!essayText){toast("Ingen tekst å lagre – skriv noe først!");return;}
+  const bank=loadEssayBank();
+  // Check for duplicate (same prompt + same first 80 chars → update instead of duplicate)
+  const promptId=state.currentPrompt?.id||"";
+  const snippet=essayText.substring(0,80);
+  const existIdx=bank.findIndex(e=>e.promptId===promptId&&e.text.substring(0,80)===snippet);
+  const entry={
+    id: existIdx>=0?bank[existIdx].id:"essay_"+Date.now(),
+    title: state.currentPrompt?.title||"Uten tittel",
+    topic: state.currentTopic||"",
+    topicName: state.currentTopic?(TOPICS[state.currentTopic]?.name||state.currentTopic):"",
+    promptId,
+    promptText: state.currentPrompt?.text||"",
+    text: essayText,
+    wordCount: wcCount(essayText),
+    savedAt: new Date().toISOString(),
+    claudeLevel: null, // filled in if Claude check was done
+  };
+  if(existIdx>=0){ bank[existIdx]=entry; }else{ bank.unshift(entry); }
+  saveEssayBank(bank);
+  toast("✅ Essayet er lagret!");
+  refreshEssayBank();
+}
+
+function deleteEssay(id){
+  const bank=loadEssayBank().filter(e=>e.id!==id);
+  saveEssayBank(bank);
+  refreshEssayBank();
+}
+
+function loadEssayIntoEditor(entry){
+  state.essay=entry.text;
+  const ta=$("essay-ta"); if(ta) ta.value=entry.text;
+  // Restore topic/prompt if different
+  if(entry.topic && TOPICS[entry.topic]){
+    state.currentTopic=entry.topic;
+    // Try to find the matching prompt
+    const prompts=TOPICS[entry.topic]?.prompts||[];
+    const found=prompts.find(p=>p.id===entry.promptId||p.text===entry.promptText);
+    if(found) state.currentPrompt=found; else if(prompts.length) state.currentPrompt=prompts[0];
+  }
+  updateWritePanel();
+  const egr=$("essay-grammar-result"); if(egr){egr.innerHTML="";egr.style.display="none";}
+  renderTabs(); renderContent();
+  toast("📂 Essay lastet inn!");
+}
+
+function exportEssayPDF(){
+  const ta=$("essay-ta");
+  const essayText=(ta?ta.value:state.essay).trim();
+  if(!essayText){toast("Ingen tekst å eksportere!");return;}
+  const title=state.currentPrompt?.title||"Essay";
+  const topicMeta=state.currentTopic?TOPICS[state.currentTopic]:null;
+  const topicLabel=topicMeta?`${topicMeta.emoji} ${topicMeta.name}`:"";
+  const promptTxt=state.currentPrompt?.text||"";
+  const wc=wcCount(essayText);
+  const dateStr=new Date().toLocaleDateString("nb-NO",{year:"numeric",month:"long",day:"numeric"});
+  // Fill the hidden print area
+  const pdfTitle=$("pdf-title"); if(pdfTitle) pdfTitle.textContent=title;
+  const pdfTopic=$("pdf-topic"); if(pdfTopic) pdfTopic.textContent=topicLabel;
+  const pdfPrompt=$("pdf-prompt-text"); if(pdfPrompt) pdfPrompt.textContent=promptTxt?`Oppgave: ${promptTxt}`:"";
+  const pdfBody=$("pdf-body"); if(pdfBody) pdfBody.textContent=essayText;
+  const pdfDate=$("pdf-date"); if(pdfDate) pdfDate.textContent=dateStr;
+  const pdfWc=$("pdf-wordcount"); if(pdfWc) pdfWc.textContent=`${wc} ord · B2`;
+  window.print();
+}
+
+function refreshEssayBank(){
+  const panel=$("essay-bank-list"); if(!panel) return;
+  panel.innerHTML="";
+  const bank=loadEssayBank();
+  if(bank.length===0){
+    panel.appendChild(el("div",{class:"essay-bank-empty"},"Ingen lagrede essayer ennå."));
+    return;
+  }
+  bank.forEach(entry=>{
+    const row=el("div",{class:"saved-essay-row"});
+    const info=el("div",{class:"saved-essay-info"});
+    const titleDiv=el("div",{class:"saved-essay-title"});
+    titleDiv.textContent=entry.title;
+    if(entry.claudeLevel){
+      const LEVEL_COLORS={"A1":"#e74c3c","A2":"#e67e22","B1":"#f39c12","B2":"#2ecc71","C1":"#27ae60","C2":"#1abc9c"};
+      const lv=el("span",{class:"saved-essay-level",style:{background:(LEVEL_COLORS[entry.claudeLevel]||"#ccc")+"22",color:(LEVEL_COLORS[entry.claudeLevel]||"#888")}},entry.claudeLevel);
+      titleDiv.appendChild(lv);
+    }
+    info.appendChild(titleDiv);
+    const metaDiv=el("div",{class:"saved-essay-meta"});
+    const dateStr=new Date(entry.savedAt).toLocaleDateString("nb-NO",{day:"numeric",month:"short",year:"numeric"});
+    metaDiv.textContent=`${entry.topicName||entry.topic||"–"} · ${entry.wordCount} ord · ${dateStr}`;
+    info.appendChild(metaDiv);
+    row.appendChild(info);
+    const acts=el("div",{class:"saved-essay-actions"});
+    acts.appendChild(el("button",{class:"btn-load-essay",click(){loadEssayIntoEditor(entry);}},"📂 Åpne"));
+    acts.appendChild(el("button",{class:"btn-del-essay",click(){if(confirm("Slette dette essayet?"))deleteEssay(entry.id);}},"🗑️"));
+    row.appendChild(acts);
+    panel.appendChild(row);
+  });
+}
 loadStorage();
 
 // ── MINI DOM HELPER ───────────────────────────────────────────────────
@@ -1167,6 +1313,10 @@ function buildSkriv(){
     const egr=$("essay-grammar-result"); if(egr){egr.innerHTML="";egr.style.display="none";}
   }},"🗑️ Tøm tekst"));
   ar.appendChild(el("button",{class:"btn-sec",click(){setTab("oppgaver");}},"🔀 Bytt tema"));
+  ar.appendChild(el("button",{class:"btn-sec",style:{background:"#edfaf3",borderColor:"#2d9e6b",color:"#1a6b4a",fontWeight:"700"},
+    click:saveCurrentEssay},"💾 Lagre essay"));
+  ar.appendChild(el("button",{class:"btn-sec",style:{background:"#f0f4ff",borderColor:"#6c8ebf",color:"#2c4a7a",fontWeight:"700"},
+    click:exportEssayPDF},"📄 Eksporter PDF"));
   ar.appendChild(el("button",{
     class:"btn-sec",
     style:{background:state.claudeKey?"#edfaf3":"#f9f9f9",borderColor:state.claudeKey?"#2d9e6b":"#dde",color:state.claudeKey?"#1a6b4a":"#aaa",fontWeight:"700"},
@@ -1184,6 +1334,18 @@ function buildSkriv(){
   // Essay Claude result area
   const essayGrammarDiv=el("div",{id:"essay-grammar-result",class:"grammar-result",style:{display:"none",marginTop:"14px"}});
   left.appendChild(essayGrammarDiv);
+
+  // ── Essay bank panel ──
+  const bankPanel=el("div",{class:"essay-bank-panel"});
+  const bankHdr=el("div",{});
+  bankHdr.appendChild(el("h3",{},["💾 Mine lagrede essayer",
+    el("span",{style:{fontSize:"12px",fontWeight:"500",color:"#888",marginLeft:"8px"}},`(${loadEssayBank().length})`)
+  ]));
+  bankPanel.appendChild(bankHdr);
+  const bankList=el("div",{id:"essay-bank-list"});
+  bankPanel.appendChild(bankList);
+  refreshEssayBank(); // populate synchronously
+  left.appendChild(bankPanel);
 
   layout.appendChild(left);
 
@@ -1295,6 +1457,14 @@ Keep grammarErrors to the most important 3-5 errors. Keep strengths and improvem
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
     renderEssayClaudeResult(result, container);
+    // Save the Claude level back into the essay bank entry if this essay is already saved
+    if(result.level){
+      const ta=$("essay-ta");
+      const currentText=(ta?ta.value:state.essay).trim();
+      const bank=loadEssayBank();
+      const idx=bank.findIndex(e=>e.text.trim()===currentText);
+      if(idx>=0){ bank[idx].claudeLevel=result.level; saveEssayBank(bank); refreshEssayBank(); }
+    }
   }catch(err){
     container.innerHTML="";
     const isKeyError=err.message?.includes("401")||err.message?.includes("403")||err.message?.includes("invalid");
