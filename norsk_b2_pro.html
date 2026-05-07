@@ -16,8 +16,12 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 ::-webkit-scrollbar-thumb{background:#b5cdb8;border-radius:3px;}
 #app{max-width:980px;margin:0 auto;padding:20px 16px 60px;}
 .header{background:linear-gradient(135deg,#1a6b4a,#2d9e6b);border-radius:18px;padding:22px 28px;margin-bottom:22px;color:#fff;box-shadow:0 4px 20px rgba(26,107,74,.22);}
+.header-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
 .header h1{font-size:24px;font-weight:800;margin-bottom:4px;}
 .header p{opacity:.83;font-size:14px;}
+.user-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;color:#fff;white-space:nowrap;cursor:pointer;transition:background .2s;flex-shrink:0;}
+.user-badge:hover{background:rgba(255,255,255,.28);}
+.user-badge .ub-icon{font-size:15px;}
 .tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
 .tab-btn{padding:10px 22px;border-radius:10px;border:2px solid #e0e8e0;background:#fff;color:#444;font-weight:500;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
 .tab-btn.active{background:#1a6b4a;border-color:#1a6b4a;color:#fff;font-weight:700;box-shadow:0 2px 12px rgba(26,107,74,.2);}
@@ -263,7 +267,7 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 </head>
 <body>
 <div id="app">
-  <div class="header">
+  <div class="header" id="main-header">
     <h1>🇳🇴 B2 Prøve i Norsk — Treningsverktøy</h1>
     <p>Bygg ordforrådet ditt · Automatisk oversettelse · Importer / eksporter · Øv på å skrive</p>
   </div>
@@ -584,6 +588,24 @@ function getSentWords(){
     : state.words;
 }
 
+// ── HEADER ────────────────────────────────────────────────────────────
+function renderHeader(){
+  const hdr = $("main-header");
+  if(!hdr) return;
+  hdr.innerHTML = "";
+  const top = el("div",{class:"header-top"});
+  const left = el("div",{});
+  left.appendChild(el("h1",{},"🇳🇴 B2 Prøve i Norsk — Treningsverktøy"));
+  left.appendChild(el("p",{},"Bygg ordforrådet ditt · Automatisk oversettelse · Importer / eksporter · Øv på å skrive"));
+  top.appendChild(left);
+  const badge = el("button",{class:"user-badge",title:"Klikk for å bytte bruker",
+    click(){setTab("ordbank"); setTimeout(()=>{ const u=$("user-id-input"); if(u){u.scrollIntoView({behavior:"smooth"});u.focus();} },80);}});
+  badge.appendChild(el("span",{class:"ub-icon"},"👤"));
+  badge.appendChild(el("span",{},state.userId));
+  top.appendChild(badge);
+  hdr.appendChild(top);
+}
+
 // ── TABS ──────────────────────────────────────────────────────────────
 function renderTabs(){
   const c=$("tabs"); c.innerHTML="";
@@ -768,6 +790,7 @@ function buildOrdbank(){
     const id=v||"default";
     state.userId=id;
     try{localStorage.setItem("b2_user_id",id);}catch{}
+    renderHeader();
     const s=$("user-id-status");
     if(s){s.textContent=`✓ Bruker-ID satt til «${id}» — laster ordbank…`;s.style.color="#2d9e6b";}
     syncWordsFromServer().then(()=>{if(s)s.textContent=`✓ Bruker-ID: «${id}» — ordbank lastet`;});
@@ -2614,6 +2637,7 @@ function buildStatistik(){
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────
+renderHeader();
 renderTabs();
 renderContent();
 </script>
