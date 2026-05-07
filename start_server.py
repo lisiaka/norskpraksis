@@ -43,6 +43,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._get_stats()
         elif self.path.startswith("/words/"):
             self._get_words()
+        elif self.path.startswith("/essays/"):
+            self._get_json_file("essays")
+        elif self.path.startswith("/sentences/"):
+            self._get_json_file("sentences")
         else:
             super().do_GET()
 
@@ -53,6 +57,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._post_stats()
         elif self.path.startswith("/words/"):
             self._post_words()
+        elif self.path.startswith("/essays/"):
+            self._post_json_file("essays")
+        elif self.path.startswith("/sentences/"):
+            self._post_json_file("sentences")
         else:
             self.send_error(404, "Not found")
 
@@ -68,11 +76,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return None
         return os.path.join(STATS_DIR, f"stats_{user_id}.json")
 
-    def _words_file(self):
-        user_id = self._user_id_from_path()
-        if not user_id:
-            return None
-        return os.path.join(STATS_DIR, f"words_{user_id}.json")
 
     def _get_stats(self):
         path = self._stats_file()
@@ -107,8 +110,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self._send_json(500, {"error": str(e)})
 
+    def _data_file(self, prefix):
+        user_id = self._user_id_from_path()
+        if not user_id:
+            return None
+        return os.path.join(STATS_DIR, f"{prefix}_{user_id}.json")
+
     def _get_words(self):
-        path = self._words_file()
+        path = self._data_file("words")
         if not path:
             self.send_error(400, "Bad userId"); return
         if os.path.exists(path):
@@ -119,15 +128,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._send_raw(200, data)
 
     def _post_words(self):
-        """Replace the user's entire word bank."""
-        path = self._words_file()
+        path = self._data_file("words")
         if not path:
             self.send_error(400, "Bad userId"); return
         try:
             length = int(self.headers.get("Content-Length", 0))
-            words = json.loads(self.rfile.read(length))
+            payload = json.loads(self.rfile.read(length))
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(words, f, ensure_ascii=False, indent=2)
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            self._send_json(200, {"ok": True})
+        except Exception as e:
+            self._send_json(500, {"error": str(e)})
+
+    def _get_json_file(self, prefix):
+        """Generic GET for essays and sentences."""
+        path = self._data_file(prefix)
+        if not path:
+            self.send_error(400, "Bad userId"); return
+        empty = "[]" if prefix == "essays" else "{}"
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                data = f.read()
+        else:
+            data = empty.encode()
+        self._send_raw(200, data)
+
+    def _post_json_file(self, prefix):
+        """Generic POST (replace) for essays and sentences."""
+        path = self._data_file(prefix)
+        if not path:
+            self.send_error(400, "Bad userId"); return
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            payload = json.loads(self.rfile.read(length))
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
             self._send_json(200, {"ok": True})
         except Exception as e:
             self._send_json(500, {"error": str(e)})
