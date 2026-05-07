@@ -22,6 +22,18 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .user-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;color:#fff;white-space:nowrap;cursor:pointer;transition:background .2s;flex-shrink:0;}
 .user-badge:hover{background:rgba(255,255,255,.28);}
 .user-badge .ub-icon{font-size:15px;}
+/* ── Login screen ── */
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1a6b4a,#2d9e6b);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.login-card{background:#fff;border-radius:22px;padding:44px 40px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.18);text-align:center;}
+.login-card .login-flag{font-size:52px;margin-bottom:12px;}
+.login-card h2{font-size:22px;font-weight:800;color:#1a1a1a;margin-bottom:6px;}
+.login-card p{font-size:14px;color:#888;margin-bottom:28px;line-height:1.5;}
+.login-input{width:100%;padding:13px 16px;border-radius:11px;border:2px solid #dde;font-size:16px;text-align:center;font-family:inherit;margin-bottom:12px;transition:border-color .2s;}
+.login-input:focus{border-color:#2d9e6b!important;outline:none;box-shadow:0 0 0 3px rgba(45,158,107,.13);}
+.login-btn{width:100%;padding:13px;background:#1a6b4a;color:#fff;border:none;border-radius:11px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(26,107,74,.3);transition:opacity .15s;}
+.login-btn:hover{opacity:.88;}
+.login-btn:disabled{opacity:.4;cursor:default;}
+.login-hint{font-size:12px;color:#bbb;margin-top:10px;}
 .tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
 .tab-btn{padding:10px 22px;border-radius:10px;border:2px solid #e0e8e0;background:#fff;color:#444;font-weight:500;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
 .tab-btn.active{background:#1a6b4a;border-color:#1a6b4a;color:#fff;font-weight:700;box-shadow:0 2px 12px rgba(26,107,74,.2);}
@@ -266,7 +278,18 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 </style>
 </head>
 <body>
-<div id="app">
+<div id="login-screen" style="display:none">
+  <div class="login-card">
+    <div class="login-flag">🇳🇴</div>
+    <h2>B2 Norsk Treningsverktøy</h2>
+    <p>Skriv inn brukernavnet ditt for å laste inn ordbanken og statistikken din.</p>
+    <input id="login-input" class="login-input" type="text" placeholder="Brukernavn" autocomplete="off" autocapitalize="off"/>
+    <button id="login-btn" class="login-btn" disabled>Logg inn →</button>
+    <div class="login-hint">Nytt brukernavn? Bare skriv det inn og trykk Logg inn.</div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
   <div class="header" id="main-header">
     <h1>🇳🇴 B2 Prøve i Norsk — Treningsverktøy</h1>
     <p>Bygg ordforrådet ditt · Automatisk oversettelse · Importer / eksporter · Øv på å skrive</p>
@@ -598,8 +621,7 @@ function renderHeader(){
   left.appendChild(el("h1",{},"🇳🇴 B2 Prøve i Norsk — Treningsverktøy"));
   left.appendChild(el("p",{},"Bygg ordforrådet ditt · Automatisk oversettelse · Importer / eksporter · Øv på å skrive"));
   top.appendChild(left);
-  const badge = el("button",{class:"user-badge",title:"Klikk for å bytte bruker",
-    click(){setTab("ordbank"); setTimeout(()=>{ const u=$("user-id-input"); if(u){u.scrollIntoView({behavior:"smooth"});u.focus();} },80);}});
+  const badge = el("button",{class:"user-badge",title:"Klikk for å bytte bruker",click:switchUser});
   badge.appendChild(el("span",{class:"ub-icon"},"👤"));
   badge.appendChild(el("span",{},state.userId));
   top.appendChild(badge);
@@ -2636,10 +2658,76 @@ function buildStatistik(){
   return frag;
 }
 
+// ── LOGIN ─────────────────────────────────────────────────────────────
+async function loginAs(userId){
+  const id = userId.trim().replace(/[^a-zA-Z0-9_\-æøåÆØÅ]/g,"");
+  if(!id) return;
+  state.userId = id;
+  try{ localStorage.setItem("b2_user_id", id); }catch{}
+
+  // Reset all game/session state
+  statsCache = null;
+  fc.started = false; fc.queue = []; fc.log = [];
+  ws.started = false; ws.sentences = [];
+  state.words = []; state.sentences = {}; state.essay = "";
+  state.currentTopic = null; state.currentPrompt = null;
+
+  // Load this user's words from server (fall back to localStorage if offline)
+  try{
+    const r = await fetch(`/words/${encodeURIComponent(id)}`);
+    if(r.ok){
+      const serverWords = await r.json();
+      if(Array.isArray(serverWords) && serverWords.length > 0){
+        state.words = serverWords;
+        try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
+      } else {
+        loadStorage(); // nothing on server yet — use local
+      }
+    } else { loadStorage(); }
+  } catch(e){ loadStorage(); }
+
+  // Show app
+  $("login-screen").style.display = "none";
+  $("app").style.display = "";
+  renderHeader();
+  renderTabs();
+  renderContent();
+}
+
+function switchUser(){
+  // Hide app, clear displayed state, show login
+  $("app").style.display = "none";
+  $("login-screen").style.display = "flex";
+  const inp = $("login-input");
+  if(inp){ inp.value = ""; inp.focus(); }
+  // Clear userId from localStorage so refresh also shows login
+  try{ localStorage.removeItem("b2_user_id"); }catch{}
+  state.userId = "";
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────
-renderHeader();
-renderTabs();
-renderContent();
+(function init(){
+  const savedId = localStorage.getItem("b2_user_id");
+  const loginScreen = $("login-screen");
+  const loginInput  = $("login-input");
+  const loginBtn    = $("login-btn");
+
+  // Wire up login input
+  loginInput.addEventListener("input", ()=>{
+    const v = loginInput.value.trim();
+    loginBtn.disabled = v.length === 0;
+  });
+  loginInput.addEventListener("keydown", e=>{ if(e.key==="Enter" && !loginBtn.disabled) loginBtn.click(); });
+  loginBtn.addEventListener("click", ()=>loginAs(loginInput.value));
+
+  if(savedId && savedId !== "default"){
+    // Auto-login with saved ID
+    loginAs(savedId);
+  } else {
+    // Show login screen
+    loginScreen.style.display = "flex";
+  }
+})();
 </script>
 </body>
 </html>
