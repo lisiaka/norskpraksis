@@ -438,12 +438,27 @@ function trackEvent(type, data){
 
 // ── STORAGE ───────────────────────────────────────────────────────────
 const SK = "b2_words_v2";
+// Per-user localStorage key — never shared between users
+const skWords = id => `b2_words_${id}`;
+const skSents = id => `b2_sentences_${id}`;
+
 function loadStorage(){ try{ state.words = JSON.parse(localStorage.getItem(SK)||"[]"); }catch{} }
 function saveStorage(){
-  try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
+  try{
+    localStorage.setItem(SK, JSON.stringify(state.words));
+    localStorage.setItem(skWords(state.userId), JSON.stringify(state.words));
+  }catch{}
   fetch(`/words/${encodeURIComponent(state.userId)}`,{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify(state.words)
+  }).catch(()=>{});
+}
+
+function saveSentences(){
+  try{ localStorage.setItem(skSents(state.userId), JSON.stringify(state.sentences)); }catch{}
+  fetch(`/sentences/${encodeURIComponent(state.userId)}`,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(state.sentences)
   }).catch(()=>{});
 }
 
@@ -463,8 +478,15 @@ async function syncWordsFromServer(){
 }
 
 const SK_ESSAYS = "b2_essay_bank_v1";
-function loadEssayBank(){ try{ return JSON.parse(localStorage.getItem(SK_ESSAYS)||"[]"); }catch{ return []; } }
-function saveEssayBank(bank){ try{ localStorage.setItem(SK_ESSAYS, JSON.stringify(bank)); }catch{} }
+const skEssays = id => `b2_essays_${id}`;
+function loadEssayBank(){ try{ return JSON.parse(localStorage.getItem(skEssays(state.userId))||localStorage.getItem(SK_ESSAYS)||"[]"); }catch{ return []; } }
+function saveEssayBank(bank){
+  try{ localStorage.setItem(skEssays(state.userId), JSON.stringify(bank)); }catch{}
+  fetch(`/essays/${encodeURIComponent(state.userId)}`,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(bank)
+  }).catch(()=>{});
+}
 
 function saveCurrentEssay(){
   const ta=$("essay-ta");
@@ -2659,50 +2681,58 @@ function buildStatistik(){
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────
+async function fetchUserData(endpoint, fallbackLocalKey, emptyVal){
+  // Try server first, then per-user localStorage key, then shared legacy key, then empty
+  try{
+    const r = await fetch(endpoint);
+    if(r.ok){
+      const data = await r.json();
+      const isEmpty = Array.isArray(data) ? data.length === 0 : Object.keys(data).length === 0;
+      if(!isEmpty) return { data, fromServer: true };
+    }
+  } catch(e){}
+  // Server unreachable or empty — try per-user localStorage
+  try{
+    const local = JSON.parse(localStorage.getItem(fallbackLocalKey)||"null");
+    if(local && (Array.isArray(local) ? local.length > 0 : Object.keys(local).length > 0))
+      return { data: local, fromServer: false };
+  } catch(e){}
+  return { data: emptyVal, fromServer: false };
+}
+
 async function loginAs(userId){
   const id = userId.trim().replace(/[^a-zA-Z0-9_\-æøåÆØÅ]/g,"");
   if(!id) return;
-  state.userId = id;
-  try{ localStorage.setItem("b2_user_id", id); }catch{}
 
-  // Reset all game/session state
+  // Reset all game/session state before setting userId
   statsCache = null;
   fc.started = false; fc.queue = []; fc.log = [];
   ws.started = false; ws.sentences = [];
   state.words = []; state.sentences = {}; state.essay = "";
   state.currentTopic = null; state.currentPrompt = null;
 
-  // Load this user's words from server; only fall back to localStorage if server is unreachable
-  try{
-    const r = await fetch(`/words/${encodeURIComponent(id)}`);
-    if(r.ok){
-      const serverWords = await r.json();
-      if(Array.isArray(serverWords) && serverWords.length > 0){
-        // Server has words for this user — use them
-        state.words = serverWords;
-        try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
-      } else {
-        // Server has nothing — check if localStorage has words saved for this same user
-        const savedUserId = localStorage.getItem("b2_user_id");
-        const localWords = JSON.parse(localStorage.getItem(SK)||"[]");
-        if(savedUserId === id && localWords.length > 0){
-          // Migrate existing localStorage words to the server
-          state.words = localWords;
-          fetch(`/words/${encodeURIComponent(id)}`,{
-            method:"POST",headers:{"Content-Type":"application/json"},
-            body:JSON.stringify(state.words)
-          }).catch(()=>{});
-        } else {
-          // Genuinely new user — start empty
-          state.words = [];
-          try{ localStorage.setItem(SK, JSON.stringify([])); }catch{}
-        }
-      }
-    }
-  } catch(e){
-    // Server unreachable — try localStorage as last resort
-    loadStorage();
-  }
+  state.userId = id;
+  try{ localStorage.setItem("b2_user_id", id); }catch{}
+
+  // Load words, sentences and essays in parallel
+  const [wordsRes, sentsRes, essaysRes] = await Promise.all([
+    fetchUserData(`/words/${encodeURIComponent(id)}`,    skWords(id),  []),
+    fetchUserData(`/sentences/${encodeURIComponent(id)}`,skSents(id),  {}),
+    fetchUserData(`/essays/${encodeURIComponent(id)}`,   skEssays(id), []),
+  ]);
+
+  state.words = wordsRes.data;
+  state.sentences = sentsRes.data;
+  // essays go to localStorage so loadEssayBank() picks them up
+  try{ localStorage.setItem(skEssays(id), JSON.stringify(essaysRes.data)); }catch{}
+
+  // If server was empty but we had local data, migrate it up
+  if(!wordsRes.fromServer && state.words.length > 0) saveStorage();
+  if(!sentsRes.fromServer && Object.keys(state.sentences).length > 0) saveSentences();
+  if(!essaysRes.fromServer && essaysRes.data.length > 0) saveEssayBank(essaysRes.data);
+
+  // Update shared legacy localStorage key too (for offline fallback)
+  try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
 
   // Show app
   $("login-screen").style.display = "none";
