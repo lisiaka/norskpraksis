@@ -142,6 +142,41 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .saved-essay-actions{display:flex;gap:6px;flex-shrink:0;}
 .btn-load-essay{padding:5px 12px;background:#edfaf3;border:1.5px solid #2d9e6b;border-radius:7px;font-size:12px;color:#1a6b4a;font-weight:700;}
 .btn-del-essay{padding:5px 10px;background:#fff5f5;border:1.5px solid #e05c5c;border-radius:7px;font-size:12px;color:#e05c5c;font-weight:700;}
+/* ── Word Sort (Setningsbygging) game ── */
+.ws-pool-area{display:flex;flex-wrap:wrap;gap:8px;min-height:52px;padding:12px;background:#f8fdf9;border-radius:10px;border:1.5px dashed #c8e6c9;margin-bottom:12px;align-content:flex-start;}
+.ws-answer-area{display:flex;flex-wrap:wrap;gap:8px;min-height:56px;padding:12px;background:#fff;border-radius:10px;border:2px solid #2d9e6b;margin-bottom:14px;align-items:flex-start;align-content:flex-start;}
+.ws-answer-area.empty{border-color:#dde;background:#fafafa;}
+.ws-token{padding:8px 14px;border-radius:20px;background:#e8f5ee;border:1.5px solid #2d9e6b;color:#1a6b4a;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;user-select:none;line-height:1.3;}
+.ws-token:hover{background:#d4edda;transform:translateY(-1px);box-shadow:0 2px 6px rgba(45,158,107,.2);}
+.ws-token.in-pool{background:#f0f4f8;border-color:#ccd;color:#555;}
+.ws-token.in-pool:hover{background:#e4eaf2;border-color:#2d9e6b;color:#1a6b4a;}
+.ws-token.selected{background:#1a6b4a;color:#fff;border-color:#1a6b4a;box-shadow:0 2px 8px rgba(26,107,74,.3);}
+.ws-token.selected:hover{background:#1a6b4a;transform:none;}
+.ws-correct-box{background:#edfaf3;border-left:4px solid #2d9e6b;border-radius:8px;padding:12px 16px;font-size:15px;color:#1a6b4a;font-weight:700;margin-top:14px;line-height:1.6;}
+.ws-wrong-box{background:#fff5f5;border-left:4px solid #e05c5c;border-radius:8px;padding:12px 16px;font-size:14px;color:#555;margin-top:14px;line-height:1.6;}
+.ws-wrong-original{color:#1a6b4a;font-style:italic;margin-top:6px;font-size:13px;}
+.ws-done{background:#fff;border-radius:18px;padding:50px 30px;text-align:center;box-shadow:0 1px 10px rgba(0,0,0,.08);}
+.ws-done-emoji{font-size:60px;margin-bottom:14px;}
+.ws-done-score{font-size:28px;font-weight:800;color:#1a6b4a;margin-bottom:6px;}
+.ws-done-pct{font-size:17px;color:#888;margin-bottom:28px;}
+/* ── Read indicator on text cards ── */
+.lesing-read-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;background:#edfaf3;color:#2d9e6b;border:1px solid #b6e8ce;margin-bottom:8px;}
+.lesing-unread-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;background:#f5f5f5;color:#bbb;border:1px solid #e0e0e0;margin-bottom:8px;}
+/* ── Statistics tab ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
+.stat-box{background:#fff;border-radius:14px;padding:20px 18px;box-shadow:0 1px 8px rgba(0,0,0,.07);text-align:center;}
+.stat-box .stat-val{font-size:36px;font-weight:800;color:#1a6b4a;line-height:1;}
+.stat-box .stat-lbl{font-size:12px;color:#999;margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+.stat-box .stat-sub{font-size:13px;color:#555;margin-top:4px;}
+.stat-section{font-size:13px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.7px;margin:20px 0 10px;}
+.stat-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.stat-bar-label{font-size:13px;color:#444;min-width:120px;font-weight:600;}
+.stat-bar-track{flex:1;background:#eee;border-radius:6px;height:10px;overflow:hidden;}
+.stat-bar-fill{height:100%;border-radius:6px;background:#2d9e6b;transition:width .4s;}
+.stat-bar-count{font-size:12px;color:#888;min-width:30px;text-align:right;}
+.stat-word-row{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-radius:8px;margin-bottom:4px;font-size:13px;}
+.stat-word-row.wrong{background:#fff5f5;color:#c0392b;}
+.stat-word-row.right{background:#f0fdf4;color:#1a6b4a;}
 /* ── Print / PDF export ── */
 #pdf-print-area{display:none;}
 @media print{
@@ -331,10 +366,14 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   wordIdx:0, sentences:{}, claudeKey:"", sentTopicFilter:"" }; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
-const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, started:false, writeInput:"", writeChecked:false, writeResult:false};
+const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[]};
 
-// Load Claude key immediately
+// Word-sort game state
+const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selectedAnswerIdx:null};
+
+// Load Claude key and userId immediately
 state.claudeKey = localStorage.getItem("b2_claude_key")||"";
+state.userId = localStorage.getItem("b2_user_id")||"default";
 
 // Show a banner if served from file:// (Claude API won't work)
 if(window.location.protocol==="file:"){
@@ -348,10 +387,53 @@ if(window.location.protocol==="file:"){
 // Form inputs are tracked separately so they never cause re-renders
 const form = { word:"", meaning:"", category:"enkeltord", topic:"" };
 
+// ── STATS / TRACKING ─────────────────────────────────────────────────
+let statsCache = null;
+
+async function loadStats(){
+  try{
+    const r = await fetch(`/stats/${encodeURIComponent(state.userId)}`);
+    if(!r.ok) return {events:[]};
+    statsCache = await r.json();
+    return statsCache;
+  }catch(e){ return {events:[]}; }
+}
+
+function trackEvent(type, data){
+  statsCache = null; // invalidate so next stats view re-fetches
+  const event = { type, ts: new Date().toISOString(), ...data };
+  fetch(`/stats/${encodeURIComponent(state.userId)}`, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(event)
+  }).catch(()=>{}); // silent — tracking must never break the app
+}
+
 // ── STORAGE ───────────────────────────────────────────────────────────
 const SK = "b2_words_v2";
 function loadStorage(){ try{ state.words = JSON.parse(localStorage.getItem(SK)||"[]"); }catch{} }
-function saveStorage(){ try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{} }
+function saveStorage(){
+  try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
+  fetch(`/words/${encodeURIComponent(state.userId)}`,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(state.words)
+  }).catch(()=>{});
+}
+
+async function syncWordsFromServer(){
+  try{
+    const r = await fetch(`/words/${encodeURIComponent(state.userId)}`);
+    if(!r.ok) return;
+    const serverWords = await r.json();
+    if(!Array.isArray(serverWords) || serverWords.length===0) return;
+    // Merge: server wins for words it knows about; keep any local-only words
+    const serverIds = new Set(serverWords.map(w=>w.id));
+    const localOnly = state.words.filter(w=>!serverIds.has(w.id));
+    state.words = [...serverWords, ...localOnly];
+    try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
+    renderWordList(); renderTabs();
+  }catch(e){}
+}
 
 const SK_ESSAYS = "b2_essay_bank_v1";
 function loadEssayBank(){ try{ return JSON.parse(localStorage.getItem(SK_ESSAYS)||"[]"); }catch{ return []; } }
@@ -380,6 +462,7 @@ function saveCurrentEssay(){
   };
   if(existIdx>=0){ bank[existIdx]=entry; }else{ bank.unshift(entry); }
   saveEssayBank(bank);
+  trackEvent("essay_saved",{title:entry.title,topic:entry.topic,topicName:entry.topicName,wordCount:entry.wordCount,promptId:entry.promptId});
   toast("✅ Essayet er lagret!");
   refreshEssayBank();
 }
@@ -459,6 +542,7 @@ function refreshEssayBank(){
   });
 }
 loadStorage();
+syncWordsFromServer();
 
 // ── MINI DOM HELPER ───────────────────────────────────────────────────
 function el(tag, props, ...kids){
@@ -510,6 +594,8 @@ function renderTabs(){
    {key:"oppgaver",   label:"✍️ Velg oppgave"},
    {key:"skriv",      label:"📝 Skriv"},
    {key:"lesing",     label:"📖 Lesing"},
+   {key:"ordstilling", label:"🧩 Setningsbygging"},
+   {key:"statistik",   label:"📊 Statistikk"},
   ].forEach(t=>c.appendChild(el("button",{class:"tab-btn"+(state.tab===t.key?" active":""),click(){setTab(t.key);}},t.label)));
 }
 function setTab(tab){ state.tab=tab; renderTabs(); renderContent(); }
@@ -522,6 +608,8 @@ function renderContent(){
   if(state.tab==="oppgaver")    c.appendChild(buildOppgaver());
   if(state.tab==="skriv")       c.appendChild(buildSkriv());
   if(state.tab==="lesing")      c.appendChild(buildLesing());
+  if(state.tab==="ordstilling") c.appendChild(buildOrdstilling());
+  if(state.tab==="statistik")   c.appendChild(buildStatistik());
 }
 
 // ── ORDBANK TAB ───────────────────────────────────────────────────────
@@ -662,6 +750,34 @@ function buildOrdbank(){
   keyStatus.textContent=state.claudeKey?"✓ Claude API-nøkkel er lagret":"Ingen nøkkel lagret – grammatikksjekk bruker LanguageTool";
   keyStatus.style.color=state.claudeKey?"#2d9e6b":"#aaa";
   settCard.appendChild(keyStatus);
+
+  // ── User ID ──
+  settCard.appendChild(el("div",{style:{marginTop:"14px",borderTop:"1px solid #eee",paddingTop:"12px"}}));
+  settCard.appendChild(el("h3",{},"👤 Bruker-ID  ",
+    el("span",{style:{fontWeight:"400",color:"#bbb",fontSize:"11px"}},"(for å spore fremgang per bruker)")));
+  const userRow=el("div",{class:"key-row"});
+  const userIn=el("input",{
+    id:"user-id-input",class:"key-input",type:"text",
+    placeholder:"f.eks. maria, student1 …",
+    value:state.userId==="default"?"":state.userId,
+    style:{fontFamily:"inherit",letterSpacing:"0"},
+  });
+  userRow.appendChild(userIn);
+  userRow.appendChild(el("button",{class:"btn-save-key",click(){
+    const v=($("user-id-input")?.value||"").trim().replace(/[^a-zA-Z0-9_\-æøåÆØÅ]/g,"");
+    const id=v||"default";
+    state.userId=id;
+    try{localStorage.setItem("b2_user_id",id);}catch{}
+    const s=$("user-id-status");
+    if(s){s.textContent=`✓ Bruker-ID satt til «${id}» — laster ordbank…`;s.style.color="#2d9e6b";}
+    syncWordsFromServer().then(()=>{if(s)s.textContent=`✓ Bruker-ID: «${id}» — ordbank lastet`;});
+  }},"Lagre"));
+  settCard.appendChild(userRow);
+  const userStatus=el("div",{id:"user-id-status",class:"key-status"});
+  userStatus.textContent=`Aktiv bruker: ${state.userId}`;
+  userStatus.style.color="#aaa";
+  settCard.appendChild(userStatus);
+
   frag.appendChild(settCard);
 
   // ── Word list container (populated separately so form is never re-rendered) ──
@@ -1735,7 +1851,9 @@ function buildFcChoiceCard(frag,word){
       click(){
         if(fc.answered)return;
         fc.answered=true; fc.chosenIdx=i;
-        if(opt.correct)fc.correct++; else fc.wrong++;
+        const w=fc.queue[fc.idx];
+        if(opt.correct){fc.correct++;fc.log.push({word:w.word,meaning:w.meaning,correct:true,mode:"choice"});}
+        else{fc.wrong++;fc.log.push({word:w.word,meaning:w.meaning,correct:false,mode:"choice",chosen:opt.text});}
         renderContent();
       }
     },opt.text));
@@ -1809,13 +1927,15 @@ function fcCheckWrite(input,word){
   const normalize=s=>s.toLowerCase().trim().replace(/^å\s+/,"").replace(/\s+/g," ");
   fc.writeResult=normalize(fc.writeInput)===normalize(word.word);
   fc.writeChecked=true;
-  if(fc.writeResult) fc.correct++; else fc.wrong++;
+  if(fc.writeResult){fc.correct++;fc.log.push({word:word.word,meaning:word.meaning,correct:true,mode:"write"});}
+  else{fc.wrong++;fc.log.push({word:word.word,meaning:word.meaning,correct:false,mode:"write",written:fc.writeInput});}
   renderContent();
 }
 
 function buildFcDone(frag){
   const total=fc.correct+fc.wrong;
   const pct=total?Math.round(fc.correct/total*100):0;
+  trackEvent("flashcard_session",{correct:fc.correct,wrong:fc.wrong,total,pct,topicFilter:fc.topicFilter||null,words:fc.log});
   const emoji=pct>=80?"🎉":pct>=60?"👍":"💪";
   const msg=pct>=80?"Utmerket!":pct>=60?"Bra jobbet!":"Øv mer – du klarer det!";
 
@@ -1847,7 +1967,7 @@ function startFlashcards(){
     const type=Math.random()<0.5?"write":"choice";
     return {...w,_type:type,_options:type==="choice"?fcGetOptions(w):null};
   });
-  fc.idx=0; fc.correct=0; fc.wrong=0;
+  fc.idx=0; fc.correct=0; fc.wrong=0; fc.log=[];
   fc.answered=false; fc.chosenIdx=null;
   fc.writeInput=""; fc.writeChecked=false; fc.writeResult=false;
   fc.started=true;
@@ -1981,8 +2101,8 @@ function buildLesing(){
   const listDiv=el("div",{id:"lesing-list"});
   frag.appendChild(listDiv);
 
-  // Load and render
-  loadLesingTexts().then(()=>refreshLesingList());
+  // Load texts and stats, then render
+  Promise.all([loadLesingTexts(), loadStats()]).then(()=>refreshLesingList());
 
   return frag;
 }
@@ -2017,14 +2137,27 @@ function refreshLesingList(){
     "miljø":{emoji:"♻️",color:"#16a085"},"demokrati":{emoji:"⚖️",color:"#8e44ad"},"internasjonalt":{emoji:"🌍",color:"#d35400"}
   };
 
+  const readIds = new Set((statsCache?.events||[]).filter(e=>e.type==="text_read").map(e=>e.textId));
+  const readCounts = {};
+  (statsCache?.events||[]).filter(e=>e.type==="text_read").forEach(e=>{ readCounts[e.textId]=(readCounts[e.textId]||0)+1; });
+
   const grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:"12px"}});
   filtered.forEach(text=>{
     const meta=TOPIC_META[text.topic]||{emoji:"📄",color:"#888"};
-    const card=el("div",{style:{background:"#fff",borderRadius:"14px",padding:"18px",boxShadow:"0 1px 8px rgba(0,0,0,.07)",borderLeft:`4px solid ${meta.color}`,cursor:"pointer",transition:"box-shadow .2s"},
-      click(){lesingState.currentText=text; renderContent();}});
+    const hasRead = readIds.has(text.id);
+    const cardBg = hasRead ? "#f8fdf9" : "#fff";
+    const card=el("div",{style:{background:cardBg,borderRadius:"14px",padding:"18px",boxShadow:"0 1px 8px rgba(0,0,0,.07)",borderLeft:`4px solid ${meta.color}`,cursor:"pointer",transition:"box-shadow .2s"},
+      click(){lesingState.currentText=text; trackEvent("text_read",{textId:text.id,title:text.title,topic:text.topic,level:text.level||"B2"}); renderContent();}});
     card.addEventListener("mouseenter",()=>{card.style.boxShadow="0 4px 20px rgba(0,0,0,.13)";});
     card.addEventListener("mouseleave",()=>{card.style.boxShadow="0 1px 8px rgba(0,0,0,.07)";});
     card.appendChild(el("div",{style:{fontSize:"11px",color:meta.color,fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},`${meta.emoji} ${text.topic}`));
+    // Read/unread badge
+    if(hasRead){
+      const times = readCounts[text.id];
+      card.appendChild(el("div",{class:"lesing-read-badge"},`✓ Lest${times>1?` ${times}×`:""}`));
+    } else {
+      card.appendChild(el("div",{class:"lesing-unread-badge"},"Ikke lest"));
+    }
     card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"15px",color:"#222",marginBottom:"8px",lineHeight:"1.3"}},text.title));
     card.appendChild(el("div",{style:{fontSize:"12px",color:"#999",marginBottom:"10px"}},text.text.substring(0,120)+"…"));
     const tagRow=el("div",{style:{display:"flex",gap:"5px",flexWrap:"wrap"}});
@@ -2103,16 +2236,380 @@ function buildLesingReader(text){
     if(filtered.length>1){
       const navRow=el("div",{style:{display:"flex",justifyContent:"space-between",maxWidth:"720px",margin:"14px auto 0"}});
       if(idx>0){
-        const prevBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx-1];renderContent();}},"← "+filtered[idx-1].title.substring(0,30));
+        const prevBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx-1];trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();}},"← "+filtered[idx-1].title.substring(0,30));
         navRow.appendChild(prevBtn);
       } else { navRow.appendChild(el("span",{})); }
       if(idx<filtered.length-1){
-        const nextBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx+1];renderContent();}},(filtered[idx+1].title.substring(0,30))+" →");
+        const nextBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx+1];trackEvent("text_read",{textId:filtered[idx+1].id,title:filtered[idx+1].title,topic:filtered[idx+1].topic,level:filtered[idx+1].level||"B2"});renderContent();}},(filtered[idx+1].title.substring(0,30))+" →");
         navRow.appendChild(nextBtn);
       }
       frag.appendChild(navRow);
     }
   }
+  return frag;
+}
+
+// ── ORDSTILLING (Sentence building) TAB ─────────────────────────────
+function extractSentences(text){
+  // Split on sentence-ending punctuation followed by whitespace or end
+  const matches = text.match(/[^.!?]+[.!?]+/g) || [];
+  return matches.map(s=>s.trim()).filter(s=>{
+    const words = s.split(/\s+/);
+    return words.length >= 5 && words.length <= 10;
+  });
+}
+
+async function startWordSort(){
+  await loadLesingTexts();
+  let pool = lesingState.texts || [];
+  if(ws.topicFilter) pool = pool.filter(t=>t.topic===ws.topicFilter);
+  if(!pool.length && lesingState.texts && lesingState.texts.length) pool = lesingState.texts;
+  if(!pool.length){ toast("Ingen tekster funnet."); return; }
+
+  const allSents = [];
+  pool.forEach(t => extractSentences(t.text).forEach(s => allSents.push(s)));
+  const picked = shuffle(allSents).slice(0, 10);
+  if(!picked.length){ toast("Ingen passende setninger funnet."); return; }
+
+  ws.sentences = picked.map(orig => {
+    const tokens = orig.split(/\s+/);
+    return { original:orig, tokens, pool:shuffle([...tokens]), answer:[], checked:false, correct:null };
+  });
+  ws.idx = 0; ws.score = 0; ws.started = true;
+  renderContent();
+}
+
+function wsMoveToAnswer(sent, tokenIdx){
+  sent.answer.push(sent.pool[tokenIdx]);
+  sent.pool.splice(tokenIdx, 1);
+  refreshWsRound();
+}
+
+function wsMoveToPool(sent, answerIdx){
+  sent.pool.push(sent.answer[answerIdx]);
+  sent.answer.splice(answerIdx, 1);
+  refreshWsRound();
+}
+
+function wsCheck(sent){
+  const userAnswer = sent.answer.join(" ");
+  sent.correct = userAnswer === sent.original;
+  sent.checked = true;
+  if(sent.correct) ws.score++;
+  refreshWsRound();
+}
+
+function refreshWsRound(){
+  const old = $("ws-round-container");
+  if(old) old.replaceWith(buildWsRound(ws.sentences[ws.idx]));
+}
+
+function wsAnswerClick(sent, i){
+  if(ws.selectedAnswerIdx === null){
+    ws.selectedAnswerIdx = i; // select
+  } else if(ws.selectedAnswerIdx === i){
+    ws.selectedAnswerIdx = null; // deselect
+  } else {
+    // Insert selected word before clicked position
+    const sel = ws.selectedAnswerIdx;
+    const [token] = sent.answer.splice(sel, 1);
+    const insertAt = i > sel ? i - 1 : i;
+    sent.answer.splice(insertAt, 0, token);
+    ws.selectedAnswerIdx = null;
+  }
+  refreshWsRound();
+}
+
+function wsPoolClick(sent, i){
+  ws.selectedAnswerIdx = null;
+  wsMoveToAnswer(sent, i);
+}
+
+function buildWsRound(sent){
+  const div = el("div", {id:"ws-round-container"});
+  const sel = ws.selectedAnswerIdx;
+
+  // Answer area label
+  const answerLabel = sel !== null
+    ? "Klikk et annet ord for å flytte det dit, eller klikk det samme for å avvelge:"
+    : "Din setning:";
+  div.appendChild(el("div",{style:{fontSize:"12px",color:sel!==null?"#1a6b4a":"#888",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginBottom:"6px"}},answerLabel));
+
+  const answerArea = el("div", {class:"ws-answer-area"+(sent.answer.length===0?" empty":"")});
+  if(sent.answer.length === 0){
+    answerArea.appendChild(el("span",{style:{color:"#ccc",fontSize:"13px",alignSelf:"center"}},"Klikk på ord nedenfor for å bygge setningen..."));
+  }
+  sent.answer.forEach((tok, i) => {
+    const isSelected = sel === i;
+    const btn = el("button",{class:"ws-token"+(isSelected?" selected":"")},tok);
+    if(!sent.checked) btn.addEventListener("click", ()=>wsAnswerClick(sent, i));
+    else btn.disabled = true;
+    answerArea.appendChild(btn);
+  });
+  div.appendChild(answerArea);
+
+  // Pool area
+  div.appendChild(el("div",{style:{fontSize:"12px",color:"#888",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginBottom:"6px"}},"Tilgjengelige ord:"));
+  const poolArea = el("div", {class:"ws-pool-area"});
+  if(sent.pool.length === 0 && !sent.checked){
+    poolArea.appendChild(el("span",{style:{color:"#aaa",fontSize:"13px",alignSelf:"center"}},"Alle ord er plassert — sjekk svaret ditt!"));
+  }
+  sent.pool.forEach((tok, i) => {
+    const btn = el("button",{class:"ws-token in-pool"},tok);
+    if(!sent.checked) btn.addEventListener("click", ()=>wsPoolClick(sent, i));
+    else btn.disabled = true;
+    poolArea.appendChild(btn);
+  });
+  div.appendChild(poolArea);
+
+  // Actions
+  const actRow = el("div",{class:"action-row"});
+  if(!sent.checked){
+    const canCheck = sent.pool.length === 0 && sent.answer.length > 0;
+    const checkBtn = el("button",{
+      class:"btn-add",
+      style:{opacity:canCheck?"1":".4"},
+      click(){if(canCheck){ws.selectedAnswerIdx=null;wsCheck(sent);}}
+    },"✓ Sjekk svar");
+    actRow.appendChild(checkBtn);
+    actRow.appendChild(el("button",{class:"btn-sec",click(){
+      ws.selectedAnswerIdx = null;
+      sent.pool = shuffle([...sent.tokens]);
+      sent.answer = [];
+      refreshWsRound();
+    }},"↺ Nullstill"));
+  } else {
+    const isLast = ws.idx + 1 >= ws.sentences.length;
+    actRow.appendChild(el("button",{class:"btn-add",click(){
+      ws.idx++;
+      renderContent();
+    }}, isLast ? "Se resultat →" : "Neste →"));
+  }
+  div.appendChild(actRow);
+
+  // Feedback
+  if(sent.checked){
+    if(sent.correct){
+      div.appendChild(el("div",{class:"ws-correct-box"},"✅ Riktig!"));
+    } else {
+      const wrongBox = el("div",{class:"ws-wrong-box"});
+      wrongBox.appendChild(el("div",{},"❌ Ikke helt riktig."));
+      wrongBox.appendChild(el("div",{class:"ws-wrong-original"},`Riktig: ${sent.original}`));
+      div.appendChild(wrongBox);
+    }
+  }
+
+  return div;
+}
+
+function buildOrdstilling(){
+  const frag = document.createDocumentFragment();
+
+  if(!ws.started){
+    // Setup screen
+    const card = el("div",{class:"card"});
+    card.appendChild(el("h2",{},"🧩 Setningsbygging"));
+    card.appendChild(el("p",{style:{color:"#777",fontSize:"14px",marginBottom:"18px",lineHeight:"1.6"}},
+      "Sett ord i riktig rekkefølge for å rekonstruere norske B2-setninger. Du får opptil 10 setninger per runde, hentet tilfeldig fra lesetekstene."));
+
+    card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"12px",color:"#888",textTransform:"uppercase",letterSpacing:".5px",marginBottom:"8px"}},"Velg tema (valgfritt):"));
+    const topicBar = el("div",{class:"topic-filter-bar",style:{marginBottom:"20px"}});
+    [["","Alle tekster"],["språk","🗣️ Språk"],["integrering","🤝 Integrering"],["utdanning","🎓 Utdanning"],
+     ["familie","👨‍👩‍👧 Familie"],["natur","🌿 Natur"],["politikk","🏛️ Politikk"],["arbeid","💼 Arbeid"],
+     ["helse","🏥 Helse"],["teknologi","💻 Teknologi"],["miljø","♻️ Miljø"]].forEach(([val,label])=>{
+      topicBar.appendChild(el("button",{
+        class:"topic-chip"+(ws.topicFilter===val?" active":""),
+        click(e){
+          ws.topicFilter=val;
+          e.currentTarget.parentNode.querySelectorAll(".topic-chip").forEach(b=>b.classList.remove("active"));
+          e.currentTarget.classList.add("active");
+        }
+      },label));
+    });
+    card.appendChild(topicBar);
+    card.appendChild(el("button",{class:"btn-add",style:{fontSize:"16px",padding:"12px 32px"},
+      click(){startWordSort();}},"🎮 Start spillet"));
+    frag.appendChild(card);
+    return frag;
+  }
+
+  if(ws.idx >= ws.sentences.length){
+    // Done screen
+    const total = ws.sentences.length;
+    const pct = total ? Math.round(ws.score/total*100) : 0;
+    trackEvent("wordsort_session",{correct:ws.score,total,pct,topicFilter:ws.topicFilter||null,
+      sentences:ws.sentences.map(s=>({original:s.original,correct:s.correct,given:s.answer.join(" ")}))});
+    const emoji = pct>=80?"🎉":pct>=60?"👍":"💪";
+    const msg = pct>=80?"Utmerket!":pct>=60?"Bra jobbet!":"Øv mer – du klarer det!";
+    const done = el("div",{class:"ws-done"});
+    done.appendChild(el("div",{class:"ws-done-emoji"},emoji));
+    done.appendChild(el("div",{class:"ws-done-score"},`${ws.score} / ${total} riktig`));
+    done.appendChild(el("div",{class:"ws-done-pct"},`${pct}% — ${msg}`));
+    const nav = el("div",{class:"fc-nav"});
+    nav.appendChild(el("button",{class:"btn-fc-next",click:startWordSort},"🔄 Spill igjen"));
+    nav.appendChild(el("button",{class:"btn-sec",style:{padding:"12px 28px",fontSize:"14px"},
+      click(){ws.started=false;renderContent();}},"⚙️ Endre innstillinger"));
+    done.appendChild(nav);
+    frag.appendChild(done);
+    return frag;
+  }
+
+  // Progress bar
+  const prog = el("div",{class:"progress-wrap"});
+  const pMeta = el("div",{class:"progress-meta"});
+  pMeta.appendChild(el("span",{},`Setning ${ws.idx+1} av ${ws.sentences.length}`));
+  pMeta.appendChild(el("span",{},`Score: ${ws.score} ✅`));
+  prog.appendChild(pMeta);
+  const track = el("div",{class:"progress-track"});
+  track.appendChild(el("div",{class:"progress-fill",style:{width:`${(ws.idx/ws.sentences.length)*100}%`,background:"#2d9e6b"}}));
+  prog.appendChild(track);
+  frag.appendChild(prog);
+
+  // Game card
+  const card = el("div",{class:"card"});
+  card.appendChild(el("p",{style:{fontSize:"13px",color:"#888",marginBottom:"16px"}},"Klikk på ordene for å sette dem i riktig rekkefølge. Klikk på et ord i svaret for å flytte det tilbake."));
+  card.appendChild(buildWsRound(ws.sentences[ws.idx]));
+  frag.appendChild(card);
+
+  return frag;
+}
+
+// ── STATISTIKK TAB ───────────────────────────────────────────────────
+function buildStatistik(){
+  const frag = document.createDocumentFragment();
+  const hdr = el("div",{class:"card"});
+  hdr.appendChild(el("h2",{},"📊 Statistikk — "+state.userId));
+  hdr.appendChild(el("p",{style:{color:"#aaa",fontSize:"13px"}},"Laster data…"));
+  frag.appendChild(hdr);
+
+  loadStats().then(db=>{
+    const events = db.events || [];
+    const todayStr = new Date().toISOString().slice(0,10);
+
+    const isToday = e => e.ts && e.ts.slice(0,10) === todayStr;
+
+    // ── counts
+    const textsAll   = events.filter(e=>e.type==="text_read");
+    const textsToday = textsAll.filter(isToday);
+    const readIds    = new Set(textsAll.map(e=>e.textId));
+
+    const fcAll   = events.filter(e=>e.type==="flashcard_session");
+    const fcToday = fcAll.filter(isToday);
+    const fcCorrectAll   = fcAll.reduce((s,e)=>s+(e.correct||0),0);
+    const fcTotalAll     = fcAll.reduce((s,e)=>s+(e.total||0),0);
+
+    const wsAll   = events.filter(e=>e.type==="wordsort_session");
+    const wsToday = wsAll.filter(isToday);
+    const wsCorrectAll   = wsAll.reduce((s,e)=>s+(e.correct||0),0);
+    const wsTotalAll     = wsAll.reduce((s,e)=>s+(e.total||0),0);
+
+    const essaysAll   = events.filter(e=>e.type==="essay_saved");
+    const essaysToday = essaysAll.filter(isToday);
+
+    // rebuild the card
+    hdr.innerHTML="";
+    hdr.appendChild(el("h2",{},"📊 Statistikk — "+state.userId));
+
+    // ── Summary numbers
+    hdr.appendChild(el("div",{class:"stat-section"},"Oversikt"));
+    const grid = el("div",{class:"stat-grid"});
+    const box = (val,lbl,sub)=>{
+      const b=el("div",{class:"stat-box"});
+      b.appendChild(el("div",{class:"stat-val"},String(val)));
+      b.appendChild(el("div",{class:"stat-lbl"},lbl));
+      if(sub) b.appendChild(el("div",{class:"stat-sub"},sub));
+      return b;
+    };
+    grid.appendChild(box(textsToday.length, "tekster i dag", `${readIds.size} totalt`));
+    grid.appendChild(box(fcToday.length+wsToday.length, "spill i dag", `${fcAll.length+wsAll.length} totalt`));
+    grid.appendChild(box(essaysToday.length, "essays i dag", `${essaysAll.length} totalt`));
+    const totalCorrect = fcCorrectAll+wsCorrectAll;
+    const totalAnswered = fcTotalAll+wsTotalAll;
+    const pct = totalAnswered ? Math.round(totalCorrect/totalAnswered*100) : "–";
+    grid.appendChild(box(pct+(totalAnswered?"%":""), "riktige svar", `${totalCorrect} av ${totalAnswered}`));
+    hdr.appendChild(grid);
+
+    // ── Topics read
+    if(textsAll.length){
+      hdr.appendChild(el("div",{class:"stat-section"},"Leste tekster etter tema"));
+      const topicCount={};
+      textsAll.forEach(e=>{ topicCount[e.topic]=(topicCount[e.topic]||0)+1; });
+      const maxT = Math.max(...Object.values(topicCount));
+      Object.entries(topicCount).sort((a,b)=>b[1]-a[1]).forEach(([topic,cnt])=>{
+        const row=el("div",{class:"stat-bar-row"});
+        row.appendChild(el("div",{class:"stat-bar-label"},topic));
+        const track=el("div",{class:"stat-bar-track"});
+        track.appendChild(el("div",{class:"stat-bar-fill",style:{width:`${Math.round(cnt/maxT*100)}%`}}));
+        row.appendChild(track);
+        row.appendChild(el("div",{class:"stat-bar-count"},String(cnt)));
+        hdr.appendChild(row);
+      });
+    }
+
+    // ── Essay topics
+    if(essaysAll.length){
+      hdr.appendChild(el("div",{class:"stat-section"},"Essays etter tema"));
+      const etCount={};
+      essaysAll.forEach(e=>{ const t=e.topicName||e.topic||"Ukjent"; etCount[t]=(etCount[t]||0)+1; });
+      const maxE=Math.max(...Object.values(etCount));
+      Object.entries(etCount).sort((a,b)=>b[1]-a[1]).forEach(([topic,cnt])=>{
+        const row=el("div",{class:"stat-bar-row"});
+        row.appendChild(el("div",{class:"stat-bar-label"},topic));
+        const track=el("div",{class:"stat-bar-track"});
+        track.appendChild(el("div",{class:"stat-bar-fill",style:{width:`${Math.round(cnt/maxE*100)}%`,background:"#4f6ef7"}}));
+        row.appendChild(track);
+        row.appendChild(el("div",{class:"stat-bar-count"},String(cnt)));
+        hdr.appendChild(row);
+      });
+    }
+
+    // ── Flashcard word breakdown — most missed words
+    const wordMisses={};
+    fcAll.forEach(session=>{
+      (session.words||[]).forEach(w=>{
+        if(!w.correct){ wordMisses[w.word]=(wordMisses[w.word]||0)+1; }
+      });
+    });
+    const missedWords = Object.entries(wordMisses).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    if(missedWords.length){
+      hdr.appendChild(el("div",{class:"stat-section"},"Ord du oftest svarer feil på (flashcards)"));
+      missedWords.forEach(([word,cnt])=>{
+        const row=el("div",{class:"stat-word-row wrong"});
+        row.appendChild(el("span",{},word));
+        row.appendChild(el("span",{style:{fontWeight:"700"}},`${cnt}× feil`));
+        hdr.appendChild(row);
+      });
+    }
+
+    // ── Wordsort sentence breakdown — most missed
+    const sentMisses=[];
+    wsAll.forEach(session=>{
+      (session.sentences||[]).filter(s=>!s.correct).forEach(s=>{
+        sentMisses.push(s.original);
+      });
+    });
+    if(sentMisses.length){
+      hdr.appendChild(el("div",{class:"stat-section"},"Setninger du slet med (setningsbygging)"));
+      // deduplicate, show up to 8
+      [...new Set(sentMisses)].slice(0,8).forEach(sent=>{
+        const row=el("div",{class:"stat-word-row wrong",style:{flexDirection:"column",alignItems:"flex-start",gap:"2px"}});
+        row.appendChild(el("span",{style:{fontSize:"12px",color:"#e05c5c",fontWeight:"700"}},"❌"));
+        row.appendChild(el("span",{},sent));
+        hdr.appendChild(row);
+      });
+    }
+
+    // ── Empty state
+    if(!events.length){
+      hdr.innerHTML="";
+      hdr.appendChild(el("h2",{},"📊 Statistikk"));
+      hdr.appendChild(el("div",{class:"empty-state"},[
+        el("div",{class:"big"},"📭"),
+        el("p",{},"Ingen aktivitet registrert ennå. Start med å lese en tekst, spille flashcards eller skrive et essay!"),
+      ]));
+    }
+  });
+
   return frag;
 }
 
