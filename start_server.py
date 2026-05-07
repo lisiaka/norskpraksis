@@ -24,8 +24,11 @@ import urllib.error
 
 PORT = 8080
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+STATS_DIR = os.path.join(DIRECTORY, "stats")
 URL = f"http://localhost:{PORT}/norsk_b2_pro.html"
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+
+os.makedirs(STATS_DIR, exist_ok=True)
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -35,11 +38,99 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # suppress request logs
 
+    def do_GET(self):
+        if self.path.startswith("/stats/"):
+            self._get_stats()
+        elif self.path.startswith("/words/"):
+            self._get_words()
+        else:
+            super().do_GET()
+
     def do_POST(self):
         if self.path == "/proxy/claude":
             self._proxy_claude()
+        elif self.path.startswith("/stats/"):
+            self._post_stats()
+        elif self.path.startswith("/words/"):
+            self._post_words()
         else:
             self.send_error(404, "Not found")
+
+    def _user_id_from_path(self):
+        parts = self.path.strip("/").split("/")  # ["stats"/"words", "<userId>"]
+        if len(parts) != 2 or not parts[1]:
+            return None
+        return parts[1].replace("..", "").replace("/", "").replace("\\", "")[:64]
+
+    def _stats_file(self):
+        user_id = self._user_id_from_path()
+        if not user_id:
+            return None
+        return os.path.join(STATS_DIR, f"stats_{user_id}.json")
+
+    def _words_file(self):
+        user_id = self._user_id_from_path()
+        if not user_id:
+            return None
+        return os.path.join(STATS_DIR, f"words_{user_id}.json")
+
+    def _get_stats(self):
+        path = self._stats_file()
+        if not path:
+            self.send_error(400, "Bad userId")
+            return
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                data = f.read()
+        else:
+            data = json.dumps({"events": []}).encode()
+        self._send_raw(200, data)
+
+    def _post_stats(self):
+        """Append one event to the user's stats file."""
+        path = self._stats_file()
+        if not path:
+            self.send_error(400, "Bad userId")
+            return
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            event = json.loads(self.rfile.read(length))
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    db = json.load(f)
+            else:
+                db = {"events": []}
+            db["events"].append(event)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(db, f, ensure_ascii=False, indent=2)
+            self._send_json(200, {"ok": True})
+        except Exception as e:
+            self._send_json(500, {"error": str(e)})
+
+    def _get_words(self):
+        path = self._words_file()
+        if not path:
+            self.send_error(400, "Bad userId"); return
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                data = f.read()
+        else:
+            data = json.dumps([]).encode()
+        self._send_raw(200, data)
+
+    def _post_words(self):
+        """Replace the user's entire word bank."""
+        path = self._words_file()
+        if not path:
+            self.send_error(400, "Bad userId"); return
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            words = json.loads(self.rfile.read(length))
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(words, f, ensure_ascii=False, indent=2)
+            self._send_json(200, {"ok": True})
+        except Exception as e:
+            self._send_json(500, {"error": str(e)})
 
     def _proxy_claude(self):
         """Forward the request to Anthropic and return the response."""
