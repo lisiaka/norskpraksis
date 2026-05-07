@@ -2672,19 +2672,19 @@ async function loginAs(userId){
   state.words = []; state.sentences = {}; state.essay = "";
   state.currentTopic = null; state.currentPrompt = null;
 
-  // Load this user's words from server (fall back to localStorage if offline)
+  // Load this user's words from server; only fall back to localStorage if server is unreachable
   try{
     const r = await fetch(`/words/${encodeURIComponent(id)}`);
     if(r.ok){
       const serverWords = await r.json();
-      if(Array.isArray(serverWords) && serverWords.length > 0){
-        state.words = serverWords;
-        try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
-      } else {
-        loadStorage(); // nothing on server yet — use local
-      }
-    } else { loadStorage(); }
-  } catch(e){ loadStorage(); }
+      // Empty array is valid — new user starts with no words
+      state.words = Array.isArray(serverWords) ? serverWords : [];
+      try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
+    }
+  } catch(e){
+    // Server unreachable — try localStorage as last resort
+    loadStorage();
+  }
 
   // Show app
   $("login-screen").style.display = "none";
