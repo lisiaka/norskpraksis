@@ -2103,6 +2103,57 @@ function printWords(mode){
   }
 }
 
+function printMissedWords(mode, words){
+  if(!words.length){toast("Ingen feilede ord å skrive ut.");return;}
+  const win=window.open("","_blank");
+  if(!win){toast("Popup ble blokkert – tillat popup for å skrive ut.");return;}
+  const subtitle=`${state.userId} · ${words.length} ord med feil`;
+  if(mode==="cloud"){
+    const colors=["#e05c5c","#c0392b","#e8901a","#b8860b","#7c4dff","#4f6ef7","#1a9ec4","#1a6b4a","#2d9e6b","#16a085"];
+    const sizes=[16,18,20,22,26,30,34,38,44,50];
+    const wordsHtml=words.map(w=>{
+      const size=sizes[Math.floor(Math.random()*sizes.length)];
+      const color=colors[Math.floor(Math.random()*colors.length)];
+      const rot=Math.floor(Math.random()*26)-13;
+      return `<span style="font-size:${size}px;color:${color};transform:rotate(${rot}deg);display:inline-block;font-weight:700;margin:8px 14px;line-height:1.2;white-space:nowrap">${w.word}</span>`;
+    }).join("");
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordsky – feil</title>
+<style>
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
+  h1{text-align:center;color:#e05c5c;font-size:26px;margin-bottom:6px;}
+  .sub{text-align:center;color:#aaa;font-size:13px;margin-bottom:30px;}
+  .cloud{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;padding:20px 10px;max-width:720px;margin:0 auto;}
+  @media print{@page{margin:1.5cm;}body{padding:10px;}}
+</style></head><body>
+<h1>❌ Vanskelige ord</h1>
+<div class="sub">${subtitle}</div>
+<div class="cloud">${wordsHtml}</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`);
+    win.document.close();
+  } else {
+    const rows=words.map(w=>{
+      return `<tr><td style="font-weight:700;color:#c0392b;padding:9px 14px;border-bottom:1px solid #eee;font-size:14px">${w.word}</td><td style="color:#555;padding:9px 14px;border-bottom:1px solid #eee;font-size:14px">${w.meaning||""}</td></tr>`;
+    }).join("");
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Feil-ordliste</title>
+<style>
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
+  h1{text-align:center;color:#e05c5c;font-size:26px;margin-bottom:6px;}
+  .sub{text-align:center;color:#aaa;font-size:13px;margin-bottom:24px;}
+  table{width:100%;border-collapse:collapse;}
+  th{background:#e05c5c;color:#fff;padding:10px 14px;text-align:left;font-size:13px;font-weight:700;}
+  tr:nth-child(even) td{background:#fff5f5;}
+  @media print{@page{margin:1.5cm;}body{padding:0;}}
+</style></head><body>
+<h1>❌ Vanskelige ord</h1>
+<div class="sub">${subtitle}</div>
+<table><thead><tr><th>Norsk ord / uttrykk</th><th>Betydning</th></tr></thead><tbody>${rows}</tbody></table>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`);
+    win.document.close();
+  }
+}
+
 // ── LESING TAB ───────────────────────────────────────────────────────
 const lesingState = { texts:null, topicFilter:"", grammarFilter:"", search:"", currentText:null };
 
@@ -2626,18 +2677,31 @@ function buildStatistik(){
 
     // ── Flashcard word breakdown — most missed words
     const wordMisses={};
+    const wordMeanings={};
     fcAll.forEach(session=>{
       (session.words||[]).forEach(w=>{
         if(!w.correct){ wordMisses[w.word]=(wordMisses[w.word]||0)+1; }
+        if(w.meaning) wordMeanings[w.word]=w.meaning;
       });
     });
-    const missedWords = Object.entries(wordMisses).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    const missedWords = Object.entries(wordMisses).sort((a,b)=>b[1]-a[1]).slice(0,30);
     if(missedWords.length){
       hdr.appendChild(el("div",{class:"stat-section"},"Ord du oftest svarer feil på (flashcards)"));
-      missedWords.forEach(([word,cnt])=>{
+
+      // Print buttons
+      const printRow = el("div",{style:{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}});
+      const missedList = missedWords.map(([word])=>({word, meaning:wordMeanings[word]||""}));
+      printRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("cloud", missedList)}},"☁️ Skriv ut ordsky"));
+      printRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("list",  missedList)}},"📄 Skriv ut ordliste"));
+      hdr.appendChild(printRow);
+
+      missedWords.slice(0,10).forEach(([word,cnt])=>{
         const row=el("div",{class:"stat-word-row wrong"});
-        row.appendChild(el("span",{},word));
-        row.appendChild(el("span",{style:{fontWeight:"700"}},`${cnt}× feil`));
+        const left=el("span",{});
+        left.appendChild(el("span",{style:{fontWeight:"700"}},word));
+        if(wordMeanings[word]) left.appendChild(el("span",{style:{color:"#aaa",marginLeft:"8px",fontWeight:"400"}},wordMeanings[word]));
+        row.appendChild(left);
+        row.appendChild(el("span",{style:{fontWeight:"700",flexShrink:"0"}},`${cnt}× feil`));
         hdr.appendChild(row);
       });
     }
