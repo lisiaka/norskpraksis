@@ -228,6 +228,49 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .fc-toggle-label{font-size:13px;color:#c0392b;font-weight:600;flex:1;}
 .toggle-btn{padding:5px 14px;border-radius:18px;border:1.5px solid #dde;background:#f0f4f8;font-size:12px;font-weight:700;color:#666;cursor:pointer;}
 .toggle-btn.on{background:#c0392b;border-color:#c0392b;color:#fff;}
+/* ── Plan tab ── */
+.plan-chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+.plan-chip{padding:8px 20px;border-radius:20px;border:1.5px solid #dde;background:#f5f7fa;font-size:14px;font-weight:600;color:#555;cursor:pointer;transition:all .15s;}
+.plan-chip.on{background:#1a6b4a;border-color:#1a6b4a;color:#fff;}
+.plan-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.plan-nav-btn{padding:8px 18px;border-radius:10px;border:1.5px solid #dde;background:#fff;font-size:14px;font-weight:700;color:#555;cursor:pointer;transition:all .15s;}
+.plan-nav-btn:hover{background:#f0f4f8;}
+.plan-nav-btn:disabled{opacity:.35;cursor:not-allowed;}
+.plan-nav-center{flex:1;text-align:center;font-weight:700;font-size:15px;color:#333;}
+.plan-week-card{background:#fff;border-radius:16px;box-shadow:0 1px 8px rgba(0,0,0,.08);overflow:hidden;border:2px solid transparent;}
+.plan-week-card.current{border-color:#1a6b4a;}
+.plan-week-hdr{padding:16px 20px;display:flex;align-items:center;gap:14px;background:#f9fafb;}
+.plan-week-hdr.current{background:#f0fdf4;}
+.plan-week-num{font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;min-width:52px;}
+.plan-week-topic{font-weight:800;font-size:16px;flex:1;}
+.plan-week-dates{font-size:12px;color:#aaa;}
+.plan-week-body{padding:6px 20px 18px;}
+.plan-session{padding:12px 0;border-top:1px solid #f3f3f3;}
+.plan-session:first-child{border-top:none;padding-top:10px;}
+.plan-session-title{font-weight:700;font-size:13px;color:#333;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.plan-done-badge{background:#d4f5e2;color:#1a6b4a;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;}
+.plan-text-link{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f0f4ff;border-radius:8px;margin-bottom:5px;cursor:pointer;transition:background .15s;text-decoration:none;}
+.plan-text-link:hover{background:#dde8ff;}
+.plan-text-link-title{flex:1;font-weight:600;color:#2d4e9e;font-size:13px;}
+.plan-text-read{opacity:.6;text-decoration:line-through;}
+.plan-go-btn{display:inline-block;margin-top:8px;padding:7px 16px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#1a6b4a;color:#fff;transition:background .15s;}
+.plan-go-btn:hover{background:#155c3e;}
+.plan-go-btn.sec{background:#eef2fb;color:#2d4e9e;border:1.5px solid #c5d3f5;}
+.plan-go-btn.sec:hover{background:#dce5f8;}
+.plan-prog-wrap{background:#e8e8e8;border-radius:6px;height:7px;margin-bottom:3px;overflow:hidden;}
+.plan-prog-fill{height:7px;border-radius:6px;background:#1a6b4a;transition:width .4s;}
+.plan-summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px;}
+.plan-summary-box{background:#fff;border-radius:12px;padding:14px 12px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,.07);}
+.plan-summary-val{font-size:22px;font-weight:800;color:#1a6b4a;}
+.plan-summary-lbl{font-size:12px;color:#888;margin-top:3px;}
+.plan-week-mini{display:flex;gap:4px;align-items:center;padding:8px 12px;border-radius:10px;cursor:pointer;transition:background .15s;font-size:13px;}
+.plan-week-mini:hover{background:#f0f4f8;}
+.plan-week-mini.cur{background:#e8f5ee;font-weight:700;}
+.plan-week-mini-num{min-width:26px;font-size:11px;color:#aaa;font-weight:700;}
+.plan-week-mini-topic{flex:1;font-weight:600;}
+.plan-week-mini-dots{display:flex;gap:3px;}
+.plan-week-mini-dot{width:8px;height:8px;border-radius:50%;background:#eee;}
+.plan-week-mini-dot.done{background:#1a6b4a;}
 /* ── Print / PDF export ── */
 #pdf-print-area{display:none;}
 @media print{
@@ -480,6 +523,10 @@ const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null,
 
 // Word-sort game state
 const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selectedAnswerIdx:null};
+
+// Study plan state (persisted to localStorage per user)
+const planState = { weeks:[], viewWeek:0, setup:null }; // setup: {months, sessionsPerWeek, startDate}
+const skPlan = id => `b2_plan_${id}`;
 
 // Load Claude key and userId immediately
 state.claudeKey = localStorage.getItem("b2_claude_key")||"";
@@ -745,6 +792,7 @@ function renderTabs(){
    {key:"skriv",      label:"📝 Skriv"},
    {key:"lesing",     label:"📖 Lesing"},
    {key:"ordstilling", label:"🧩 Setningsbygging"},
+   {key:"plan",        label:"📅 Plan"},
    {key:"statistik",   label:"📊 Statistikk"},
   ].forEach(t=>c.appendChild(el("button",{class:"tab-btn"+(state.tab===t.key?" active":""),click(){setTab(t.key);}},t.label)));
 }
@@ -759,6 +807,7 @@ function renderContent(){
   if(state.tab==="skriv")       c.appendChild(buildSkriv());
   if(state.tab==="lesing")      c.appendChild(buildLesing());
   if(state.tab==="ordstilling") c.appendChild(buildOrdstilling());
+  if(state.tab==="plan")        c.appendChild(buildPlan());
   if(state.tab==="statistik")   c.appendChild(buildStatistik());
 }
 
@@ -2871,6 +2920,352 @@ function buildOrdstilling(){
   return frag;
 }
 
+// ── PLAN TAB ─────────────────────────────────────────────────────────
+// All 12 topics in a sensible progression order (broader social first, then specialised)
+const PLAN_TOPICS = [
+  "integrering","språk","arbeid","utdanning","helse","familie",
+  "teknologi","miljø","politikk","demokrati","natur","internasjonalt"
+];
+
+function savePlan(){
+  try{ localStorage.setItem(skPlan(state.userId), JSON.stringify({weeks:planState.weeks,setup:planState.setup})); }catch{}
+}
+function loadPlan(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(skPlan(state.userId))||"null");
+    if(raw && raw.setup){ planState.weeks=raw.weeks||[]; planState.setup=raw.setup; return true; }
+  }catch{}
+  return false;
+}
+
+// Build a schedule: assign topics to weeks, sessions per week, texts + essay per session
+function generatePlan(months, sessionsPerWeek, startDate){
+  const totalWeeks = months * 4;
+  const topicKeys = PLAN_TOPICS.slice(); // 12 topics
+  const weeks = [];
+
+  // Distribute 12 topics across totalWeeks (some topics revisited if plan is long)
+  for(let w=0; w<totalWeeks; w++){
+    const topicKey = topicKeys[w % topicKeys.length];
+    const topicMeta = TOPICS[topicKey] || {name: topicKey, emoji:"📚", color:"#4f6ef7"};
+    // Pick 2 reading texts for this topic (cycle through 10 available)
+    const topicOffset = Math.floor(w / topicKeys.length) * 2;
+    const texts = [
+      {topicKey, textSlot: topicOffset % 10},
+      {topicKey, textSlot: (topicOffset+1) % 10},
+    ].slice(0, Math.min(2, sessionsPerWeek)); // at least 1 reading per 2 sessions
+
+    // One essay prompt per week, cycling through topic prompts
+    const prompts = PROMPTS[topicKey] || [];
+    const essayPrompt = prompts[w % prompts.length] || null;
+
+    // Word target: 5 per session
+    const wordTarget = sessionsPerWeek * 5;
+
+    // Calculate week start date
+    const weekStart = new Date(startDate);
+    weekStart.setDate(weekStart.getDate() + w*7);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const fmt = d => d.toLocaleDateString("nb-NO",{day:"numeric",month:"short"});
+
+    weeks.push({
+      weekNum: w+1,
+      topicKey,
+      topicName: topicMeta.name,
+      topicEmoji: topicMeta.emoji,
+      topicColor: topicMeta.color,
+      sessionsPerWeek,
+      texts,          // [{topicKey, textSlot}]
+      essayPrompt,    // {title, text} or null
+      wordTarget,
+      dateRange: `${fmt(weekStart)} – ${fmt(weekEnd)}`,
+      weekStartISO: weekStart.toISOString().slice(0,10),
+    });
+  }
+  return weeks;
+}
+
+// Given a topic key and slot index, find the actual text object
+function getPlanText(topicKey, slotIdx){
+  if(!lesingState.texts) return null;
+  const pool = lesingState.texts.filter(t => t.topic === topicKey);
+  return pool[slotIdx % pool.length] || null;
+}
+
+// Open a lesing text from the plan
+function openPlanText(text){
+  lesingState.currentText = text;
+  trackEvent("text_read",{textId:text.id,title:text.title,topic:text.topic,level:text.level||"B2"});
+  setTab("lesing");
+}
+
+// Open an essay prompt from the plan
+function openPlanEssay(topicKey, prompt){
+  state.currentTopic = topicKey;
+  state.currentPrompt = prompt;
+  state.essay = "";
+  setTab("skriv");
+}
+
+function findLastIdx(arr, fn){
+  for(let i=arr.length-1;i>=0;i--){ if(fn(arr[i],i)) return i; }
+  return -1;
+}
+
+function buildPlan(){
+  const frag = document.createDocumentFragment();
+
+  if(!planState.setup){
+    frag.appendChild(buildPlanSetup());
+    return frag;
+  }
+
+  // Ensure lesing texts are loaded; re-render once they arrive
+  if(!lesingState.texts){
+    loadLesingTexts().then(()=>renderContent());
+    frag.appendChild(el("div",{class:"card"},el("p",{style:{color:"#aaa"}},"Laster tekstoversikt…")));
+    return frag;
+  }
+
+  frag.appendChild(buildPlanView());
+  return frag;
+}
+
+function buildPlanSetup(){
+  const card = el("div",{class:"card"});
+  card.appendChild(el("h2",{},"📅 Lag din studieplan"));
+  card.appendChild(el("p",{style:{color:"#666",fontSize:"15px",lineHeight:"1.6",marginBottom:"20px"}},
+    "Fortell meg litt om målene dine, så lager jeg en ukesplan med lesestoff, skriveoppgaver og ordmål – tilpasset din fremdrift."));
+
+  // State for the form (local variables, re-read on submit)
+  let chosenMonths = 3;
+  let chosenSessions = 3;
+
+  // Months
+  card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",marginBottom:"8px"}},
+    "Hvor lang tid har du til å øve?"));
+  const monthsRow = el("div",{class:"plan-chip-row"});
+  [1,2,3,4,6].forEach(m=>{
+    const chip = el("button",{
+      class:"plan-chip"+(m===chosenMonths?" on":""),
+      click(e){
+        chosenMonths=m;
+        monthsRow.querySelectorAll(".plan-chip").forEach(b=>b.classList.remove("on"));
+        e.currentTarget.classList.add("on");
+      }
+    }, m===1?"1 måned":`${m} måneder`);
+    monthsRow.appendChild(chip);
+  });
+  card.appendChild(monthsRow);
+
+  card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",margin:"18px 0 8px"}},
+    "Hvor mange ganger i uken kan du øve?"));
+  const sessRow = el("div",{class:"plan-chip-row"});
+  [2,3,4,5].forEach(s=>{
+    const chip = el("button",{
+      class:"plan-chip"+(s===chosenSessions?" on":""),
+      click(e){
+        chosenSessions=s;
+        sessRow.querySelectorAll(".plan-chip").forEach(b=>b.classList.remove("on"));
+        e.currentTarget.classList.add("on");
+      }
+    }, `${s}×/uke`);
+    sessRow.appendChild(chip);
+  });
+  card.appendChild(sessRow);
+
+  card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",margin:"18px 0 8px"}},
+    "Startdato"));
+  const today = new Date().toISOString().slice(0,10);
+  const dateInput = el("input",{type:"date",value:today,style:{padding:"8px 12px",borderRadius:"9px",border:"1.5px solid #dde",fontSize:"14px",fontFamily:"inherit"}});
+  card.appendChild(dateInput);
+
+  card.appendChild(el("div",{style:{marginTop:"24px"}}));
+
+  card.appendChild(el("button",{
+    style:{padding:"12px 32px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"12px",fontSize:"15px",fontWeight:"700",cursor:"pointer"},
+    click(){
+      const startDate = dateInput.value || today;
+      planState.setup = {months:chosenMonths, sessionsPerWeek:chosenSessions, startDate};
+      planState.weeks = generatePlan(chosenMonths, chosenSessions, startDate);
+      // Find current week
+      const todayISO = new Date().toISOString().slice(0,10);
+      planState.viewWeek = Math.max(0, findLastIdx(planState.weeks, w=>w.weekStartISO<=todayISO));
+      savePlan();
+      // Ensure lesing texts are loaded so getPlanText works
+      loadLesingTexts().then(()=>renderContent());
+    }
+  },"Lag plan →"));
+
+  return card;
+}
+
+function buildPlanView(){
+  const frag = document.createDocumentFragment();
+  const {weeks, setup} = planState;
+  const readIds = new Set((statsCache?.events||[]).filter(e=>e.type==="text_read").map(e=>e.textId));
+  const essaysWritten = new Set((statsCache?.events||[]).filter(e=>e.type==="essay_saved").map(e=>e.promptId||e.title));
+
+  // ── Header card
+  const hdr = el("div",{class:"card",style:{marginBottom:"12px"}});
+  const topLine = el("div",{style:{display:"flex",alignItems:"center",gap:"12px",flexWrap:"wrap",marginBottom:"14px"}});
+  topLine.appendChild(el("h2",{style:{margin:"0",flex:"1"}},"📅 Studieplan"));
+  topLine.appendChild(el("span",{style:{fontSize:"13px",color:"#aaa"}},
+    `${setup.months} mnd · ${setup.sessionsPerWeek}×/uke · ${weeks.length} uker`));
+  topLine.appendChild(el("button",{
+    style:{padding:"6px 14px",borderRadius:"8px",border:"1.5px solid #f5c5c5",background:"#fff5f5",color:"#c0392b",fontSize:"12px",fontWeight:"700",cursor:"pointer"},
+    click(){
+      if(!confirm("Vil du slette planen og starte på nytt?")) return;
+      planState.setup=null; planState.weeks=[]; planState.viewWeek=0;
+      savePlan(); renderContent();
+    }
+  },"🗑️ Slett plan"));
+  hdr.appendChild(topLine);
+
+  // Summary stats
+  const totalTexts = weeks.reduce((s,w)=>s+w.texts.length,0);
+  const doneTexts  = weeks.reduce((s,w)=>s+w.texts.filter(t=>{const tx=getPlanText(t.topicKey,t.textSlot);return tx&&readIds.has(tx.id);}).length,0);
+  const totalWords = weeks.reduce((s,w)=>s+w.wordTarget,0);
+  const currentWordsLearned = state.words.length;
+
+  const sumGrid = el("div",{class:"plan-summary-grid"});
+  const sbox=(val,lbl)=>{const b=el("div",{class:"plan-summary-box"});b.appendChild(el("div",{class:"plan-summary-val"},String(val)));b.appendChild(el("div",{class:"plan-summary-lbl"},lbl));return b;};
+  sumGrid.appendChild(sbox(weeks.length,"uker totalt"));
+  sumGrid.appendChild(sbox(`${doneTexts}/${totalTexts}`,"tekster lest"));
+  sumGrid.appendChild(sbox(totalWords,"ordmål totalt"));
+  sumGrid.appendChild(sbox(currentWordsLearned,"ord i ordbank"));
+  hdr.appendChild(sumGrid);
+
+  // Overall progress bar
+  const progPct = totalTexts ? Math.round(doneTexts/totalTexts*100) : 0;
+  hdr.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"4px"}},`Fremdrift: ${progPct}%`));
+  const pw = el("div",{class:"plan-prog-wrap"});
+  pw.appendChild(el("div",{class:"plan-prog-fill",style:{width:progPct+"%"}}));
+  hdr.appendChild(pw);
+  frag.appendChild(hdr);
+
+  // ── Week navigator
+  const todayISO = new Date().toISOString().slice(0,10);
+  const curWeekIdx = findLastIdx(weeks, w=>w.weekStartISO<=todayISO);
+
+  const nav = el("div",{class:"plan-nav"});
+  nav.appendChild(el("button",{class:"plan-nav-btn",disabled:planState.viewWeek===0?true:null,
+    click(){planState.viewWeek--;renderContent();}
+  },"← Forrige"));
+  nav.appendChild(el("div",{class:"plan-nav-center"},
+    `Uke ${weeks[planState.viewWeek].weekNum} av ${weeks.length}`));
+  nav.appendChild(el("button",{class:"plan-nav-btn",disabled:planState.viewWeek===weeks.length-1?true:null,
+    click(){planState.viewWeek++;renderContent();}
+  },"Neste →"));
+
+  // Jump to current week button
+  if(curWeekIdx>=0 && curWeekIdx!==planState.viewWeek){
+    nav.appendChild(el("button",{
+      style:{padding:"6px 14px",borderRadius:"8px",border:"1.5px solid #1a6b4a",background:"#f0fdf4",color:"#1a6b4a",fontSize:"12px",fontWeight:"700",cursor:"pointer"},
+      click(){planState.viewWeek=curWeekIdx;renderContent();}
+    },"Gå til nåværende uke"));
+  }
+  frag.appendChild(nav);
+
+  // ── Current week detail card
+  const week = weeks[planState.viewWeek];
+  const isCurrent = planState.viewWeek === curWeekIdx;
+  const weekCard = el("div",{class:"plan-week-card"+(isCurrent?" current":"")});
+
+  const weekHdr = el("div",{class:"plan-week-hdr"+(isCurrent?" current":"")});
+  weekHdr.appendChild(el("div",{class:"plan-week-num"},"Uke "+week.weekNum));
+  weekHdr.appendChild(el("div",{class:"plan-week-topic"},
+    week.topicEmoji+" "+week.topicName));
+  if(isCurrent) weekHdr.appendChild(el("div",{style:{background:"#1a6b4a",color:"#fff",padding:"3px 10px",borderRadius:"10px",fontSize:"11px",fontWeight:"700"}},"Nåværende uke"));
+  weekHdr.appendChild(el("div",{class:"plan-week-dates"},week.dateRange));
+  weekCard.appendChild(weekHdr);
+
+  const body = el("div",{class:"plan-week-body"});
+
+  // Session 1: Reading
+  const readSess = el("div",{class:"plan-session"});
+  readSess.appendChild(el("div",{class:"plan-session-title"},"📖 Lesing denne uken"));
+  week.texts.forEach((t,i)=>{
+    const text = getPlanText(t.topicKey, t.textSlot);
+    if(!text){ readSess.appendChild(el("div",{style:{color:"#bbb",fontSize:"13px"}},"Tekst laster…")); return; }
+    const done = readIds.has(text.id);
+    const link = el("div",{class:"plan-text-link"+(done?" plan-text-read":""),
+      click(){ openPlanText(text); }
+    });
+    link.appendChild(el("span",{style:{fontSize:"16px"}},done?"✅":"📄"));
+    link.appendChild(el("div",{class:"plan-text-link-title"},text.title));
+    link.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",flexShrink:"0"}},"→ Lesing"));
+    readSess.appendChild(link);
+  });
+  body.appendChild(readSess);
+
+  // Session 2: Essay
+  if(week.essayPrompt){
+    const essaySess = el("div",{class:"plan-session"});
+    const isDone = essaysWritten.has(week.essayPrompt.title);
+    const eTitle = el("div",{class:"plan-session-title"});
+    eTitle.appendChild(document.createTextNode("✍️ Skriveoppgave denne uken"));
+    if(isDone) eTitle.appendChild(el("span",{class:"plan-done-badge"},"✓ Skrevet"));
+    essaySess.appendChild(eTitle);
+    essaySess.appendChild(el("div",{style:{background:"#f9f9f9",borderRadius:"10px",padding:"12px 14px",marginBottom:"10px"}},
+      el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",marginBottom:"5px"}},week.essayPrompt.title),
+      el("div",{style:{fontSize:"13px",color:"#555",lineHeight:"1.6"}},week.essayPrompt.text)
+    ));
+    essaySess.appendChild(el("button",{class:"plan-go-btn"+(isDone?" sec":""),
+      click(){ openPlanEssay(week.topicKey, week.essayPrompt); }
+    },isDone?"📝 Skriv igjen":"✍️ Start skriveoppgave"));
+    body.appendChild(essaySess);
+  }
+
+  // Session 3: Words target
+  const wordSess = el("div",{class:"plan-session"});
+  const topicWords = state.words.filter(w=>w.topic===week.topicKey);
+  const wDone = el("div",{class:"plan-session-title"});
+  wDone.appendChild(document.createTextNode(`📚 Ordmål: ${week.wordTarget} nye ord`));
+  if(topicWords.length>=week.wordTarget) wDone.appendChild(el("span",{class:"plan-done-badge"},"✓ Nådd"));
+  wordSess.appendChild(wDone);
+  wordSess.appendChild(el("div",{style:{fontSize:"13px",color:"#666",marginBottom:"8px"}},
+    `Du har ${topicWords.length} ord om «${week.topicName}» i ordbanken.`));
+  const wpw = el("div",{class:"plan-prog-wrap"});
+  wpw.appendChild(el("div",{class:"plan-prog-fill",style:{width:Math.min(100,topicWords.length/week.wordTarget*100)+"%"}}));
+  wordSess.appendChild(wpw);
+  wordSess.appendChild(el("div",{style:{marginTop:"8px"}}));
+  wordSess.appendChild(el("button",{class:"plan-go-btn sec",
+    click(){state.sentTopicFilter=week.topicKey; setTab("setninger");}
+  },"💬 Øv setninger"));
+  wordSess.appendChild(document.createTextNode(" "));
+  wordSess.appendChild(el("button",{class:"plan-go-btn sec",
+    click(){fc.topicFilter=week.topicKey; setTab("flashcards");}
+  },"🎮 Flashcards for temaet"));
+  body.appendChild(wordSess);
+
+  weekCard.appendChild(body);
+  frag.appendChild(weekCard);
+
+  // ── Mini week overview (all weeks as dots)
+  const overviewCard = el("div",{class:"card",style:{marginTop:"14px"}});
+  overviewCard.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",marginBottom:"10px"}},"Alle uker"));
+  weeks.forEach((w,i)=>{
+    const dots = w.texts.map(t=>{
+      const tx=getPlanText(t.topicKey,t.textSlot);
+      return tx&&readIds.has(tx.id);
+    });
+    const row = el("div",{class:"plan-week-mini"+(i===planState.viewWeek?" cur":""),
+      click(){planState.viewWeek=i;renderContent();}
+    });
+    row.appendChild(el("div",{class:"plan-week-mini-num"},"U"+w.weekNum));
+    row.appendChild(el("div",{class:"plan-week-mini-topic"},w.topicEmoji+" "+w.topicName));
+    const dotWrap=el("div",{class:"plan-week-mini-dots"});
+    dots.forEach(d=>dotWrap.appendChild(el("div",{class:"plan-week-mini-dot"+(d?" done":"")})));
+    row.appendChild(dotWrap);
+    overviewCard.appendChild(row);
+  });
+  frag.appendChild(overviewCard);
+
+  return frag;
+}
+
 // ── STATISTIKK TAB ───────────────────────────────────────────────────
 function buildStatistik(){
   const frag = document.createDocumentFragment();
@@ -3160,9 +3555,13 @@ async function loginAs(userId){
   ws.started = false; ws.sentences = [];
   state.words = []; state.sentences = {}; state.essay = "";
   state.currentTopic = null; state.currentPrompt = null;
+  planState.weeks = []; planState.setup = null; planState.viewWeek = 0;
 
   state.userId = id;
   try{ localStorage.setItem("b2_user_id", id); }catch{}
+
+  // Restore plan for this user
+  loadPlan();
 
   // Load words, sentences and essays in parallel
   const [wordsRes, sentsRes, essaysRes] = await Promise.all([
