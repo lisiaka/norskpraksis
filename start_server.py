@@ -47,6 +47,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._get_json_file("essays")
         elif self.path.startswith("/sentences/"):
             self._get_json_file("sentences")
+        elif self.path.startswith("/plan/"):
+            self._get_json_file("plan")
         else:
             super().do_GET()
 
@@ -61,6 +63,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._post_json_file("essays")
         elif self.path.startswith("/sentences/"):
             self._post_json_file("sentences")
+        elif self.path.startswith("/plan/"):
+            self._post_json_file("plan")
         else:
             self.send_error(404, "Not found")
 
