@@ -1376,13 +1376,7 @@ function updateSentencePanel(){
   renderTabs();
 }
 
-function saveSentences(){
-  try{localStorage.setItem("b2_sentences_v2",JSON.stringify(state.sentences));}catch{}
-}
-function loadSentences(){
-  try{state.sentences=JSON.parse(localStorage.getItem("b2_sentences_v2")||"{}");}catch{}
-}
-loadSentences();
+// saveSentences and loadSentences are defined in the STORAGE section above
 
 // ── OPPGAVER TAB ──────────────────────────────────────────────────────
 function buildOppgaver(){
