@@ -75,6 +75,16 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .topic-name{font-weight:700;font-size:16px;color:#222;margin-bottom:4px;}
 .topic-count{font-size:13px;color:#999;margin-bottom:14px;}
 .topic-badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;}
+.prompt-panel{margin-top:20px;background:#fff;border-radius:16px;border:2px solid #e8e8e8;overflow:hidden;}
+.prompt-panel-header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #f0f0f0;font-weight:700;font-size:15px;}
+.prompt-list-item{display:flex;align-items:flex-start;gap:12px;padding:13px 18px;cursor:pointer;border-bottom:1px solid #f5f5f5;transition:background .15s;}
+.prompt-list-item:last-child{border-bottom:none;}
+.prompt-list-item:hover{background:#f8f8ff;}
+.prompt-list-item-title{font-weight:700;font-size:14px;margin-bottom:3px;}
+.prompt-list-item-text{font-size:13px;color:#555;line-height:1.5;}
+.prompt-list-arrow{flex-shrink:0;font-size:18px;margin-top:2px;color:#bbb;}
+.custom-oppgave-box{padding:16px 18px;background:#f9f9ff;border-top:2px dashed #dde;}
+.custom-oppgave-box textarea{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid #ccd;font-size:14px;font-family:inherit;line-height:1.6;resize:vertical;min-height:80px;}
 .write-layout{display:grid;grid-template-columns:1fr 290px;gap:16px;align-items:start;}
 @media(max-width:720px){.write-layout{grid-template-columns:1fr;}}
 .prompt-box{border-radius:14px;padding:20px;margin-bottom:14px;}
@@ -348,26 +358,56 @@ const CATS = [
 const CAT_MAP = Object.fromEntries(CATS.map(c => [c.key, c]));
 
 const TOPICS = {
-  samfunn:    {name:"Samfunn",                emoji:"🏙️", color:"#4f6ef7"},
-  teknologi:  {name:"Teknologi",              emoji:"💻", color:"#7c4dff"},
-  miljo:      {name:"Miljø og klima",          emoji:"🌿", color:"#2d9e6b"},
-  helse:      {name:"Helse",                  emoji:"🏥", color:"#e05c5c"},
-  utdanning:  {name:"Utdanning og arbeidsliv", emoji:"🎓", color:"#e8901a"},
-  integrering:{name:"Integrering og kultur",   emoji:"🤝", color:"#1a9ec4"},
+  arbeid:        {name:"Arbeid",                emoji:"💼", color:"#e8901a"},
+  demokrati:     {name:"Demokrati",             emoji:"⚖️", color:"#4f6ef7"},
+  familie:       {name:"Familie",               emoji:"👨‍👩‍👧", color:"#e05c5c"},
+  helse:         {name:"Helse",                 emoji:"🏥", color:"#c0392b"},
+  integrering:   {name:"Integrering og kultur", emoji:"🤝", color:"#1a9ec4"},
+  internasjonalt:{name:"Internasjonalt",         emoji:"🌍", color:"#2980b9"},
+  miljo:         {name:"Miljø og klima",         emoji:"🌿", color:"#2d9e6b"},
+  natur:         {name:"Natur",                 emoji:"🏔️", color:"#27ae60"},
+  politikk:      {name:"Politikk",              emoji:"🏛️", color:"#8e44ad"},
+  sprak:         {name:"Språk",                 emoji:"🗣️", color:"#16a085"},
+  teknologi:     {name:"Teknologi",             emoji:"💻", color:"#7c4dff"},
+  utdanning:     {name:"Utdanning",             emoji:"🎓", color:"#d35400"},
 };
 
 const PROMPTS = {
-  samfunn:[
-    {title:"Sosiale utfordringer",text:"Mange opplever utenforskap og ensomhet i det moderne samfunnet. Skriv en sammenhengende tekst der du diskuterer årsaker til dette, og foreslår tiltak som kan bidra til et mer inkluderende samfunn."},
-    {title:"Sosiale medier",text:"Sosiale medier har forandret måten vi kommuniserer og lever på. Diskuter fordeler og ulemper ved sosiale medier – både for enkeltpersoner og for samfunnet som helhet."},
-    {title:"Likestilling",text:"Til tross for store fremskritt er det fortsatt ulikheter mellom kvinner og menn i arbeidslivet. Skriv en tekst der du diskuterer hva som kan gjøres for å oppnå reell likestilling."},
-    {title:"Frivillig arbeid",text:"Frivillig arbeid spiller en viktig rolle i det norske samfunnet. Skriv en tekst der du argumenterer for at frivillig arbeid bør anerkjennes og verdsettes høyere."},
+  arbeid:[
+    {title:"Arbeidsmarkedet i endring",text:"Automatisering og kunstig intelligens endrer arbeidsmarkedet i stor fart. Skriv en tekst der du diskuterer hvilke yrker som er truet, og hva som kan gjøres for å forberede arbeidstakere på fremtidens arbeidsmarked."},
+    {title:"Deltidsarbeid",text:"Norge har en høy andel deltidsansatte, særlig blant kvinner. Diskuter fordeler og ulemper ved deltidsarbeid – for den ansatte, for arbeidsgiveren og for samfunnet som helhet."},
+    {title:"Fagforeninger og arbeidsliv",text:"Fagforeninger spiller en sentral rolle i det norske arbeidslivet. Skriv en tekst om fagforeningenes betydning for arbeidstakernes rettigheter og for den norske arbeidslivsmodellen."},
+    {title:"Jobbsøking og karriere",text:"Det kan være utfordrende å finne jobb i et nytt land. Skriv en tekst om hva som er viktig når man søker jobb i Norge, og hva som kan gjøres for å støtte innvandrere som ønsker å komme inn i arbeidslivet."},
   ],
-  teknologi:[
-    {title:"Kunstig intelligens",text:"Kunstig intelligens endrer arbeidsmarkedet i stor fart. Skriv en tekst der du diskuterer hvilke muligheter og utfordringer denne utviklingen skaper for fremtidige generasjoner."},
-    {title:"Teknologiavhengighet",text:"Mange mener at vi er blitt for avhengige av smarttelefoner og digitale verktøy. Hva mener du? Diskuter konsekvensene og mulige løsninger."},
-    {title:"Personvern",text:"Digitale selskaper samler enorme mengder data om oss. Skriv en tekst om personvern i den digitale tidsalderen – hva er farene, og hva kan vi gjøre?"},
-    {title:"Teknologi i skolen",text:"Teknologi brukes i stadig større grad i skolen. Diskuter om dette er en fordel eller ulempe for elevenes læring og utvikling."},
+  demokrati:[
+    {title:"Demokrati under press",text:"Demokratiet er under press i mange land. Skriv en tekst om hva som truer demokratiet, og hva som kan gjøres for å beskytte demokratiske verdier og institusjoner."},
+    {title:"Valgdeltakelse",text:"Valgdeltakelsen synker i mange demokratier. Diskuter årsaker til lav valgdeltakelse og hva som kan gjøres for å engasjere flere innbyggere i politiske prosesser."},
+    {title:"Ytringsfrihet og grenser",text:"Ytringsfrihet er en grunnleggende demokratisk verdi, men har den noen grenser? Skriv en tekst om balansen mellom ytringsfrihet og beskyttelse mot hatefulle ytringer og desinformasjon."},
+    {title:"Politisk polarisering",text:"Samfunnet blir stadig mer polarisert politisk. Diskuter hva som driver politisk polarisering, og hva som kan gjøres for å skape en mer konstruktiv politisk debatt."},
+  ],
+  familie:[
+    {title:"Familiestrukturer i endring",text:"Familiestrukturer har endret seg mye de siste tiårene. Skriv en tekst om ulike familieformer i det moderne Norge, og diskuter hva disse endringene betyr for samfunnet."},
+    {title:"Foreldrepermisjon",text:"Norge har en generøs foreldrepermisjon, men det er fortsatt ulikheter mellom mødre og fedre i uttak av permisjon. Diskuter hva en god foreldrepermisjonspolitikk bør inneholde."},
+    {title:"Generasjonskonflikter",text:"Eldre og yngre generasjoner har ofte ulike verdier og prioriteringer. Skriv en tekst om typiske generasjonskonflikter i dag, og hva som kan bidra til bedre forståelse mellom generasjonene."},
+    {title:"Barneoppdragelse",text:"Hva er god barneoppdragelse? Verdier og metoder for barneoppdragelse varierer mellom kulturer og generasjoner. Skriv en tekst om hva du mener er viktigst å lære barn, og begrunne dette."},
+  ],
+  helse:[
+    {title:"Psykisk helse",text:"Psykiske lidelser er blitt en av de største helseutfordringene i Norge. Skriv en tekst der du diskuterer årsaker og mulige tiltak – både på individnivå og samfunnsnivå."},
+    {title:"Livsstil og helse",text:"Livsstilssykdommer er en voksende utfordring i mange land. Skriv en tekst om sammenhengen mellom livsstil og helse, og hva samfunnet kan gjøre for å bedre folkehelsen."},
+    {title:"Velferdsstaten og helse",text:"Norge har et av verdens beste helsevesen. Diskuter fordeler og utfordringer ved den norske velferdsstaten, og hva som trengs for å bevare den i fremtiden."},
+    {title:"Rus og avhengighet",text:"Rus og avhengighet er et sammensatt samfunnsproblem. Skriv en tekst om hvordan samfunnet bør håndtere utfordringer knyttet til rusmiddelbruk."},
+  ],
+  integrering:[
+    {title:"Integrering",text:"Integrering av innvandrere er et viktig og omdiskutert tema i Norge. Skriv en tekst om hva som skal til for å lykkes med integrering, og hva som er de største hindringene."},
+    {title:"Å lære seg norsk",text:"Å lære seg norsk er en av de viktigste faktorene for å bli inkludert i det norske samfunnet. Skriv om din erfaring med å lære norsk og hvilke utfordringer du har møtt."},
+    {title:"Kulturmøter",text:"Norge er blitt et flerkulturelt samfunn. Skriv en tekst om fordeler og utfordringer ved å leve i et samfunn med mange kulturer, og hva som fremmer gjensidig respekt."},
+    {title:"Diskriminering i arbeidslivet",text:"Mange innvandrere med god utdanning opplever diskriminering i arbeidsmarkedet. Diskuter årsaker og konsekvenser av dette, og hva som kan gjøres for å endre situasjonen."},
+  ],
+  internasjonalt:[
+    {title:"Flyktninger og asyl",text:"Flyktningkrisen har satt det internasjonale samfunnet på prøve. Skriv en tekst om Norges ansvar overfor flyktninger og asylsøkere, og hvordan dette bør balanseres mot andre hensyn."},
+    {title:"Globalisering",text:"Globalisering har skapt store muligheter, men også nye utfordringer. Diskuter fordeler og ulemper ved globalisering for Norge og for verden som helhet."},
+    {title:"Norges rolle i verden",text:"Norge er et lite land med en aktiv utenrikspolitikk. Skriv en tekst om Norges rolle i internasjonale organisasjoner og konflikter, og hva du mener bør være Norges viktigste utenrikspolitiske prioriteringer."},
+    {title:"Bistand og utvikling",text:"Norge er blant verdens største givere av bistand til utviklingsland. Skriv en tekst om hva bistand kan og ikke kan utrette, og om det finnes bedre måter å bekjempe global fattigdom på."},
   ],
   miljo:[
     {title:"Klimaansvar",text:"Klimaendringene er vår tids største utfordring. Skriv en tekst der du argumenterer for hva enkeltpersoner, bedrifter og myndigheter bør gjøre for å bremse klimaendringene."},
@@ -375,11 +415,29 @@ const PROMPTS = {
     {title:"Kosthold og klima",text:"Mange eksperter mener at vi bør spise mindre kjøtt av hensyn til klimaet. Hva mener du? Diskuter sammenhengen mellom matvalg og miljøpåvirkning."},
     {title:"Forbrukssamfunnet",text:"Vi lever i et forbrukssamfunn der vi kjøper mer enn vi trenger. Diskuter konsekvensene og hva som må til for å endre forbruksmønstrene våre."},
   ],
-  helse:[
-    {title:"Psykisk helse",text:"Psykiske lidelser er blitt en av de største helseutfordringene i Norge. Skriv en tekst der du diskuterer årsaker og mulige tiltak – både på individnivå og samfunnsnivå."},
-    {title:"Livsstil og helse",text:"Livsstilssykdommer er en voksende utfordring i mange land. Skriv en tekst om sammenhengen mellom livsstil og helse, og hva samfunnet kan gjøre for å bedre folkehelsen."},
-    {title:"Velferdsstaten",text:"Norge har et av verdens beste helsevesen. Diskuter fordeler og utfordringer ved den norske velferdsstaten, og hva som trengs for å bevare den i fremtiden."},
-    {title:"Rus og avhengighet",text:"Rus og avhengighet er et sammensatt samfunnsproblem. Skriv en tekst om hvordan samfunnet bør håndtere utfordringer knyttet til rusmiddelbruk."},
+  natur:[
+    {title:"Friluftsliv",text:"Friluftsliv er en viktig del av den norske identiteten og kulturen. Skriv en tekst om friluftsliv i Norge – hva det betyr for folk, og om allemannsretten er en god ordning."},
+    {title:"Naturvern",text:"Mange naturområder i Norge er truet av utbygging og næringsvirksomhet. Skriv en tekst om hvor grensen bør gå mellom naturvern og næringsutvikling."},
+    {title:"Ville dyr og mennesker",text:"Konflikten mellom ville dyr som ulv og bjørn og menneskelig aktivitet er et stadig tilbakevendende tema i norsk politikk. Skriv en tekst om hvordan vi bør forvalte de store rovdyrene."},
+    {title:"Natur og psykisk helse",text:"Forskning viser at tilgang til natur har positiv effekt på psykisk helse. Skriv en tekst om sammenhengen mellom natur og velvære, og hva dette betyr for byplanlegging og samfunnsutvikling."},
+  ],
+  politikk:[
+    {title:"Velferdsstaten",text:"Den norske velferdsstaten er basert på solidaritetsprinsippet. Skriv en tekst om hva velferdsstaten betyr for innbyggerne, og hvilke utfordringer den møter i fremtiden."},
+    {title:"Innvandringspolitikk",text:"Innvandringspolitikk er et av de mest omdiskuterte temaene i norsk politikk. Diskuter ulike syn på innvandringspolitikken og hva du mener bør være de viktigste prinsippene."},
+    {title:"Kommunalpolitikk",text:"Kommunene har ansvar for mange viktige tjenester som skole, barnehage og eldreomsorg. Skriv en tekst om kommunenes rolle i det norske demokratiet og utfordringer ved desentralisering."},
+    {title:"Politisk deltakelse",text:"Mange unge engasjerer seg i politikk utenfor de tradisjonelle partiene. Skriv en tekst om ulike former for politisk deltakelse og hva som er den mest effektive måten å påvirke samfunnet på."},
+  ],
+  sprak:[
+    {title:"Å lære et nytt språk",text:"Å lære et nytt språk er en krevende, men givende prosess. Skriv en tekst om din erfaring med å lære norsk – hvilke strategier har fungert best, og hva har vært mest utfordrende?"},
+    {title:"Norske dialekter",text:"Norge har et stort mangfold av dialekter, og alle er likestilte i skole og media. Skriv en tekst om dialektmangfoldet i Norge – er det en styrke eller et hinder for kommunikasjon?"},
+    {title:"Morsmål og identitet",text:"Språket er tett knyttet til identitet og kultur. Skriv en tekst om hva morsmålet ditt betyr for deg, og om det er mulig å ha flere språklige identiteter."},
+    {title:"Digitalt språk",text:"Digitale medier og sosiale plattformer endrer måten vi bruker språk på. Diskuter hvordan digitalt språk – emoji, forkortelser, og nettslang – påvirker norsk språk og kommunikasjon."},
+  ],
+  teknologi:[
+    {title:"Kunstig intelligens",text:"Kunstig intelligens endrer arbeidsmarkedet i stor fart. Skriv en tekst der du diskuterer hvilke muligheter og utfordringer denne utviklingen skaper for fremtidige generasjoner."},
+    {title:"Teknologiavhengighet",text:"Mange mener at vi er blitt for avhengige av smarttelefoner og digitale verktøy. Hva mener du? Diskuter konsekvensene og mulige løsninger."},
+    {title:"Personvern",text:"Digitale selskaper samler enorme mengder data om oss. Skriv en tekst om personvern i den digitale tidsalderen – hva er farene, og hva kan vi gjøre?"},
+    {title:"Teknologi i skolen",text:"Teknologi brukes i stadig større grad i skolen. Diskuter om dette er en fordel eller ulempe for elevenes læring og utvikling."},
   ],
   utdanning:[
     {title:"Utdanningssystemet",text:"Mange debatterer om det norske utdanningssystemet er godt nok tilpasset fremtidens arbeidsmarked. Skriv en tekst der du diskuterer hva som fungerer bra og hva som kan forbedres."},
@@ -387,22 +445,22 @@ const PROMPTS = {
     {title:"Yrkesfag vs. akademia",text:"Det er stort behov for fagarbeidere i Norge, men mange unge velger akademiske utdanninger. Skriv en tekst om statusforskjeller mellom yrkesfag og akademisk utdanning."},
     {title:"Livslang læring",text:"I en tid med rask teknologisk utvikling er livslang læring viktigere enn noen gang. Diskuter hva dette betyr i praksis og hvilke krav det stiller til den enkelte og samfunnet."},
   ],
-  integrering:[
-    {title:"Integrering",text:"Integrering av innvandrere er et viktig og omdiskutert tema i Norge. Skriv en tekst om hva som skal til for å lykkes med integrering, og hva som er de største hindringene."},
-    {title:"Å lære seg norsk",text:"Å lære seg norsk er en av de viktigste faktorene for å bli inkludert i det norske samfunnet. Skriv om din erfaring med å lære norsk og hvilke utfordringer du har møtt."},
-    {title:"Kulturmøter",text:"Norge er blitt et flerkulturelt samfunn. Skriv en tekst om fordeler og utfordringer ved å leve i et samfunn med mange kulturer, og hva som fremmer gjensidig respekt."},
-    {title:"Arbeidsmarkedet",text:"Mange innvandrere med god utdanning opplever diskriminering i arbeidsmarkedet. Diskuter årsaker og konsekvenser av dette, og hva som kan gjøres for å endre situasjonen."},
-  ],
 };
 
 // Maps essay topic keys → word-bank topic tags (from Her på berget chapters)
 const ESSAY_TOPIC_TO_WORD_TOPICS = {
-  samfunn:    ["politikk","demokrati","integrering","internasjonalt","familie"],
-  teknologi:  ["teknologi"],
-  miljo:      ["miljø","natur"],
-  helse:      ["helse"],
-  utdanning:  ["utdanning","arbeid","språk"],
-  integrering:["integrering","språk","familie"],
+  arbeid:        ["arbeid"],
+  demokrati:     ["demokrati","politikk"],
+  familie:       ["familie"],
+  helse:         ["helse"],
+  integrering:   ["integrering","språk","familie"],
+  internasjonalt:["internasjonalt"],
+  miljo:         ["miljø","natur"],
+  natur:         ["natur","miljø"],
+  politikk:      ["politikk","demokrati"],
+  sprak:         ["språk"],
+  teknologi:     ["teknologi"],
+  utdanning:     ["utdanning","arbeid","språk"],
 };
 
 const TIPS = [
@@ -438,6 +496,7 @@ if(window.location.protocol==="file:"){
 }
 // Form inputs are tracked separately so they never cause re-renders
 const form = { word:"", meaning:"", category:"enkeltord", topic:"" };
+const oppgaveForm = { customText:"" };
 
 // ── STATS / TRACKING ─────────────────────────────────────────────────
 let statsCache = null;
@@ -1407,27 +1466,84 @@ function updateSentencePanel(){
 function buildOppgaver(){
   const frag=document.createDocumentFragment();
   frag.appendChild(el("p",{style:{color:"#555",marginBottom:"18px",fontSize:"15px",lineHeight:"1.6"}},
-    "Velg et tema for å få en B2-skriveoppgave. Oppgaven oppfordrer deg til å bruke ordene fra ordbanken din!"));
+    "Velg et tema, velg deretter en oppgave – eller skriv din egen!"));
   const grid=el("div",{class:"topic-grid"});
   Object.entries(TOPICS).forEach(([key,meta])=>{
+    const active=state.currentTopic===key;
     const card=el("div",{
-      class:"topic-card"+(state.currentTopic===key?" active":""),
-      style:{"--tc":meta.color,"borderColor":state.currentTopic===key?meta.color:"transparent"},
-      click(){pickPrompt(key);},
-      mouseenter(e){e.currentTarget.style.boxShadow="0 4px 20px rgba(0,0,0,.14)";},
-      mouseleave(e){e.currentTarget.style.boxShadow="0 1px 8px rgba(0,0,0,.07)";},
+      class:"topic-card"+(active?" active":""),
+      style:{"--tc":meta.color,"borderColor":active?meta.color:"transparent"},
+      click(){selectTopic(key);},
+      mouseenter(e){if(!active)e.currentTarget.style.boxShadow="0 4px 20px rgba(0,0,0,.14)";},
+      mouseleave(e){if(!active)e.currentTarget.style.boxShadow="0 1px 8px rgba(0,0,0,.07)";},
     });
     card.appendChild(el("div",{class:"topic-emoji"},meta.emoji));
     card.appendChild(el("div",{class:"topic-name"},meta.name));
     card.appendChild(el("div",{class:"topic-count"},PROMPTS[key].length+" oppgaver"));
-    const badge=el("div",{class:"topic-badge",style:{background:meta.color+"18",color:meta.color}},"Velg tema →");
+    const badge=el("div",{class:"topic-badge",style:{background:meta.color+"18",color:meta.color}},active?"✓ Valgt":"Velg →");
     card.appendChild(badge);
     grid.appendChild(card);
   });
   frag.appendChild(grid);
+
+  // Prompt selection panel (shown when a topic is selected)
+  if(state.currentTopic){
+    const meta=TOPICS[state.currentTopic];
+    const prompts=PROMPTS[state.currentTopic];
+    const panel=el("div",{class:"prompt-panel"});
+
+    // Header
+    const hdr=el("div",{class:"prompt-panel-header"});
+    hdr.appendChild(el("span",{},meta.emoji+" "+meta.name+" — velg oppgave:"));
+    hdr.appendChild(el("button",{
+      style:{marginLeft:"auto",background:"none",border:"1px solid #dde",borderRadius:"8px",padding:"4px 12px",fontSize:"12px",color:"#666",cursor:"pointer"},
+      click(){state.currentTopic=null;renderContent();}
+    },"✕ Lukk"));
+    panel.appendChild(hdr);
+
+    // Prompt list
+    prompts.forEach(p=>{
+      const row=el("div",{class:"prompt-list-item",click(){goToPrompt(p);}});
+      row.appendChild(el("div",{style:{flex:"1"}},
+        el("div",{class:"prompt-list-item-title",style:{color:meta.color}},p.title),
+        el("div",{class:"prompt-list-item-text"},p.text.length>120?p.text.slice(0,120)+"…":p.text)
+      ));
+      row.appendChild(el("div",{class:"prompt-list-arrow"},"›"));
+      panel.appendChild(row);
+    });
+
+    // Custom oppgave
+    const customBox=el("div",{class:"custom-oppgave-box"});
+    customBox.appendChild(el("div",{style:{fontWeight:"700",fontSize:"13px",color:"#666",marginBottom:"8px"}},"✏️ Skriv din egen oppgave:"));
+    const ta=el("textarea",{placeholder:"Skriv din egen skriveoppgave her…"});
+    ta.value=oppgaveForm.customText;
+    ta.addEventListener("input",e=>{oppgaveForm.customText=e.target.value;});
+    customBox.appendChild(ta);
+    const startBtn=el("button",{
+      style:{marginTop:"10px",padding:"9px 22px",background:meta.color,color:"#fff",border:"none",borderRadius:"10px",fontSize:"14px",fontWeight:"700",cursor:"pointer"},
+      click(){
+        const txt=(oppgaveForm.customText||"").trim();
+        if(!txt) return;
+        goToPrompt({title:"Egendefinert oppgave",text:txt,custom:true});
+        oppgaveForm.customText="";
+      }
+    },"Start skriving →");
+    customBox.appendChild(startBtn);
+    panel.appendChild(customBox);
+
+    frag.appendChild(panel);
+  }
   return frag;
 }
 
+function selectTopic(key){
+  state.currentTopic=(state.currentTopic===key)?null:key;
+  renderContent();
+}
+function goToPrompt(prompt){
+  state.currentPrompt=prompt; state.essay=""; state.tab="skriv";
+  renderTabs(); renderContent();
+}
 function pickPrompt(topicKey){
   state.currentPrompt=pickRandom(PROMPTS[topicKey]);
   state.currentTopic=topicKey; state.essay=""; state.tab="skriv";
