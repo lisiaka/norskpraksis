@@ -2701,7 +2701,7 @@ function extractSentences(text){
   const matches = text.match(/[^.!?]+[.!?]+/g) || [];
   return matches.map(s=>s.trim()).filter(s=>{
     const words = s.split(/\s+/);
-    return words.length >= 5 && words.length <= 10;
+    return words.length >= 8 && words.length <= 14;
   });
 }
 
@@ -2960,17 +2960,19 @@ function loadPlan(){
 }
 
 // Build a schedule: assign topics to weeks, sessions per week, texts + essay per session
-function generatePlan(months, sessionsPerWeek, startDate){
+function generatePlan(months, daysPerWeek, startDate){
   const totalWeeks = months * 4;
   const topicKeys = PLAN_TOPICS.slice(); // 12 topics
   const weeks = [];
 
-  // How many texts per week:
-  // 2x/week → 1 text, 3x/week → 2 texts, 4x → 3, 5x → 3
-  const textsPerWeek = sessionsPerWeek <= 2 ? 1 : sessionsPerWeek <= 3 ? 2 : 3;
+  // Texts: 1 text per 2 days of practice (rounded up, min 1)
+  const textsPerWeek = Math.max(1, Math.ceil(daysPerWeek / 2));
 
-  // Word target: 5 new words per session to add + all must be practiced in FC + sentences
-  const wordTarget = sessionsPerWeek * 5;
+  // Words: 5 new words per day of practice
+  const wordTarget = daysPerWeek * 5;
+
+  // Essays: 1 for ≤2 days, 2 for 3-4 days, 3 for 5+ days
+  const essaysPerWeek = daysPerWeek <= 2 ? 1 : daysPerWeek <= 4 ? 2 : 3;
 
   for(let w=0; w<totalWeeks; w++){
     const topicKey = topicKeys[w % topicKeys.length];
@@ -2984,9 +2986,13 @@ function generatePlan(months, sessionsPerWeek, startDate){
       texts.push({topicKey, textSlot: (baseSlot + i) % 10});
     }
 
-    // One essay prompt per week, cycling through topic prompts
+    // Multiple essay prompts per week, cycling through topic prompts
     const prompts = PROMPTS[topicKey] || [];
-    const essayPrompt = prompts[w % prompts.length] || null;
+    const essayPrompts = [];
+    for(let i=0; i<essaysPerWeek; i++){
+      const p = prompts[(w * essaysPerWeek + i) % prompts.length];
+      if(p) essayPrompts.push(p);
+    }
 
     // Calculate week start date
     const weekStart = new Date(startDate);
@@ -3001,9 +3007,9 @@ function generatePlan(months, sessionsPerWeek, startDate){
       topicName: topicMeta.name,
       topicEmoji: topicMeta.emoji,
       topicColor: topicMeta.color,
-      sessionsPerWeek,
+      daysPerWeek,
       texts,          // [{topicKey, textSlot}]
-      essayPrompt,    // {title, text} or null
+      essayPrompts,   // [{title, text}]
       wordTarget,
       dateRange: `${fmt(weekStart)} – ${fmt(weekEnd)}`,
       weekStartISO: weekStart.toISOString().slice(0,10),
@@ -3066,7 +3072,7 @@ function buildPlanSetup(){
 
   // State for the form (local variables, re-read on submit)
   let chosenMonths = 3;
-  let chosenSessions = 3;
+  let chosenDays = 3;
 
   // Months
   card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",marginBottom:"8px"}},
@@ -3086,17 +3092,30 @@ function buildPlanSetup(){
   card.appendChild(monthsRow);
 
   card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",margin:"18px 0 8px"}},
-    "Hvor mange ganger i uken kan du øve?"));
+    "Hvor mange dager i uken kan du øve?"));
+
+  // Show what each choice implies
+  const daysHint = el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"10px",minHeight:"18px"}});
+  card.appendChild(daysHint);
+
   const sessRow = el("div",{class:"plan-chip-row"});
-  [2,3,4,5].forEach(s=>{
+  function updateDaysHint(d){
+    const texts = Math.max(1, Math.ceil(d/2));
+    const words = d*5;
+    const essays = d<=2?1:d<=4?2:3;
+    daysHint.textContent = `→ ${texts} tekst${texts>1?"er":""}/uke · ${essays} essay${essays>1?"s":""}/uke · ${words} nye ord/uke`;
+  }
+  updateDaysHint(chosenDays);
+  [1,2,3,4,5].forEach(d=>{
     const chip = el("button",{
-      class:"plan-chip"+(s===chosenSessions?" on":""),
+      class:"plan-chip"+(d===chosenDays?" on":""),
       click(e){
-        chosenSessions=s;
+        chosenDays=d;
         sessRow.querySelectorAll(".plan-chip").forEach(b=>b.classList.remove("on"));
         e.currentTarget.classList.add("on");
+        updateDaysHint(d);
       }
-    }, `${s}×/uke`);
+    }, `${d} dag${d>1?"er":""}`);
     sessRow.appendChild(chip);
   });
   card.appendChild(sessRow);
@@ -3113,13 +3132,11 @@ function buildPlanSetup(){
     style:{padding:"12px 32px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"12px",fontSize:"15px",fontWeight:"700",cursor:"pointer"},
     click(){
       const startDate = dateInput.value || today;
-      planState.setup = {months:chosenMonths, sessionsPerWeek:chosenSessions, startDate};
-      planState.weeks = generatePlan(chosenMonths, chosenSessions, startDate);
-      // Find current week
+      planState.setup = {months:chosenMonths, daysPerWeek:chosenDays, startDate};
+      planState.weeks = generatePlan(chosenMonths, chosenDays, startDate);
       const todayISO = new Date().toISOString().slice(0,10);
       planState.viewWeek = Math.max(0, findLastIdx(planState.weeks, w=>w.weekStartISO<=todayISO));
       savePlan();
-      // Ensure lesing texts are loaded so getPlanText works
       loadLesingTexts().then(()=>renderContent());
     }
   },"Lag plan →"));
@@ -3162,7 +3179,7 @@ function buildPlanView(){
   const topLine = el("div",{style:{display:"flex",alignItems:"center",gap:"12px",flexWrap:"wrap",marginBottom:"14px"}});
   topLine.appendChild(el("h2",{style:{margin:"0",flex:"1"}},"📅 Studieplan"));
   topLine.appendChild(el("span",{style:{fontSize:"13px",color:"#aaa"}},
-    `${setup.months} mnd · ${setup.sessionsPerWeek}×/uke · ${weeks.length} uker`));
+    `${setup.months} mnd · ${setup.daysPerWeek} dag${setup.daysPerWeek>1?"er":""}/uke · ${weeks.length} uker`));
   topLine.appendChild(el("button",{
     style:{padding:"6px 14px",borderRadius:"8px",border:"1.5px solid #f5c5c5",background:"#fff5f5",color:"#c0392b",fontSize:"12px",fontWeight:"700",cursor:"pointer"},
     click(){
@@ -3254,21 +3271,29 @@ function buildPlanView(){
   });
   body.appendChild(readSess);
 
-  // Session 2: Essay
-  if(week.essayPrompt){
+  // Session 2: Essays (one or more per week depending on days/week)
+  const essayPrompts = week.essayPrompts || (week.essayPrompt ? [week.essayPrompt] : []);
+  if(essayPrompts.length){
     const essaySess = el("div",{class:"plan-session"});
-    const isDone = essaysWritten.has(week.essayPrompt.title);
+    const doneCount = essayPrompts.filter(p=>essaysWritten.has(p.title)).length;
     const eTitle = el("div",{class:"plan-session-title"});
-    eTitle.appendChild(document.createTextNode("✍️ Skriveoppgave denne uken"));
-    if(isDone) eTitle.appendChild(el("span",{class:"plan-done-badge"},"✓ Skrevet"));
+    eTitle.appendChild(document.createTextNode(`✍️ Skriveoppgaver denne uken (${essayPrompts.length})`));
+    if(doneCount===essayPrompts.length) eTitle.appendChild(el("span",{class:"plan-done-badge"},"✓ Alle skrevet"));
+    else if(doneCount>0) eTitle.appendChild(el("span",{class:"plan-done-badge",style:{background:"#fff3cd",color:"#856404"}},`${doneCount}/${essayPrompts.length} skrevet`));
     essaySess.appendChild(eTitle);
-    essaySess.appendChild(el("div",{style:{background:"#f9f9f9",borderRadius:"10px",padding:"12px 14px",marginBottom:"10px"}},
-      el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",marginBottom:"5px"}},week.essayPrompt.title),
-      el("div",{style:{fontSize:"13px",color:"#555",lineHeight:"1.6"}},week.essayPrompt.text)
-    ));
-    essaySess.appendChild(el("button",{class:"plan-go-btn"+(isDone?" sec":""),
-      click(){ openPlanEssay(week.topicKey, week.essayPrompt); }
-    },isDone?"📝 Skriv igjen":"✍️ Start skriveoppgave"));
+    essayPrompts.forEach(prompt=>{
+      const isDone = essaysWritten.has(prompt.title);
+      const box = el("div",{style:{background:isDone?"#f0fdf4":"#f9f9f9",borderRadius:"10px",padding:"12px 14px",marginBottom:"8px",borderLeft:`3px solid ${isDone?"#2d9e6b":"#dde"}`}});
+      box.appendChild(el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"5px"}},
+        el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",flex:"1"}},prompt.title),
+        isDone ? el("span",{style:{fontSize:"11px",color:"#1a6b4a",fontWeight:"700"}},"✓ Skrevet") : null
+      ));
+      box.appendChild(el("div",{style:{fontSize:"13px",color:"#555",lineHeight:"1.6",marginBottom:"8px"}},prompt.text));
+      box.appendChild(el("button",{class:"plan-go-btn"+(isDone?" sec":""),
+        click(){ openPlanEssay(week.topicKey, prompt); }
+      },isDone?"📝 Skriv igjen":"✍️ Start skriveoppgave"));
+      essaySess.appendChild(box);
+    });
     body.appendChild(essaySess);
   }
 
