@@ -1429,7 +1429,7 @@ function exportSentencesByTopic(){
 }
 
 function onSentenceInput(e){
-  const word=state.words[state.wordIdx]; if(!word)return;
+  const word=getSentWords()[state.wordIdx]; if(!word)return;
   state.sentences[word.id]=e.target.value;
   const fb=$("sent-feedback"); if(fb)fillSentenceFeedback(fb,e.target.value,word);
   const grammarDiv=$("grammar-result");
@@ -1454,7 +1454,7 @@ function fillSentenceFeedback(container,sentence,word){
 }
 
 function updateSentencePanel(){
-  const word=state.words[state.wordIdx]; if(!word)return;
+  const word=getSentWords()[state.wordIdx]; if(!word)return;
   const sentence=state.sentences[word.id]||"";
   const fb=$("sent-feedback"); if(fb)fillSentenceFeedback(fb,sentence,word);
   renderTabs();
@@ -2929,16 +2929,26 @@ function buildStatistik(){
     // ── Topics read
     if(textsAll.length){
       hdr.appendChild(el("div",{class:"stat-section"},"Leste tekster etter tema"));
-      const topicCount={};
-      textsAll.forEach(e=>{ topicCount[e.topic]=(topicCount[e.topic]||0)+1; });
-      const maxT = Math.max(...Object.values(topicCount));
-      Object.entries(topicCount).sort((a,b)=>b[1]-a[1]).forEach(([topic,cnt])=>{
+      // Count unique texts read per topic (deduplicated by textId)
+      const topicReadIds={};
+      textsAll.forEach(e=>{
+        if(!topicReadIds[e.topic]) topicReadIds[e.topic]={};
+        if(e.textId) topicReadIds[e.topic][e.textId]=true;
+      });
+      const TEXTS_PER_TOPIC=10; // 10 texts per topic in lesing-tekster.json
+      // Show all topics that appear in lesing (all 12), sorted by read count desc
+      const allLesingTopics=["arbeid","demokrati","familie","helse","integrering","internasjonalt","miljø","natur","politikk","språk","teknologi","utdanning"];
+      const topicsToShow=allLesingTopics.filter(t=>topicReadIds[t]);
+      topicsToShow.sort((a,b)=>Object.keys(topicReadIds[b]||{}).length-Object.keys(topicReadIds[a]||{}).length);
+      topicsToShow.forEach(topic=>{
+        const cnt=Object.keys(topicReadIds[topic]||{}).length;
+        const remaining=Math.max(0,TEXTS_PER_TOPIC-cnt);
         const row=el("div",{class:"stat-bar-row"});
         row.appendChild(el("div",{class:"stat-bar-label"},topic));
         const track=el("div",{class:"stat-bar-track"});
-        track.appendChild(el("div",{class:"stat-bar-fill",style:{width:`${Math.round(cnt/maxT*100)}%`}}));
+        track.appendChild(el("div",{class:"stat-bar-fill",style:{width:`${Math.round(cnt/TEXTS_PER_TOPIC*100)}%`}}));
         row.appendChild(track);
-        row.appendChild(el("div",{class:"stat-bar-count"},String(cnt)));
+        row.appendChild(el("div",{class:"stat-bar-count"},`${cnt}/10`+(remaining>0?` (${remaining} igjen)`:"")));
         hdr.appendChild(row);
       });
     }
