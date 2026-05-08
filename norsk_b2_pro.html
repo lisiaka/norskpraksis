@@ -796,7 +796,7 @@ function renderTabs(){
    {key:"statistik",   label:"📊 Statistikk"},
   ].forEach(t=>c.appendChild(el("button",{class:"tab-btn"+(state.tab===t.key?" active":""),click(){setTab(t.key);}},t.label)));
 }
-function setTab(tab){ state.tab=tab; if(tab==="statistik") statsCache=null; renderTabs(); renderContent(); }
+function setTab(tab){ state.tab=tab; if(tab==="statistik"||tab==="plan") statsCache=null; renderTabs(); renderContent(); }
 
 function renderContent(){
   const c=$("content"); c.innerHTML="";
@@ -2965,8 +2965,8 @@ function generatePlan(months, daysPerWeek, startDate){
   const topicKeys = PLAN_TOPICS.slice(); // 12 topics
   const weeks = [];
 
-  // Texts: 1 text per 2 days of practice (rounded up, min 1)
-  const textsPerWeek = Math.max(1, Math.ceil(daysPerWeek / 2));
+  // Texts: 2 texts per day of practice
+  const textsPerWeek = daysPerWeek * 2;
 
   // Words: 5 new words per day of practice
   const wordTarget = daysPerWeek * 5;
@@ -3053,10 +3053,15 @@ function buildPlan(){
     return frag;
   }
 
-  // Ensure lesing texts are loaded; re-render once they arrive
-  if(!lesingState.texts){
-    loadLesingTexts().then(()=>renderContent());
-    frag.appendChild(el("div",{class:"card"},el("p",{style:{color:"#aaa"}},"Laster tekstoversikt…")));
+  // Ensure both lesing texts and stats are loaded before rendering
+  const needTexts = !lesingState.texts;
+  const needStats = !statsCache;
+  if(needTexts || needStats){
+    Promise.all([
+      needTexts ? loadLesingTexts() : Promise.resolve(),
+      needStats ? loadStats()        : Promise.resolve(),
+    ]).then(()=>renderContent());
+    frag.appendChild(el("div",{class:"card"},el("p",{style:{color:"#aaa"}},"Laster plan…")));
     return frag;
   }
 
@@ -3100,10 +3105,10 @@ function buildPlanSetup(){
 
   const sessRow = el("div",{class:"plan-chip-row"});
   function updateDaysHint(d){
-    const texts = Math.max(1, Math.ceil(d/2));
+    const texts = d*2;
     const words = d*5;
     const essays = d<=2?1:d<=4?2:3;
-    daysHint.textContent = `→ ${texts} tekst${texts>1?"er":""}/uke · ${essays} essay${essays>1?"s":""}/uke · ${words} nye ord/uke`;
+    daysHint.textContent = `→ ${texts} tekster/uke · ${essays} essay${essays>1?"s":""}/uke · ${words} nye ord/uke`;
   }
   updateDaysHint(chosenDays);
   [1,2,3,4,5].forEach(d=>{
