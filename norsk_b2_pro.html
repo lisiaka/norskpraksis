@@ -205,6 +205,19 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .stat-word-row{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-radius:8px;margin-bottom:4px;font-size:13px;}
 .stat-word-row.wrong{background:#fff5f5;color:#c0392b;}
 .stat-word-row.right{background:#f0fdf4;color:#1a6b4a;}
+.stat-missed-list{max-height:340px;overflow-y:auto;border:1px solid #f5e0e0;border-radius:10px;padding:6px;}
+/* ── Donut chart ── */
+.donut-wrap{display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:8px;}
+.donut-legend{display:flex;flex-direction:column;gap:7px;flex:1;min-width:150px;}
+.donut-legend-row{display:flex;align-items:center;gap:8px;font-size:13px;}
+.donut-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.donut-legend-label{color:#555;flex:1;}
+.donut-legend-val{font-weight:700;color:#222;}
+/* ── FC error-only toggle ── */
+.fc-toggle-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff5f5;border-radius:10px;border:1.5px solid #f5cece;margin-bottom:8px;}
+.fc-toggle-label{font-size:13px;color:#c0392b;font-weight:600;flex:1;}
+.toggle-btn{padding:5px 14px;border-radius:18px;border:1.5px solid #dde;background:#f0f4f8;font-size:12px;font-weight:700;color:#666;cursor:pointer;}
+.toggle-btn.on{background:#c0392b;border-color:#c0392b;color:#fff;}
 /* ── Print / PDF export ── */
 #pdf-print-area{display:none;}
 @media print{
@@ -405,7 +418,7 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   wordIdx:0, sentences:{}, claudeKey:"", sentTopicFilter:"" }; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
-const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false};
+const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, errorOnly:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false};
 
 // Word-sort game state
 const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selectedAnswerIdx:null};
@@ -1861,6 +1874,22 @@ function buildFcSetup(frag){
       dBar.appendChild(el("button",{class:"topic-chip"+(fc.timeFilter===val?" active":""),
         click(){fc.timeFilter=val;renderContent();}},label)));
     card.appendChild(dBar);
+
+    // Max words filter
+    const mBar=el("div",{class:"fc-filter-bar"});
+    mBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"ANTALL ORD: "));
+    [[0,"Alle"],[10,"Maks 10"],[20,"Maks 20"],[30,"Maks 30"]].forEach(([val,label])=>
+      mBar.appendChild(el("button",{class:"topic-chip"+(fc.maxWords===val?" active":""),
+        click(){fc.maxWords=val;renderContent();}},label)));
+    card.appendChild(mBar);
+
+    // Error-only toggle
+    const errRow=el("div",{class:"fc-toggle-row"});
+    errRow.appendChild(el("span",{class:"fc-toggle-label"},"❌ Bare ord med flest feil"));
+    errRow.appendChild(el("button",{class:"toggle-btn"+(fc.errorOnly?" on":""),
+      click(){fc.errorOnly=!fc.errorOnly; if(fc.errorOnly) loadStats().then(()=>renderContent()); else renderContent();}},
+      fc.errorOnly?"PÅ":"AV"));
+    card.appendChild(errRow);
   }
 
   const avail=getFcWords();
@@ -2025,10 +2054,36 @@ function buildFcDone(frag){
   return frag;
 }
 
+function getNetMissedWords(){
+  // Returns [{word,meaning,id,...bankWord, netErrors}] from all flashcard sessions
+  const wrong={}, correct={}, meanings={};
+  (statsCache?.events||[]).filter(e=>e.type==="flashcard_session").forEach(session=>{
+    (session.words||[]).forEach(w=>{
+      if(!w.correct) wrong[w.word]=(wrong[w.word]||0)+1;
+      else           correct[w.word]=(correct[w.word]||0)+1;
+      if(w.meaning)  meanings[w.word]=w.meaning;
+    });
+  });
+  return Object.entries(wrong)
+    .filter(([word,cnt])=>cnt>(correct[word]||0))
+    .sort((a,b)=>(b[1]-(correct[b[0]]||0))-(a[1]-(correct[a[0]]||0)))
+    .map(([word,cnt])=>{
+      const bankWord=state.words.find(w=>w.word.toLowerCase()===word.toLowerCase());
+      return bankWord
+        ? {...bankWord, netErrors:cnt-(correct[word]||0), wrong:cnt, rightCount:correct[word]||0}
+        : {id:"err_"+word, word, meaning:meanings[word]||"", category:"enkeltord", topic:"", netErrors:cnt-(correct[word]||0), wrong:cnt, rightCount:correct[word]||0};
+    });
+}
+
 function getFcWords(){
   let w=state.words.slice();
   if(fc.topicFilter) w=w.filter(x=>x.topic===fc.topicFilter);
   if(fc.timeFilter){const cut=Date.now()-fc.timeFilter*24*60*60*1000;w=w.filter(x=>(x.createdAt||0)>=cut);}
+  if(fc.errorOnly){
+    const missed=new Set(getNetMissedWords().map(x=>x.word.toLowerCase()));
+    w=w.filter(x=>missed.has(x.word.toLowerCase()));
+  }
+  if(fc.maxWords>0) w=shuffle(w).slice(0,fc.maxWords);
   return w;
 }
 
@@ -2789,39 +2844,107 @@ function buildStatistik(){
       });
     }
 
-    // ── Flashcard word breakdown — net missed words (wrong - correct per word)
-    const wordWrong={}, wordCorrect={}, wordMeanings={};
-    fcAll.forEach(session=>{
-      (session.words||[]).forEach(w=>{
-        if(!w.correct) wordWrong[w.word]=(wordWrong[w.word]||0)+1;
-        else           wordCorrect[w.word]=(wordCorrect[w.word]||0)+1;
-        if(w.meaning)  wordMeanings[w.word]=w.meaning;
+    // ── Word bank learning progress (donut chart)
+    if(state.words.length>0){
+      hdr.appendChild(el("div",{class:"stat-section"},"Ordbank — læringsframgang"));
+
+      // Words correctly answered in flashcards (net correct)
+      const fcCorrectWords=new Set();
+      const fcWrongWords=new Set();
+      fcAll.forEach(s=>(s.words||[]).forEach(w=>{
+        if(w.correct) fcCorrectWords.add(w.word.toLowerCase());
+        else fcWrongWords.add(w.word.toLowerCase());
+      }));
+      // A word is "mastered" in FC if ever answered correctly
+      const masteredFc=state.words.filter(w=>fcCorrectWords.has(w.word.toLowerCase())).length;
+
+      // Words used in sentences
+      const usedInSents=state.words.filter(w=>state.sentences[w.id]?.trim()).length;
+
+      // Words used in any saved essay
+      const allEssayText=loadEssayBank().map(e=>e.text||"").join(" ").toLowerCase();
+      const usedInEssays=state.words.filter(w=>w.word.length>=3&&allEssayText.includes(w.word.toLowerCase())).length;
+
+      // Union: at least one of the above
+      const learnedSet=new Set();
+      state.words.forEach(w=>{
+        const wl=w.word.toLowerCase();
+        if(fcCorrectWords.has(wl)||state.sentences[w.id]?.trim()||(w.word.length>=3&&allEssayText.includes(wl)))
+          learnedSet.add(w.id);
       });
-    });
-    // Only include words where wrong count exceeds correct count (net errors)
-    const missedWords = Object.entries(wordWrong)
-      .map(([word,wrong])=>([word, wrong, wordCorrect[word]||0]))
-      .filter(([,wrong,correct])=>wrong>correct)
-      .sort((a,b)=>(b[1]-b[2])-(a[1]-a[2]))
-      .slice(0,30);
+      const total=state.words.length;
+      const learned=learnedSet.size;
+      const notYet=total-learned;
 
+      // SVG donut
+      const segments=[
+        {label:"Riktig i flashcards", val:masteredFc, color:"#2d9e6b"},
+        {label:"Brukt i setninger",   val:usedInSents, color:"#4f6ef7"},
+        {label:"Brukt i essays",      val:usedInEssays,color:"#e8901a"},
+        {label:"Ikke øvd ennå",       val:notYet,      color:"#eee"},
+      ];
+      const R=54, cx=70, cy=70, stroke=22;
+      const circ=2*Math.PI*R;
+      let offset=0;
+      const svgNS="http://www.w3.org/2000/svg";
+      const svg=document.createElementNS(svgNS,"svg");
+      svg.setAttribute("viewBox","0 0 140 140");
+      svg.setAttribute("width","140");svg.setAttribute("height","140");
+      // background circle
+      const bg=document.createElementNS(svgNS,"circle");
+      bg.setAttribute("cx",cx);bg.setAttribute("cy",cy);bg.setAttribute("r",R);
+      bg.setAttribute("fill","none");bg.setAttribute("stroke","#eee");bg.setAttribute("stroke-width",stroke);
+      svg.appendChild(bg);
+      segments.filter(s=>s.val>0).forEach(s=>{
+        const frac=s.val/total;
+        const c=document.createElementNS(svgNS,"circle");
+        c.setAttribute("cx",cx);c.setAttribute("cy",cy);c.setAttribute("r",R);
+        c.setAttribute("fill","none");c.setAttribute("stroke",s.color);c.setAttribute("stroke-width",stroke);
+        c.setAttribute("stroke-dasharray",`${frac*circ} ${circ}`);
+        c.setAttribute("stroke-dashoffset",`${-offset*circ}`);
+        c.setAttribute("transform",`rotate(-90 ${cx} ${cy})`);
+        svg.appendChild(c);
+        offset+=frac;
+      });
+      // center text
+      const ct=document.createElementNS(svgNS,"text");
+      ct.setAttribute("x",cx);ct.setAttribute("y",cy-4);
+      ct.setAttribute("text-anchor","middle");ct.setAttribute("font-size","18");ct.setAttribute("font-weight","800");ct.setAttribute("fill","#1a6b4a");
+      ct.textContent=`${total?Math.round(learned/total*100):0}%`;
+      svg.appendChild(ct);
+      const ct2=document.createElementNS(svgNS,"text");
+      ct2.setAttribute("x",cx);ct2.setAttribute("y",cy+14);
+      ct2.setAttribute("text-anchor","middle");ct2.setAttribute("font-size","9");ct2.setAttribute("fill","#999");
+      ct2.textContent="øvd på";
+      svg.appendChild(ct2);
+
+      const donutWrap=el("div",{class:"donut-wrap"});
+      donutWrap.appendChild(svg);
+      const legend=el("div",{class:"donut-legend"});
+      segments.forEach(s=>{
+        const row=el("div",{class:"donut-legend-row"});
+        row.appendChild(el("div",{class:"donut-dot",style:{background:s.color}}));
+        row.appendChild(el("div",{class:"donut-legend-label"},s.label));
+        row.appendChild(el("div",{class:"donut-legend-val"},`${s.val} / ${total}`));
+        legend.appendChild(row);
+      });
+      donutWrap.appendChild(legend);
+      hdr.appendChild(donutWrap);
+    }
+
+    // ── Flashcard word breakdown — net missed words (wrong > correct, ALL words)
+    const missedWords = getNetMissedWords();
     if(missedWords.length){
-      hdr.appendChild(el("div",{class:"stat-section"},"Ord du oftest svarer feil på (flashcards)"));
+      hdr.appendChild(el("div",{class:"stat-section"},`Ord med flest feil (${missedWords.length} ord)`));
 
-      // Action buttons row
-      const missedList = missedWords.map(([word])=>({word, meaning:wordMeanings[word]||""}));
+      const missedList = missedWords.map(w=>({word:w.word, meaning:w.meaning}));
       const btnRow = el("div",{style:{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}});
-
-      // Play flashcards with error words
       btnRow.appendChild(el("button",{class:"btn-add",style:{padding:"8px 16px",fontSize:"13px"},
         click(){
-          const errorWords = missedList.slice(0,10).map(({word,meaning})=>{
-            const bankWord = state.words.find(w=>w.word.toLowerCase()===word.toLowerCase());
-            return bankWord || {id:Date.now()+Math.random(),word,meaning,category:"enkeltord",topic:""};
-          });
+          const errorWords = shuffle(missedWords).slice(0,10);
           if(errorWords.length<2){toast("Trenger minst 2 feilord for å spille.");return;}
-          fc.topicFilter=""; fc.timeFilter=0;
-          fc.queue=shuffle(errorWords).map(w=>{
+          fc.topicFilter=""; fc.timeFilter=0; fc.maxWords=0; fc.errorOnly=false;
+          fc.queue=errorWords.map(w=>{
             const type=Math.random()<0.5?"write":"choice";
             return {...w,_type:type,_options:type==="choice"?fcGetOptions(w):null};
           });
@@ -2831,21 +2954,22 @@ function buildStatistik(){
           fc.started=true;
           setTab("flashcards");
         }
-      },"🎮 Øv på feilordene"));
-
+      },"🎮 Øv på feilordene (maks 10)"));
       btnRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("cloud",missedList)}},"☁️ Ordsky"));
       btnRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("list", missedList)}},"📄 Ordliste"));
       hdr.appendChild(btnRow);
 
-      missedWords.slice(0,10).forEach(([word,wrong,correct])=>{
+      const scrollList=el("div",{class:"stat-missed-list"});
+      missedWords.forEach(w=>{
         const row=el("div",{class:"stat-word-row wrong"});
-        const left=el("span",{});
-        left.appendChild(el("span",{style:{fontWeight:"700"}},word));
-        if(wordMeanings[word]) left.appendChild(el("span",{style:{color:"#aaa",marginLeft:"8px",fontWeight:"400"}},wordMeanings[word]));
+        const left=el("span",{style:{flex:"1",minWidth:"0"}});
+        left.appendChild(el("span",{style:{fontWeight:"700"}},w.word));
+        if(w.meaning) left.appendChild(el("span",{style:{color:"#aaa",marginLeft:"8px",fontWeight:"400",fontSize:"12px"}},w.meaning));
         row.appendChild(left);
-        row.appendChild(el("span",{style:{fontWeight:"700",flexShrink:"0",color:"#e05c5c"}},`${wrong}× feil / ${correct}× riktig`));
-        hdr.appendChild(row);
+        row.appendChild(el("span",{style:{fontWeight:"700",flexShrink:"0",fontSize:"12px",color:"#e05c5c"}},`${w.wrong}✗ / ${w.rightCount}✓`));
+        scrollList.appendChild(row);
       });
+      hdr.appendChild(scrollList);
     }
 
     // ── Wordsort sentence breakdown — most missed
