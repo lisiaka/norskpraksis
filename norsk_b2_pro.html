@@ -405,7 +405,7 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   wordIdx:0, sentences:{}, claudeKey:"", sentTopicFilter:"" }; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
-const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[]};
+const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false};
 
 // Word-sort game state
 const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selectedAnswerIdx:null};
@@ -676,7 +676,7 @@ function renderTabs(){
    {key:"statistik",   label:"📊 Statistikk"},
   ].forEach(t=>c.appendChild(el("button",{class:"tab-btn"+(state.tab===t.key?" active":""),click(){setTab(t.key);}},t.label)));
 }
-function setTab(tab){ state.tab=tab; renderTabs(); renderContent(); }
+function setTab(tab){ state.tab=tab; if(tab==="statistik") statsCache=null; renderTabs(); renderContent(); }
 
 function renderContent(){
   const c=$("content"); c.innerHTML="";
@@ -2008,7 +2008,7 @@ function fcCheckWrite(input,word){
 function buildFcDone(frag){
   const total=fc.correct+fc.wrong;
   const pct=total?Math.round(fc.correct/total*100):0;
-  trackEvent("flashcard_session",{correct:fc.correct,wrong:fc.wrong,total,pct,topicFilter:fc.topicFilter||null,words:fc.log});
+  if(!fc.tracked){ fc.tracked=true; trackEvent("flashcard_session",{correct:fc.correct,wrong:fc.wrong,total,pct,topicFilter:fc.topicFilter||null,words:fc.log}); }
   const emoji=pct>=80?"🎉":pct>=60?"👍":"💪";
   const msg=pct>=80?"Utmerket!":pct>=60?"Bra jobbet!":"Øv mer – du klarer det!";
 
@@ -2040,7 +2040,7 @@ function startFlashcards(){
     const type=Math.random()<0.5?"write":"choice";
     return {...w,_type:type,_options:type==="choice"?fcGetOptions(w):null};
   });
-  fc.idx=0; fc.correct=0; fc.wrong=0; fc.log=[];
+  fc.idx=0; fc.correct=0; fc.wrong=0; fc.log=[]; fc.tracked=false;
   fc.answered=false; fc.chosenIdx=null;
   fc.writeInput=""; fc.writeChecked=false; fc.writeResult=false;
   fc.started=true;
@@ -2789,33 +2789,61 @@ function buildStatistik(){
       });
     }
 
-    // ── Flashcard word breakdown — most missed words
-    const wordMisses={};
-    const wordMeanings={};
+    // ── Flashcard word breakdown — net missed words (wrong - correct per word)
+    const wordWrong={}, wordCorrect={}, wordMeanings={};
     fcAll.forEach(session=>{
       (session.words||[]).forEach(w=>{
-        if(!w.correct){ wordMisses[w.word]=(wordMisses[w.word]||0)+1; }
-        if(w.meaning) wordMeanings[w.word]=w.meaning;
+        if(!w.correct) wordWrong[w.word]=(wordWrong[w.word]||0)+1;
+        else           wordCorrect[w.word]=(wordCorrect[w.word]||0)+1;
+        if(w.meaning)  wordMeanings[w.word]=w.meaning;
       });
     });
-    const missedWords = Object.entries(wordMisses).sort((a,b)=>b[1]-a[1]).slice(0,30);
+    // Only include words where wrong count exceeds correct count (net errors)
+    const missedWords = Object.entries(wordWrong)
+      .map(([word,wrong])=>([word, wrong, wordCorrect[word]||0]))
+      .filter(([,wrong,correct])=>wrong>correct)
+      .sort((a,b)=>(b[1]-b[2])-(a[1]-a[2]))
+      .slice(0,30);
+
     if(missedWords.length){
       hdr.appendChild(el("div",{class:"stat-section"},"Ord du oftest svarer feil på (flashcards)"));
 
-      // Print buttons
-      const printRow = el("div",{style:{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}});
+      // Action buttons row
       const missedList = missedWords.map(([word])=>({word, meaning:wordMeanings[word]||""}));
-      printRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("cloud", missedList)}},"☁️ Skriv ut ordsky"));
-      printRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("list",  missedList)}},"📄 Skriv ut ordliste"));
-      hdr.appendChild(printRow);
+      const btnRow = el("div",{style:{display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap"}});
 
-      missedWords.slice(0,10).forEach(([word,cnt])=>{
+      // Play flashcards with error words
+      btnRow.appendChild(el("button",{class:"btn-add",style:{padding:"8px 16px",fontSize:"13px"},
+        click(){
+          const errorWords = missedList.slice(0,10).map(({word,meaning})=>{
+            const bankWord = state.words.find(w=>w.word.toLowerCase()===word.toLowerCase());
+            return bankWord || {id:Date.now()+Math.random(),word,meaning,category:"enkeltord",topic:""};
+          });
+          if(errorWords.length<2){toast("Trenger minst 2 feilord for å spille.");return;}
+          fc.topicFilter=""; fc.timeFilter=0;
+          fc.queue=shuffle(errorWords).map(w=>{
+            const type=Math.random()<0.5?"write":"choice";
+            return {...w,_type:type,_options:type==="choice"?fcGetOptions(w):null};
+          });
+          fc.idx=0;fc.correct=0;fc.wrong=0;fc.log=[];fc.tracked=false;
+          fc.answered=false;fc.chosenIdx=null;
+          fc.writeInput="";fc.writeChecked=false;fc.writeResult=false;
+          fc.started=true;
+          setTab("flashcards");
+        }
+      },"🎮 Øv på feilordene"));
+
+      btnRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("cloud",missedList)}},"☁️ Ordsky"));
+      btnRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("list", missedList)}},"📄 Ordliste"));
+      hdr.appendChild(btnRow);
+
+      missedWords.slice(0,10).forEach(([word,wrong,correct])=>{
         const row=el("div",{class:"stat-word-row wrong"});
         const left=el("span",{});
         left.appendChild(el("span",{style:{fontWeight:"700"}},word));
         if(wordMeanings[word]) left.appendChild(el("span",{style:{color:"#aaa",marginLeft:"8px",fontWeight:"400"}},wordMeanings[word]));
         row.appendChild(left);
-        row.appendChild(el("span",{style:{fontWeight:"700",flexShrink:"0"}},`${cnt}× feil`));
+        row.appendChild(el("span",{style:{fontWeight:"700",flexShrink:"0",color:"#e05c5c"}},`${wrong}× feil / ${correct}× riktig`));
         hdr.appendChild(row);
       });
     }
