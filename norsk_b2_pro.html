@@ -2928,9 +2928,30 @@ const PLAN_TOPICS = [
 ];
 
 function savePlan(){
-  try{ localStorage.setItem(skPlan(state.userId), JSON.stringify({weeks:planState.weeks,setup:planState.setup})); }catch{}
+  const payload = {weeks:planState.weeks, setup:planState.setup};
+  try{ localStorage.setItem(skPlan(state.userId), JSON.stringify(payload)); }catch{}
+  fetch(`/plan/${encodeURIComponent(state.userId)}`,{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  }).catch(()=>{});
+}
+async function loadPlanFromServer(){
+  try{
+    const r = await fetch(`/plan/${encodeURIComponent(state.userId)}`);
+    if(r.ok){
+      const data = await r.json();
+      if(data && data.setup){ planState.weeks=data.weeks||[]; planState.setup=data.setup; return true; }
+    }
+  }catch{}
+  // fall back to localStorage
+  try{
+    const raw = JSON.parse(localStorage.getItem(skPlan(state.userId))||"null");
+    if(raw && raw.setup){ planState.weeks=raw.weeks||[]; planState.setup=raw.setup; return true; }
+  }catch{}
+  return false;
 }
 function loadPlan(){
+  // Sync version (localStorage only) — used during loginAs before async loads
   try{
     const raw = JSON.parse(localStorage.getItem(skPlan(state.userId))||"null");
     if(raw && raw.setup){ planState.weeks=raw.weeks||[]; planState.setup=raw.setup; return true; }
@@ -2944,23 +2965,28 @@ function generatePlan(months, sessionsPerWeek, startDate){
   const topicKeys = PLAN_TOPICS.slice(); // 12 topics
   const weeks = [];
 
-  // Distribute 12 topics across totalWeeks (some topics revisited if plan is long)
+  // How many texts per week:
+  // 2x/week → 1 text, 3x/week → 2 texts, 4x → 3, 5x → 3
+  const textsPerWeek = sessionsPerWeek <= 2 ? 1 : sessionsPerWeek <= 3 ? 2 : 3;
+
+  // Word target: 5 new words per session to add + all must be practiced in FC + sentences
+  const wordTarget = sessionsPerWeek * 5;
+
   for(let w=0; w<totalWeeks; w++){
     const topicKey = topicKeys[w % topicKeys.length];
     const topicMeta = TOPICS[topicKey] || {name: topicKey, emoji:"📚", color:"#4f6ef7"};
-    // Pick 2 reading texts for this topic (cycle through 10 available)
-    const topicOffset = Math.floor(w / topicKeys.length) * 2;
-    const texts = [
-      {topicKey, textSlot: topicOffset % 10},
-      {topicKey, textSlot: (topicOffset+1) % 10},
-    ].slice(0, Math.min(2, sessionsPerWeek)); // at least 1 reading per 2 sessions
+
+    // Spread across all 10 texts per topic across plan cycles
+    const round = Math.floor(w / topicKeys.length); // 0, 1, 2 …
+    const baseSlot = round * textsPerWeek;
+    const texts = [];
+    for(let i=0; i<textsPerWeek; i++){
+      texts.push({topicKey, textSlot: (baseSlot + i) % 10});
+    }
 
     // One essay prompt per week, cycling through topic prompts
     const prompts = PROMPTS[topicKey] || [];
     const essayPrompt = prompts[w % prompts.length] || null;
-
-    // Word target: 5 per session
-    const wordTarget = sessionsPerWeek * 5;
 
     // Calculate week start date
     const weekStart = new Date(startDate);
@@ -3101,11 +3127,35 @@ function buildPlanSetup(){
   return card;
 }
 
+// Compute word mastery for a set of words:
+// A word is fully mastered when it is (1) in ordbank AND (2) correct in FC AND (3) used in a sentence.
+// Returns {inBank, fcCorrect, inSentence, mastered} counts out of wordTarget.
+function getWordMastery(topicKey, wordTarget, fcAll){
+  const topicWords = state.words.filter(w => w.topic === topicKey);
+  const inBank = topicWords.length;
+
+  // FC correct for these words
+  const fcCorrectSet = new Set();
+  fcAll.forEach(s => (s.words||[]).forEach(w => { if(w.correct) fcCorrectSet.add(w.word.toLowerCase()); }));
+  const fcCorrect = topicWords.filter(w => fcCorrectSet.has(w.word.toLowerCase())).length;
+
+  // Used in sentence
+  const inSentence = topicWords.filter(w => state.sentences[w.id]?.trim()).length;
+
+  // Mastered = satisfies all three
+  const mastered = topicWords.filter(w =>
+    fcCorrectSet.has(w.word.toLowerCase()) && state.sentences[w.id]?.trim()
+  ).length;
+
+  return {inBank, fcCorrect, inSentence, mastered, topicWords, wordTarget};
+}
+
 function buildPlanView(){
   const frag = document.createDocumentFragment();
   const {weeks, setup} = planState;
   const readIds = new Set((statsCache?.events||[]).filter(e=>e.type==="text_read").map(e=>e.textId));
   const essaysWritten = new Set((statsCache?.events||[]).filter(e=>e.type==="essay_saved").map(e=>e.promptId||e.title));
+  const fcAll = (statsCache?.events||[]).filter(e=>e.type==="flashcard_session");
 
   // ── Header card
   const hdr = el("div",{class:"card",style:{marginBottom:"12px"}});
@@ -3126,20 +3176,24 @@ function buildPlanView(){
   // Summary stats
   const totalTexts = weeks.reduce((s,w)=>s+w.texts.length,0);
   const doneTexts  = weeks.reduce((s,w)=>s+w.texts.filter(t=>{const tx=getPlanText(t.topicKey,t.textSlot);return tx&&readIds.has(tx.id);}).length,0);
-  const totalWords = weeks.reduce((s,w)=>s+w.wordTarget,0);
-  const currentWordsLearned = state.words.length;
+  // Count unique mastered words across all plan topics
+  const fcCorrectSetAll = new Set();
+  fcAll.forEach(s=>(s.words||[]).forEach(w=>{ if(w.correct) fcCorrectSetAll.add(w.word.toLowerCase()); }));
+  const totalMastered = state.words.filter(w=>
+    fcCorrectSetAll.has(w.word.toLowerCase()) && state.sentences[w.id]?.trim()
+  ).length;
 
   const sumGrid = el("div",{class:"plan-summary-grid"});
   const sbox=(val,lbl)=>{const b=el("div",{class:"plan-summary-box"});b.appendChild(el("div",{class:"plan-summary-val"},String(val)));b.appendChild(el("div",{class:"plan-summary-lbl"},lbl));return b;};
   sumGrid.appendChild(sbox(weeks.length,"uker totalt"));
   sumGrid.appendChild(sbox(`${doneTexts}/${totalTexts}`,"tekster lest"));
-  sumGrid.appendChild(sbox(totalWords,"ordmål totalt"));
-  sumGrid.appendChild(sbox(currentWordsLearned,"ord i ordbank"));
+  sumGrid.appendChild(sbox(state.words.length,"ord i ordbank"));
+  sumGrid.appendChild(sbox(totalMastered,"ord mestret"));
   hdr.appendChild(sumGrid);
 
-  // Overall progress bar
+  // Overall progress bar (reading)
   const progPct = totalTexts ? Math.round(doneTexts/totalTexts*100) : 0;
-  hdr.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"4px"}},`Fremdrift: ${progPct}%`));
+  hdr.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"4px"}},`Lesefremdrift: ${progPct}%`));
   const pw = el("div",{class:"plan-prog-wrap"});
   pw.appendChild(el("div",{class:"plan-prog-fill",style:{width:progPct+"%"}}));
   hdr.appendChild(pw);
@@ -3218,26 +3272,57 @@ function buildPlanView(){
     body.appendChild(essaySess);
   }
 
-  // Session 3: Words target
+  // Session 3: Words mastery target
+  const mastery = getWordMastery(week.topicKey, week.wordTarget, fcAll);
   const wordSess = el("div",{class:"plan-session"});
-  const topicWords = state.words.filter(w=>w.topic===week.topicKey);
-  const wDone = el("div",{class:"plan-session-title"});
-  wDone.appendChild(document.createTextNode(`📚 Ordmål: ${week.wordTarget} nye ord`));
-  if(topicWords.length>=week.wordTarget) wDone.appendChild(el("span",{class:"plan-done-badge"},"✓ Nådd"));
-  wordSess.appendChild(wDone);
-  wordSess.appendChild(el("div",{style:{fontSize:"13px",color:"#666",marginBottom:"8px"}},
-    `Du har ${topicWords.length} ord om «${week.topicName}» i ordbanken.`));
-  const wpw = el("div",{class:"plan-prog-wrap"});
-  wpw.appendChild(el("div",{class:"plan-prog-fill",style:{width:Math.min(100,topicWords.length/week.wordTarget*100)+"%"}}));
-  wordSess.appendChild(wpw);
-  wordSess.appendChild(el("div",{style:{marginTop:"8px"}}));
-  wordSess.appendChild(el("button",{class:"plan-go-btn sec",
+
+  const wTitle = el("div",{class:"plan-session-title"});
+  wTitle.appendChild(document.createTextNode(`📚 Ordmål: ${week.wordTarget} ord mestret`));
+  if(mastery.mastered >= week.wordTarget)
+    wTitle.appendChild(el("span",{class:"plan-done-badge"},"✓ Mestret!"));
+  wordSess.appendChild(wTitle);
+
+  // Three sub-steps with individual progress bars
+  const steps = [
+    {label:"Lagt til i ordbank", val:mastery.inBank,    color:"#4f6ef7"},
+    {label:"Riktig i flashcards",val:mastery.fcCorrect, color:"#e8901a"},
+    {label:"Brukt i setning",    val:mastery.inSentence,color:"#2d9e6b"},
+  ];
+  const stepsWrap = el("div",{style:{display:"grid",gap:"8px",marginBottom:"12px"}});
+  steps.forEach(s=>{
+    const pct = Math.min(100, week.wordTarget ? Math.round(s.val/week.wordTarget*100) : 0);
+    const done = s.val >= week.wordTarget;
+    const row = el("div",{});
+    row.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",fontSize:"12px",color:done?"#1a6b4a":"#666",fontWeight:done?"700":"400",marginBottom:"3px"}},
+      el("span",{},(done?"✓ ":"")+s.label),
+      el("span",{},`${s.val}/${week.wordTarget}`)
+    ));
+    const bar = el("div",{class:"plan-prog-wrap"});
+    bar.appendChild(el("div",{class:"plan-prog-fill",style:{width:pct+"%",background:s.color}}));
+    row.appendChild(bar);
+    stepsWrap.appendChild(row);
+  });
+  wordSess.appendChild(stepsWrap);
+
+  // Overall mastery bar
+  const mastPct = week.wordTarget ? Math.min(100,Math.round(mastery.mastered/week.wordTarget*100)) : 0;
+  wordSess.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"3px"}},
+    `Totalt mestret (alle tre steg): ${mastery.mastered}/${week.wordTarget} (${mastPct}%)`));
+  const mpw = el("div",{class:"plan-prog-wrap",style:{height:"10px"}});
+  mpw.appendChild(el("div",{class:"plan-prog-fill",style:{width:mastPct+"%",height:"10px"}}));
+  wordSess.appendChild(mpw);
+
+  wordSess.appendChild(el("div",{style:{marginTop:"12px",display:"flex",gap:"8px",flexWrap:"wrap"}}));
+  const btnRow = wordSess.lastChild;
+  btnRow.appendChild(el("button",{class:"plan-go-btn sec",
     click(){state.sentTopicFilter=week.topicKey; setTab("setninger");}
   },"💬 Øv setninger"));
-  wordSess.appendChild(document.createTextNode(" "));
-  wordSess.appendChild(el("button",{class:"plan-go-btn sec",
-    click(){fc.topicFilter=week.topicKey; setTab("flashcards");}
-  },"🎮 Flashcards for temaet"));
+  btnRow.appendChild(el("button",{class:"plan-go-btn sec",
+    click(){fc.topicFilter=week.topicKey; fc.errorOnly=false; setTab("flashcards");}
+  },"🎮 Flashcards"));
+  btnRow.appendChild(el("button",{class:"plan-go-btn sec",
+    click(){state.topicFilter=week.topicKey; setTab("ordbank");}
+  },"📚 Legg til ord"));
   body.appendChild(wordSess);
 
   weekCard.appendChild(body);
@@ -3560,10 +3645,7 @@ async function loginAs(userId){
   state.userId = id;
   try{ localStorage.setItem("b2_user_id", id); }catch{}
 
-  // Restore plan for this user
-  loadPlan();
-
-  // Load words, sentences and essays in parallel
+  // Load words, sentences, essays and plan in parallel
   const [wordsRes, sentsRes, essaysRes] = await Promise.all([
     fetchUserData(`/words/${encodeURIComponent(id)}`,    skWords(id),  []),
     fetchUserData(`/sentences/${encodeURIComponent(id)}`,skSents(id),  {}),
@@ -3582,6 +3664,9 @@ async function loginAs(userId){
 
   // Update shared legacy localStorage key too (for offline fallback)
   try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
+
+  // Load plan from server (async, re-renders when done)
+  loadPlanFromServer().then(found => { if(found) renderContent(); });
 
   // Show app
   $("login-screen").style.display = "none";
