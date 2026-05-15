@@ -1,0 +1,15 @@
+{
+  "name": "norsk-b2-pro",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev . --compatibility-date=2024-01-01",
+    "deploy": "wrangler pages deploy . --project-name norsk-b2-pro",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "wrangler": "^4.90.0"
+  }
+}
