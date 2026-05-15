@@ -6,58 +6,61 @@
 <title>B2 Norsk Trening</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:#f0f4f8;min-height:100vh;color:#222;}
-button{cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s;}
-button:hover{opacity:.85;}
-button:active{transform:scale(.97);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',system-ui,sans-serif;background:#f0f4f8;min-height:100vh;color:#1a1a1a;font-size:15px;line-height:1.5;}
+button{cursor:pointer;font-family:inherit;transition:all .15s;}
+button:hover{opacity:.88;}
+button:active{transform:scale(.98);}
 input,select,textarea{font-family:inherit;outline:none;}
-input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shadow:0 0 0 3px rgba(45,158,107,.13);}
-::-webkit-scrollbar{width:6px;}
-::-webkit-scrollbar-thumb{background:#b5cdb8;border-radius:3px;}
-#app{max-width:980px;margin:0 auto;padding:20px 16px 60px;}
-.header{background:linear-gradient(135deg,#1a6b4a,#2d9e6b);border-radius:18px;padding:22px 28px;margin-bottom:22px;color:#fff;box-shadow:0 4px 20px rgba(26,107,74,.22);}
-.header-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
-.header h1{font-size:24px;font-weight:800;margin-bottom:4px;}
-.header p{opacity:.83;font-size:14px;}
-.user-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;color:#fff;white-space:nowrap;cursor:pointer;transition:background .2s;flex-shrink:0;}
-.user-badge:hover{background:rgba(255,255,255,.28);}
+input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shadow:0 0 0 3px rgba(45,158,107,.15);}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-thumb{background:#c8d4f8;border-radius:3px;}
+#app{max-width:none;margin:0;padding:0 32px 40px 252px;min-height:100vh;}
+.header{background:transparent;border:none;border-radius:0;padding:16px 0;margin-bottom:20px;color:#1a1a1a;}
+.header h1,.header p{display:none;}
+.header-top{display:flex;justify-content:flex-end;align-items:center;gap:12px;}
+.user-badge{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e0e4ec;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;color:#444;white-space:nowrap;cursor:pointer;transition:all .2s;flex-shrink:0;}
+.user-badge:hover{border-color:#1a6b4a;color:#1a6b4a;background:#f0fdf8;}
 .user-badge .ub-icon{font-size:15px;}
 /* ── Login screen ── */
-#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1a6b4a,#2d9e6b);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
-.login-card{background:#fff;border-radius:22px;padding:44px 40px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.18);text-align:center;}
-.login-card .login-flag{font-size:52px;margin-bottom:12px;}
-.login-card h2{font-size:22px;font-weight:800;color:#1a1a1a;margin-bottom:6px;}
-.login-card p{font-size:14px;color:#888;margin-bottom:28px;line-height:1.5;}
-.login-input{width:100%;padding:13px 16px;border-radius:11px;border:2px solid #dde;font-size:16px;text-align:center;font-family:inherit;margin-bottom:12px;transition:border-color .2s;}
-.login-input:focus{border-color:#2d9e6b!important;outline:none;box-shadow:0 0 0 3px rgba(45,158,107,.13);}
-.login-btn{width:100%;padding:13px;background:#1a6b4a;color:#fff;border:none;border-radius:11px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(26,107,74,.3);transition:opacity .15s;}
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#e8f5ff 0%,#f0e8ff 100%);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.login-card{background:#fff;border-radius:32px;padding:48px 40px;max-width:400px;width:100%;box-shadow:0 12px 48px rgba(79,110,247,.14);text-align:center;}
+.login-card .login-flag{font-size:56px;margin-bottom:16px;}
+.login-card h2{font-size:24px;font-weight:800;color:#1a1a2e;margin-bottom:6px;letter-spacing:-.3px;}
+.login-card p{font-size:14px;color:#888;margin-bottom:28px;line-height:1.6;}
+.login-input{width:100%;padding:14px 18px;border-radius:50px;border:2px solid #e0e4ff;font-size:16px;text-align:center;font-family:inherit;margin-bottom:12px;transition:border-color .2s;background:#f8f9ff;}
+.login-input:focus{border-color:#2d9e6b!important;outline:none;box-shadow:0 0 0 3px rgba(45,158,107,.15);}
+.login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#1a6b4a,#2d9e6b);color:#fff;border:none;border-radius:50px;font-size:16px;font-weight:800;cursor:pointer;transition:opacity .15s;}
 .login-btn:hover{opacity:.88;}
 .login-btn:disabled{opacity:.4;cursor:default;}
 .login-hint{font-size:12px;color:#bbb;margin-top:10px;}
-.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
-.tab-btn{padding:10px 22px;border-radius:10px;border:2px solid #e0e8e0;background:#fff;color:#444;font-weight:500;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
-.tab-btn.active{background:#1a6b4a;border-color:#1a6b4a;color:#fff;font-weight:700;box-shadow:0 2px 12px rgba(26,107,74,.2);}
-.card{background:#fff;border-radius:14px;padding:20px;box-shadow:0 1px 8px rgba(0,0,0,.07);margin-bottom:14px;}
-.card h2{font-size:16px;color:#1a6b4a;font-weight:700;margin-bottom:14px;}
+/* ── Sidebar navigation ── */
+.tabs{position:fixed;top:0;left:0;bottom:0;width:236px;background:#fff;border-right:1px solid #e0e4ec;display:flex;flex-direction:column;padding:0;overflow-y:auto;z-index:100;border-radius:0;box-shadow:none;margin:0;gap:0;}
+.sidebar-brand{padding:24px 20px 16px;font-size:17px;font-weight:800;color:#1a1a1a;border-bottom:1px solid #f0f0f0;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.nav-section-label{padding:12px 20px 4px;font-size:10px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.8px;}
+.tab-btn{display:flex;align-items:center;width:calc(100% - 16px);padding:10px 14px;border-radius:10px;margin:0 8px 2px;border:none;background:none;color:#555;font-weight:600;font-size:14px;text-align:left;justify-content:flex-start;transition:all .15s;white-space:nowrap;box-shadow:none;}
+.tab-btn:hover{background:#f0f6ff;color:#1a6b4a;opacity:1;}
+.tab-btn.active{background:#edfaf3;color:#1a6b4a;font-weight:700;box-shadow:none;}
+.card{background:#fff;border-radius:14px;padding:22px 24px;box-shadow:0 2px 10px rgba(0,0,0,.05);border:1px solid #e8ecf0;margin-bottom:14px;}
+.card h2{font-size:15px;color:#1a6b4a;font-weight:800;margin-bottom:14px;letter-spacing:-.1px;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
 .form-row2{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
 .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:flex-end;margin-bottom:10px;}
 .field-label{font-size:11px;color:#777;display:block;margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
-.text-input{width:100%;padding:10px 13px;border-radius:9px;border:1.5px solid #dde;font-size:14px;background:#fff;}
-.sel{padding:10px 13px;border-radius:9px;border:1.5px solid #dde;font-size:14px;background:#fff;width:100%;}
-.btn-add{padding:10px 24px;background:#1a6b4a;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;box-shadow:0 2px 10px rgba(26,107,74,.28);white-space:nowrap;}
+.text-input{width:100%;padding:10px 13px;border-radius:9px;border:1.5px solid #e0e4ec;font-size:14px;background:#fff;}
+.sel{padding:10px 13px;border-radius:9px;border:1.5px solid #e0e4ec;font-size:14px;background:#fff;width:100%;}
+.btn-add{padding:10px 22px;background:#1a6b4a;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;white-space:nowrap;}
 .hint{font-size:12px;color:#bbb;margin-top:6px;}
 .io-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
-.btn-io{padding:8px 16px;background:#fff;border:1.5px solid #dde;border-radius:9px;font-size:13px;color:#555;font-weight:600;}
+.btn-io{padding:8px 16px;background:#fff;border:1.5px solid #e0e4ec;border-radius:9px;font-size:13px;color:#555;font-weight:600;}
 .btn-io:hover{border-color:#2d9e6b;color:#1a6b4a;}
 .io-hint{font-size:12px;color:#bbb;margin-left:4px;}
-.search-box{width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #dde;font-size:14px;background:#fff;margin-bottom:14px;}
-.topic-filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:#f9f9f9;border-radius:10px;align-items:center;}
-.topic-chip{padding:6px 14px;border-radius:18px;font-size:13px;font-weight:600;background:#f0f0f0;border:1.5px solid #ddd;color:#555;cursor:pointer;transition:all .2s;}
+.search-box{width:100%;padding:10px 14px;border-radius:9px;border:1.5px solid #e0e4ec;font-size:14px;background:#fff;margin-bottom:14px;}
+.topic-filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:#fff;border-radius:12px;border:1px solid #e8ecf0;align-items:center;}
+.topic-chip{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;background:#f5f7fa;border:1.5px solid #e0e4ec;color:#555;cursor:pointer;transition:all .2s;}
 .topic-chip:hover{border-color:#2d9e6b;background:#e8f5ee;}
 .topic-chip.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;}
 .word-topic-tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:#f0e68c;color:#776;}
-.cat-section{background:#fff;border-radius:14px;padding:18px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);}
+.cat-section{background:#fff;border-radius:12px;padding:18px;margin-bottom:12px;border:1px solid #e8ecf0;}
 .cat-title{font-size:12px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:7px;}
 .cat-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;}
 .word-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;}
@@ -69,8 +72,8 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .empty-state{text-align:center;padding:56px 20px;background:#fff;border-radius:14px;color:#bbb;}
 .empty-state .big{font-size:48px;margin-bottom:12px;}
 .topic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
-.topic-card{background:#fff;border-radius:16px;padding:22px 20px;box-shadow:0 1px 8px rgba(0,0,0,.07);border:2px solid transparent;cursor:pointer;transition:border-color .2s,box-shadow .2s;text-align:left;}
-.topic-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.12);}
+.topic-card{background:#fff;border-radius:12px;padding:22px 20px;border:1px solid #e8ecf0;cursor:pointer;transition:border-color .15s;text-align:left;}
+.topic-card:hover{border-color:#2d9e6b;}
 .topic-emoji{font-size:36px;margin-bottom:10px;}
 .topic-name{font-weight:700;font-size:16px;color:#222;margin-bottom:4px;}
 .topic-count{font-size:13px;color:#999;margin-bottom:14px;}
@@ -99,7 +102,7 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .essay-area{width:100%;min-height:340px;padding:18px;border-radius:13px;border:1.5px solid #dde;font-size:15px;line-height:1.8;resize:vertical;background:#fff;}
 .essay-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#999;}
 .action-row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
-.btn-sec{padding:9px 18px;background:#f0f4f8;border:1.5px solid #dde;border-radius:9px;font-size:13px;color:#555;font-weight:500;}
+.btn-sec{padding:9px 18px;background:#f5f7fa;border:1.5px solid #e0e4ec;border-radius:9px;font-size:13px;color:#555;font-weight:500;}
 .sidebar{position:sticky;top:16px;}
 .sidebar .card{margin-bottom:12px;}
 .sidebar .card h3{font-size:14px;color:#1a6b4a;font-weight:700;margin-bottom:12px;}
@@ -119,7 +122,7 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .tip-item{font-size:12px;color:#776;margin-bottom:4px;display:flex;gap:6px;}
 .tip-dot{color:#f0c040;flex-shrink:0;}
 /* Settings card */
-.settings-card{background:#fff;border-radius:12px;padding:14px 18px;box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:14px;border:1.5px dashed #dde;}
+.settings-card{background:#fff;border-radius:12px;padding:14px 18px;margin-bottom:14px;border:1.5px dashed #e0e4ec;}
 .settings-card h3{font-size:13px;color:#888;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 .key-row{display:flex;gap:8px;align-items:center;}
 .key-input{flex:1;padding:8px 12px;border-radius:8px;border:1.5px solid #dde;font-size:13px;font-family:monospace;background:#fafafa;letter-spacing:.5px;}
@@ -193,7 +196,7 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .ws-correct-box{background:#edfaf3;border-left:4px solid #2d9e6b;border-radius:8px;padding:12px 16px;font-size:15px;color:#1a6b4a;font-weight:700;margin-top:14px;line-height:1.6;}
 .ws-wrong-box{background:#fff5f5;border-left:4px solid #e05c5c;border-radius:8px;padding:12px 16px;font-size:14px;color:#555;margin-top:14px;line-height:1.6;}
 .ws-wrong-original{color:#1a6b4a;font-style:italic;margin-top:6px;font-size:13px;}
-.ws-done{background:#fff;border-radius:18px;padding:50px 30px;text-align:center;box-shadow:0 1px 10px rgba(0,0,0,.08);}
+.ws-done{background:#fff;border-radius:14px;padding:50px 30px;text-align:center;border:1px solid #e8ecf0;}
 .ws-done-emoji{font-size:60px;margin-bottom:14px;}
 .ws-done-score{font-size:28px;font-weight:800;color:#1a6b4a;margin-bottom:6px;}
 .ws-done-pct{font-size:17px;color:#888;margin-bottom:28px;}
@@ -202,7 +205,7 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .lesing-unread-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;background:#f5f5f5;color:#bbb;border:1px solid #e0e0e0;margin-bottom:8px;}
 /* ── Statistics tab ── */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
-.stat-box{background:#fff;border-radius:14px;padding:20px 18px;box-shadow:0 1px 8px rgba(0,0,0,.07);text-align:center;}
+.stat-box{background:#fff;border-radius:12px;padding:20px 18px;border:1px solid #e8ecf0;text-align:center;}
 .stat-box .stat-val{font-size:36px;font-weight:800;color:#1a6b4a;line-height:1;}
 .stat-box .stat-lbl{font-size:12px;color:#999;margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
 .stat-box .stat-sub{font-size:13px;color:#555;margin-top:4px;}
@@ -230,15 +233,15 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .toggle-btn.on{background:#c0392b;border-color:#c0392b;color:#fff;}
 /* ── Plan tab ── */
 .plan-chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
-.plan-chip{padding:8px 20px;border-radius:20px;border:1.5px solid #dde;background:#f5f7fa;font-size:14px;font-weight:600;color:#555;cursor:pointer;transition:all .15s;}
+.plan-chip{padding:8px 18px;border-radius:20px;border:1.5px solid #e0e4ec;background:#f5f7fa;font-size:14px;font-weight:600;color:#555;cursor:pointer;transition:all .15s;}
 .plan-chip.on{background:#1a6b4a;border-color:#1a6b4a;color:#fff;}
 .plan-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
-.plan-nav-btn{padding:8px 18px;border-radius:10px;border:1.5px solid #dde;background:#fff;font-size:14px;font-weight:700;color:#555;cursor:pointer;transition:all .15s;}
-.plan-nav-btn:hover{background:#f0f4f8;}
+.plan-nav-btn{padding:8px 18px;border-radius:9px;border:1.5px solid #e0e4ec;background:#fff;font-size:14px;font-weight:600;color:#555;cursor:pointer;transition:all .15s;}
+.plan-nav-btn:hover{background:#f5f7fa;border-color:#2d9e6b;}
 .plan-nav-btn:disabled{opacity:.35;cursor:not-allowed;}
 .plan-nav-center{flex:1;text-align:center;font-weight:700;font-size:15px;color:#333;}
-.plan-week-card{background:#fff;border-radius:16px;box-shadow:0 1px 8px rgba(0,0,0,.08);overflow:hidden;border:2px solid transparent;}
-.plan-week-card.current{border-color:#1a6b4a;}
+.plan-week-card{background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e8ecf0;}
+.plan-week-card.current{border-color:#1a6b4a;border-width:2px;}
 .plan-week-hdr{padding:16px 20px;display:flex;align-items:center;gap:14px;background:#f9fafb;}
 .plan-week-hdr.current{background:#f0fdf4;}
 .plan-week-num{font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;min-width:52px;}
@@ -253,14 +256,14 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .plan-text-link:hover{background:#dde8ff;}
 .plan-text-link-title{flex:1;font-weight:600;color:#2d4e9e;font-size:13px;}
 .plan-text-read{opacity:.6;text-decoration:line-through;}
-.plan-go-btn{display:inline-block;margin-top:8px;padding:7px 16px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#1a6b4a;color:#fff;transition:background .15s;}
-.plan-go-btn:hover{background:#155c3e;}
+.plan-go-btn{display:inline-block;margin-top:8px;padding:7px 16px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#1a6b4a;color:#fff;transition:opacity .15s;}
+.plan-go-btn:hover{opacity:.88;}
 .plan-go-btn.sec{background:#eef2fb;color:#2d4e9e;border:1.5px solid #c5d3f5;}
 .plan-go-btn.sec:hover{background:#dce5f8;}
 .plan-prog-wrap{background:#e8e8e8;border-radius:6px;height:7px;margin-bottom:3px;overflow:hidden;}
 .plan-prog-fill{height:7px;border-radius:6px;background:#1a6b4a;transition:width .4s;}
 .plan-summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px;}
-.plan-summary-box{background:#fff;border-radius:12px;padding:14px 12px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,.07);}
+.plan-summary-box{background:#fff;border-radius:10px;padding:14px 12px;text-align:center;border:1px solid #e8ecf0;}
 .plan-summary-val{font-size:22px;font-weight:800;color:#1a6b4a;}
 .plan-summary-lbl{font-size:12px;color:#888;margin-top:3px;}
 .plan-week-mini{display:flex;gap:4px;align-items:center;padding:8px 12px;border-radius:10px;cursor:pointer;transition:background .15s;font-size:13px;}
@@ -291,10 +294,10 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .sent-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
 .sent-progress{font-size:13px;color:#888;}
 .sent-progress strong{color:#444;}
-.btn-nav{padding:8px 18px;background:#fff;border:1.5px solid #dde;border-radius:9px;font-size:13px;color:#444;font-weight:600;}
+.btn-nav{padding:8px 18px;background:#fff;border:1.5px solid #e0e4ec;border-radius:9px;font-size:13px;color:#444;font-weight:600;}
 .btn-nav:hover{border-color:#2d9e6b;color:#1a6b4a;}
 .btn-nav:disabled{opacity:.3;cursor:default;pointer-events:none;}
-.sent-card{background:#fff;border-radius:18px;padding:30px 28px 24px;box-shadow:0 1px 10px rgba(0,0,0,.08);margin-bottom:14px;}
+.sent-card{background:#fff;border-radius:14px;padding:30px 28px 24px;border:1px solid #e8ecf0;margin-bottom:14px;}
 .sent-word{font-size:34px;font-weight:800;color:#1a6b4a;margin-bottom:10px;word-break:break-word;line-height:1.2;}
 .sent-meta{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .sent-cat{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;}
@@ -305,39 +308,39 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .sent-area:focus{border-color:#2d9e6b!important;box-shadow:0 0 0 3px rgba(45,158,107,.13);}
 .sent-feedback{font-size:13px;margin-top:10px;min-height:20px;display:flex;align-items:center;gap:8px;}
 .sent-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center;}
-.btn-next-sent{padding:10px 22px;background:#1a6b4a;border:none;border-radius:9px;font-size:14px;color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(26,107,74,.25);}
-.btn-skip{padding:10px 16px;background:#f0f4f8;border:1.5px solid #dde;border-radius:9px;font-size:13px;color:#666;font-weight:500;}
+.btn-next-sent{padding:10px 22px;background:#1a6b4a;border:none;border-radius:9px;font-size:14px;color:#fff;font-weight:700;}
+.btn-skip{padding:10px 16px;background:#f5f7fa;border:1.5px solid #e0e4ec;border-radius:9px;font-size:13px;color:#666;font-weight:500;}
 .sent-badge{background:#edfaf3;color:#2d9e6b;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;}
 .sent-saved-label{font-size:12px;color:#aaa;}
-.sent-done-box{background:#fff;border-radius:18px;padding:50px 30px;text-align:center;box-shadow:0 1px 10px rgba(0,0,0,.08);}
+.sent-done-box{background:#fff;border-radius:14px;padding:50px 30px;text-align:center;border:1px solid #e8ecf0;}
 .prev-sentences{margin-top:20px;}
 .prev-sentences h3{font-size:13px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:12px;}
 .prev-sent-item{background:#f8fdf9;border-radius:9px;padding:10px 14px;margin-bottom:8px;border-left:3px solid #2d9e6b;}
 .prev-sent-word{font-size:12px;color:#1a6b4a;font-weight:700;margin-bottom:3px;}
 .prev-sent-text{font-size:14px;color:#333;line-height:1.5;}
 /* ── Flashcards ── */
-.fc-setup{background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 8px rgba(0,0,0,.07);margin-bottom:14px;}
+.fc-setup{background:#fff;border-radius:14px;padding:24px;border:1px solid #e8ecf0;margin-bottom:14px;}
 .fc-section-label{font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:block;}
 .fc-mode-row{display:flex;gap:10px;margin-bottom:4px;flex-wrap:wrap;}
-.fc-mode-btn{flex:1;min-width:180px;padding:14px 16px;border-radius:12px;border:2px solid #dde;background:#f8f8f8;font-size:14px;font-weight:600;color:#555;text-align:left;cursor:pointer;transition:all .2s;}
+.fc-mode-btn{flex:1;min-width:180px;padding:14px 16px;border-radius:12px;border:1.5px solid #e0e4ec;background:#f5f7fa;font-size:14px;font-weight:600;color:#555;text-align:left;cursor:pointer;transition:all .2s;}
 .fc-mode-btn.active{border-color:#1a6b4a;background:#edfaf3;color:#1a6b4a;}
 .fc-mode-btn .mode-icon{font-size:24px;display:block;margin-bottom:6px;}
 .fc-mode-btn .mode-desc{font-size:12px;font-weight:400;color:#999;margin-top:3px;}
 .fc-mode-btn.active .mode-desc{color:#2d9e6b;}
 .fc-filter-bar{background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
-.fc-score-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:10px 16px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);flex-wrap:wrap;gap:8px;}
+.fc-score-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:10px 16px;background:#fff;border-radius:10px;border:1px solid #e8ecf0;flex-wrap:wrap;gap:8px;}
 .fc-score-nums{display:flex;gap:16px;}
 .fc-score-ok{font-size:15px;font-weight:700;color:#2d9e6b;}
 .fc-score-err{font-size:15px;font-weight:700;color:#e05c5c;}
 .fc-progress-wrap{height:5px;background:#eee;border-radius:4px;margin-bottom:18px;overflow:hidden;}
 .fc-progress-fill{height:100%;background:#2d9e6b;border-radius:4px;transition:width .35s;}
-.fc-card{background:#fff;border-radius:18px;padding:36px 28px 28px;text-align:center;box-shadow:0 2px 16px rgba(0,0,0,.09);margin-bottom:18px;}
+.fc-card{background:#fff;border-radius:16px;padding:36px 28px 28px;text-align:center;border:1px solid #e8ecf0;margin-bottom:18px;}
 .fc-word{font-size:38px;font-weight:800;color:#1a6b4a;margin-bottom:8px;word-break:break-word;line-height:1.2;}
 .fc-sub{font-size:14px;color:#aaa;margin-bottom:6px;font-style:italic;}
 .fc-question{font-size:13px;font-weight:600;color:#888;margin-top:10px;text-transform:uppercase;letter-spacing:.4px;}
 .fc-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
 @media(max-width:520px){.fc-options{grid-template-columns:1fr;}}
-.fc-opt{padding:14px 16px;border-radius:12px;border:2px solid #dde;background:#fff;font-size:14px;font-weight:600;color:#333;text-align:center;cursor:pointer;transition:all .15s;line-height:1.4;}
+.fc-opt{padding:14px 16px;border-radius:10px;border:1.5px solid #e0e4ec;background:#fff;font-size:14px;font-weight:600;color:#333;text-align:center;cursor:pointer;transition:all .15s;line-height:1.4;}
 .fc-opt:hover:not([disabled]){border-color:#2d9e6b;background:#edfaf3;color:#1a6b4a;}
 .fc-opt.correct{border-color:#2d9e6b!important;background:#edfaf3!important;color:#1a6b4a!important;}
 .fc-opt.wrong{border-color:#e05c5c!important;background:#fff5f5!important;color:#e05c5c!important;}
@@ -348,8 +351,8 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .fc-feedback-err{font-size:20px;font-weight:800;color:#e05c5c;margin-bottom:4px;}
 .fc-correct-hint{font-size:13px;color:#888;}
 .fc-nav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
-.btn-fc-next{padding:12px 32px;background:#1a6b4a;border:none;border-radius:10px;font-size:15px;color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(26,107,74,.22);cursor:pointer;}
-.fc-done{background:#fff;border-radius:18px;padding:50px 30px;text-align:center;box-shadow:0 1px 10px rgba(0,0,0,.08);}
+.btn-fc-next{padding:12px 32px;background:#1a6b4a;border:none;border-radius:9px;font-size:15px;color:#fff;font-weight:700;cursor:pointer;}
+.fc-done{background:#fff;border-radius:14px;padding:50px 30px;text-align:center;border:1px solid #e8ecf0;}
 .fc-done-emoji{font-size:60px;margin-bottom:14px;}
 .fc-done-score{font-size:28px;font-weight:800;color:#1a6b4a;margin-bottom:6px;}
 .fc-done-pct{font-size:17px;color:#888;margin-bottom:28px;}
@@ -360,10 +363,15 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
   <div class="login-card">
     <div class="login-flag">🇳🇴</div>
     <h2>B2 Norsk Treningsverktøy</h2>
-    <p>Skriv inn brukernavnet ditt for å laste inn ordbanken og statistikken din.</p>
-    <input id="login-input" class="login-input" type="text" placeholder="Brukernavn" autocomplete="off" autocapitalize="off"/>
+    <p id="login-subtitle">Logg inn med e-postadressen din.</p>
+    <input id="reg-name" class="login-input" type="text" placeholder="Ditt navn" autocomplete="name" style="display:none;margin-bottom:10px"/>
+    <input id="login-input" class="login-input" type="email" placeholder="E-postadresse" autocomplete="email" autocapitalize="off"/>
+    <input id="login-password" class="login-input" type="password" placeholder="Passord" autocomplete="current-password" style="margin-top:10px"/>
+    <div id="login-error" style="display:none;color:#c0392b;font-size:13px;margin-top:6px;text-align:center;"></div>
     <button id="login-btn" class="login-btn" disabled>Logg inn →</button>
-    <div class="login-hint">Nytt brukernavn? Bare skriv det inn og trykk Logg inn.</div>
+    <div style="text-align:center;margin-top:14px;font-size:13px;color:#888">
+      <span id="login-toggle-text">Ny bruker? </span><a id="login-toggle" href="#" style="color:#1a6b4a;font-weight:700;text-decoration:none">Registrer deg</a>
+    </div>
   </div>
 </div>
 
@@ -516,7 +524,7 @@ const TIPS = [
 
 // ── STATE ─────────────────────────────────────────────────────────────
 const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, currentTopic:null, currentPrompt:null, essay:"",
-  wordIdx:0, sentences:{}, claudeKey:"", sentTopicFilter:"" }; // sentences: {wordId: "written sentence"}
+  wordIdx:0, sentences:{}, sentTopicFilter:"" }; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
 const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, errorOnly:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false};
@@ -528,9 +536,19 @@ const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selecte
 const planState = { weeks:[], viewWeek:0, setup:null }; // setup: {months, sessionsPerWeek, startDate}
 const skPlan = id => `b2_plan_${id}`;
 
-// Load Claude key and userId immediately
-state.claudeKey = localStorage.getItem("b2_claude_key")||"";
-state.userId = localStorage.getItem("b2_user_id")||"default";
+// Load session token and userId immediately
+state.sessionToken = localStorage.getItem("b2_session_token")||"";
+state.userId = localStorage.getItem("b2_user_id")||"";
+state.userName = localStorage.getItem("b2_user_name")||"";
+state.userEmail = localStorage.getItem("b2_user_email")||"";
+
+// ── API HELPER ─────────────────────────────────────────────────────────
+const API_BASE = "http://localhost:8000";
+async function api(path, opts = {}){
+  const headers = {"Content-Type":"application/json", ...(opts.headers||{})};
+  if(state.sessionToken) headers["Authorization"] = `Bearer ${state.sessionToken}`;
+  return fetch(`${API_BASE}${path}`, {...opts, headers});
+}
 
 // Show a banner if served from file:// (Claude API won't work)
 if(window.location.protocol==="file:"){
@@ -550,20 +568,25 @@ let statsCache = null;
 
 async function loadStats(){
   try{
-    const r = await fetch(`/stats/${encodeURIComponent(state.userId)}`);
+    const r = await api("/api/stats");
     if(!r.ok) return {events:[]};
-    statsCache = await r.json();
+    const raw = await r.json();
+    // Normalize to flat event shape: {type, ts, ...payload}
+    const events = (raw.events||[]).map(e=>({
+      type: e.event_type,
+      ts: e.created_at,
+      ...(e.payload||{}),
+    }));
+    statsCache = {events};
     return statsCache;
   }catch(e){ return {events:[]}; }
 }
 
 function trackEvent(type, data){
   statsCache = null; // invalidate so next stats view re-fetches
-  const event = { type, ts: new Date().toISOString(), ...data };
-  fetch(`/stats/${encodeURIComponent(state.userId)}`, {
+  api("/api/stats", {
     method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(event)
+    body:JSON.stringify({event_type:type, payload:data||{}}),
   }).catch(()=>{}); // silent — tracking must never break the app
 }
 
@@ -575,34 +598,29 @@ const skSents = id => `b2_sentences_${id}`;
 
 function loadStorage(){ try{ state.words = JSON.parse(localStorage.getItem(SK)||"[]"); }catch{} }
 function saveStorage(){
+  // Local cache only — server is updated via individual CRUD calls
   try{
     localStorage.setItem(SK, JSON.stringify(state.words));
-    localStorage.setItem(skWords(state.userId), JSON.stringify(state.words));
+    if(state.userId) localStorage.setItem(skWords(state.userId), JSON.stringify(state.words));
   }catch{}
-  fetch(`/words/${encodeURIComponent(state.userId)}`,{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(state.words)
-  }).catch(()=>{});
 }
 
 function saveSentences(){
-  try{ localStorage.setItem(skSents(state.userId), JSON.stringify(state.sentences)); }catch{}
-  fetch(`/sentences/${encodeURIComponent(state.userId)}`,{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(state.sentences)
+  try{ if(state.userId) localStorage.setItem(skSents(state.userId), JSON.stringify(state.sentences)); }catch{}
+  api("/api/sentences", {
+    method:"POST",
+    body:JSON.stringify(state.sentences),
   }).catch(()=>{});
 }
 
 async function syncWordsFromServer(){
   try{
-    const r = await fetch(`/words/${encodeURIComponent(state.userId)}`);
+    const r = await api("/api/words");
     if(!r.ok) return;
     const serverWords = await r.json();
-    if(!Array.isArray(serverWords) || serverWords.length===0) return;
-    // Merge: server wins for words it knows about; keep any local-only words
-    const serverIds = new Set(serverWords.map(w=>w.id));
-    const localOnly = state.words.filter(w=>!serverIds.has(w.id));
-    state.words = [...serverWords, ...localOnly];
+    if(!Array.isArray(serverWords)) return;
+    // Normalize server words: map created_at → createdAt timestamp
+    state.words = serverWords.map(w=>({...w, createdAt: new Date(w.created_at).getTime()}));
     try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
     renderWordList(); renderTabs();
   }catch(e){}
@@ -612,19 +630,32 @@ const SK_ESSAYS = "b2_essay_bank_v1";
 const skEssays = id => `b2_essays_${id}`;
 function loadEssayBank(){ try{ return JSON.parse(localStorage.getItem(skEssays(state.userId))||localStorage.getItem(SK_ESSAYS)||"[]"); }catch{ return []; } }
 function saveEssayBank(bank){
-  try{ localStorage.setItem(skEssays(state.userId), JSON.stringify(bank)); }catch{}
-  fetch(`/essays/${encodeURIComponent(state.userId)}`,{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(bank)
-  }).catch(()=>{});
+  // Local cache only — server updated via individual create/delete calls
+  try{ if(state.userId) localStorage.setItem(skEssays(state.userId), JSON.stringify(bank)); }catch{}
+}
+async function syncEssaysFromServer(){
+  try{
+    const r = await api("/api/essays");
+    if(!r.ok) return;
+    const serverEssays = await r.json();
+    if(!Array.isArray(serverEssays)) return;
+    // Merge with any locally-only entries (those without a server-style UUID id)
+    const serverIds = new Set(serverEssays.map(e=>e.id));
+    const localOnly = loadEssayBank().filter(e=>!serverIds.has(e.id));
+    const merged = [...serverEssays.map(e=>({
+      id: e.id, title: e.title, text: e.text, topic: e.topic,
+      promptId: e.prompt_id, claudeLevel: e.claude_level,
+      savedAt: new Date(e.created_at).getTime(),
+    })), ...localOnly];
+    saveEssayBank(merged);
+  }catch(e){}
 }
 
-function saveCurrentEssay(){
+async function saveCurrentEssay(){
   const ta=$("essay-ta");
   const essayText=(ta?ta.value:state.essay).trim();
   if(!essayText){toast("Ingen tekst å lagre – skriv noe først!");return;}
   const bank=loadEssayBank();
-  // Check for duplicate (same prompt + same first 80 chars → update instead of duplicate)
   const promptId=state.currentPrompt?.id||"";
   const snippet=essayText.substring(0,80);
   const existIdx=bank.findIndex(e=>e.promptId===promptId&&e.text.substring(0,80)===snippet);
@@ -638,10 +669,25 @@ function saveCurrentEssay(){
     text: essayText,
     wordCount: wcCount(essayText),
     savedAt: new Date().toISOString(),
-    claudeLevel: null, // filled in if Claude check was done
+    claudeLevel: null,
   };
   if(existIdx>=0){ bank[existIdx]=entry; }else{ bank.unshift(entry); }
   saveEssayBank(bank);
+  // Sync to server (fire-and-forget; on success update local id with server id)
+  try{
+    const r = await api("/api/essays",{method:"POST",body:JSON.stringify({
+      title:entry.title, text:entry.text,
+      topic:entry.topic||"annet",
+      prompt_id:entry.promptId||null,
+      claude_level:entry.claudeLevel||null,
+    })});
+    if(r.ok){
+      const sv=await r.json();
+      const b=loadEssayBank();
+      const i=b.findIndex(e=>e.id===entry.id);
+      if(i>=0){b[i].id=sv.id; saveEssayBank(b);}
+    }
+  }catch{}
   trackEvent("essay_saved",{title:entry.title,topic:entry.topic,topicName:entry.topicName,wordCount:entry.wordCount,promptId:entry.promptId});
   toast("✅ Essayet er lagret!");
   refreshEssayBank();
@@ -651,6 +697,7 @@ function deleteEssay(id){
   const bank=loadEssayBank().filter(e=>e.id!==id);
   saveEssayBank(bank);
   refreshEssayBank();
+  api(`/api/essays/${encodeURIComponent(id)}`,{method:"DELETE"}).catch(()=>{});
 }
 
 function loadEssayIntoEditor(entry){
@@ -774,9 +821,9 @@ function renderHeader(){
   left.appendChild(el("h1",{},"🇳🇴 B2 Prøve i Norsk — Treningsverktøy"));
   left.appendChild(el("p",{},"Bygg ordforrådet ditt · Automatisk oversettelse · Importer / eksporter · Øv på å skrive"));
   top.appendChild(left);
-  const badge = el("button",{class:"user-badge",title:"Klikk for å bytte bruker",click:switchUser});
+  const badge = el("button",{class:"user-badge",title:"Klikk for å logge ut",click:switchUser});
   badge.appendChild(el("span",{class:"ub-icon"},"👤"));
-  badge.appendChild(el("span",{},state.userId));
+  badge.appendChild(el("span",{},state.userName||state.userEmail||"Bruker"));
   top.appendChild(badge);
   hdr.appendChild(top);
 }
@@ -785,16 +832,33 @@ function renderHeader(){
 function renderTabs(){
   const c=$("tabs"); c.innerHTML="";
   const doneCount=Object.keys(state.sentences).filter(id=>state.sentences[id]?.trim()).length;
-  [{key:"ordbank",     label:`📚 Ordbank${state.words.length?` (${state.words.length})`:""}`},
-   {key:"setninger",  label:`💬 Setninger${doneCount?` (${doneCount}/${state.words.length})`:""}`},
-   {key:"flashcards", label:"🎮 Flashcards"},
-   {key:"oppgaver",   label:"✍️ Velg oppgave"},
-   {key:"skriv",      label:"📝 Skriv"},
-   {key:"lesing",     label:"📖 Lesing"},
-   {key:"ordstilling", label:"🧩 Setningsbygging"},
-   {key:"plan",        label:"📅 Plan"},
-   {key:"statistik",   label:"📊 Statistikk"},
-  ].forEach(t=>c.appendChild(el("button",{class:"tab-btn"+(state.tab===t.key?" active":""),click(){setTab(t.key);}},t.label)));
+  // Sidebar brand
+  c.appendChild(el("div",{class:"sidebar-brand"},"🇳🇴 B2 Norsk"));
+  // Grouped nav sections
+  const sections=[
+    {label:"Lær",tabs:[
+      {key:"ordbank",     label:`📚 Ordbank${state.words.length?` (${state.words.length})`:""}`},
+      {key:"lesing",      label:"📖 Lesing"},
+    ]},
+    {label:"Øv",tabs:[
+      {key:"setninger",   label:`💬 Setninger${doneCount?` (${doneCount})`:""}`},
+      {key:"flashcards",  label:"🎮 Flashcards"},
+      {key:"ordstilling", label:"🧩 Setningsbygging"},
+    ]},
+    {label:"Skriv",tabs:[
+      {key:"oppgaver",    label:"✍️ Velg oppgave"},
+      {key:"skriv",       label:"📝 Skriv"},
+    ]},
+    {label:"Oversikt",tabs:[
+      {key:"plan",        label:"📅 Plan"},
+      {key:"statistik",   label:"📊 Statistikk"},
+      {key:"innstillinger", label:"⚙️ Innstillinger"},
+    ]},
+  ];
+  sections.forEach(sec=>{
+    c.appendChild(el("div",{class:"nav-section-label"},sec.label));
+    sec.tabs.forEach(t=>c.appendChild(el("button",{class:"tab-btn"+(state.tab===t.key?" active":""),click(){setTab(t.key);}},t.label)));
+  });
 }
 function setTab(tab){ state.tab=tab; if(tab==="statistik"||tab==="plan") statsCache=null; renderTabs(); renderContent(); }
 
@@ -808,7 +872,8 @@ function renderContent(){
   if(state.tab==="lesing")      c.appendChild(buildLesing());
   if(state.tab==="ordstilling") c.appendChild(buildOrdstilling());
   if(state.tab==="plan")        c.appendChild(buildPlan());
-  if(state.tab==="statistik")   c.appendChild(buildStatistik());
+  if(state.tab==="statistik")     c.appendChild(buildStatistik());
+  if(state.tab==="innstillinger") c.appendChild(buildInnstillinger());
 }
 
 // ── ORDBANK TAB ───────────────────────────────────────────────────────
@@ -924,61 +989,7 @@ function buildOrdbank(){
   ioBar.appendChild(el("span",{class:"io-hint"},"JSON, CSV, eller tekst (ett ord per linje)"));
   frag.appendChild(ioBar);
 
-  // ── Claude API key settings ──
-  const settCard=el("div",{class:"settings-card"});
-  settCard.appendChild(el("h3",{},"⚙️ Claude API-nøkkel  ",
-    el("span",{style:{fontWeight:"400",color:"#bbb",fontSize:"11px"}},"(valgfritt – brukes for grammatikksjekk)")));
-  const keyRow=el("div",{class:"key-row"});
-  const keyIn=el("input",{
-    id:"key-input",class:"key-input",type:"password",
-    placeholder:"sk-ant-api03-…",
-    value:state.claudeKey,
-    input(e){state.claudeKey=e.target.value;},
-  });
-  keyRow.appendChild(keyIn);
-  keyRow.appendChild(el("button",{class:"btn-save-key",click(){
-    const k=($("key-input")?.value||"").trim();
-    state.claudeKey=k;
-    try{if(k)localStorage.setItem("b2_claude_key",k);else localStorage.removeItem("b2_claude_key");}catch{}
-    const s=$("key-status");
-    if(s){ s.textContent=k?"✓ Nøkkel lagret – grammatikksjekk er klar!":"Nøkkel fjernet.";
-           s.style.color=k?"#2d9e6b":"#888"; }
-  }},"Lagre"));
-  settCard.appendChild(keyRow);
-  const keyStatus=el("div",{id:"key-status",class:"key-status"});
-  keyStatus.textContent=state.claudeKey?"✓ Claude API-nøkkel er lagret":"Ingen nøkkel lagret – grammatikksjekk bruker LanguageTool";
-  keyStatus.style.color=state.claudeKey?"#2d9e6b":"#aaa";
-  settCard.appendChild(keyStatus);
-
-  // ── User ID ──
-  settCard.appendChild(el("div",{style:{marginTop:"14px",borderTop:"1px solid #eee",paddingTop:"12px"}}));
-  settCard.appendChild(el("h3",{},"👤 Bruker-ID  ",
-    el("span",{style:{fontWeight:"400",color:"#bbb",fontSize:"11px"}},"(for å spore fremgang per bruker)")));
-  const userRow=el("div",{class:"key-row"});
-  const userIn=el("input",{
-    id:"user-id-input",class:"key-input",type:"text",
-    placeholder:"f.eks. maria, student1 …",
-    value:state.userId==="default"?"":state.userId,
-    style:{fontFamily:"inherit",letterSpacing:"0"},
-  });
-  userRow.appendChild(userIn);
-  userRow.appendChild(el("button",{class:"btn-save-key",click(){
-    const v=($("user-id-input")?.value||"").trim().replace(/[^a-zA-Z0-9_\-æøåÆØÅ]/g,"");
-    const id=v||"default";
-    state.userId=id;
-    try{localStorage.setItem("b2_user_id",id);}catch{}
-    renderHeader();
-    const s=$("user-id-status");
-    if(s){s.textContent=`✓ Bruker-ID satt til «${id}» — laster ordbank…`;s.style.color="#2d9e6b";}
-    syncWordsFromServer().then(()=>{if(s)s.textContent=`✓ Bruker-ID: «${id}» — ordbank lastet`;});
-  }},"Lagre"));
-  settCard.appendChild(userRow);
-  const userStatus=el("div",{id:"user-id-status",class:"key-status"});
-  userStatus.textContent=`Aktiv bruker: ${state.userId}`;
-  userStatus.style.color="#aaa";
-  settCard.appendChild(userStatus);
-
-  frag.appendChild(settCard);
+  // Settings moved to Innstillinger tab
 
   // ── Word list container (populated separately so form is never re-rendered) ──
   const wlDiv=el("div",{id:"word-list"});
@@ -1035,7 +1046,7 @@ function renderWordList(){
       if(w.meaning)info.appendChild(el("div",{class:"wm"},w.meaning));
       chip.appendChild(info);
       chip.appendChild(el("button",{class:"btn-del",title:"Fjern",
-        click(){state.words=state.words.filter(x=>x.id!==w.id);saveStorage();renderWordList();renderTabs();}
+        click(){const wid=w.id;state.words=state.words.filter(x=>x.id!==wid);saveStorage();renderWordList();renderTabs();api(`/api/words/${encodeURIComponent(wid)}`,{method:"DELETE"}).catch(()=>{});}
       },"×"));
       grid.appendChild(chip);
     });
@@ -1078,14 +1089,29 @@ async function lookupWord(){
   btn.disabled=false; btn.textContent="🔍";
 }
 
-function addWord(){
+async function addWord(){
   const word=form.word.trim(); if(!word){$("fi-word")?.focus();return;}
-  state.words.push({id:Date.now(),word,meaning:form.meaning.trim(),category:form.category,topic:form.topic.trim(),createdAt:Date.now()});
+  const tempId="tmp_"+Date.now();
+  const entry={id:tempId,word,meaning:form.meaning.trim(),category:form.category,topic:form.topic.trim(),createdAt:Date.now(),forms:[],flashcard_options:[]};
+  state.words.push(entry);
   form.word=""; form.meaning=""; form.topic="";
   saveStorage();
   const wi=$("fi-word"),mi=$("fi-meaning"),ti=$("fi-topic");
   if(wi){wi.value="";wi.focus();} if(mi)mi.value=""; if(ti)ti.value="";
   renderWordList(); renderTabs();
+  // Persist to server and swap temp ID with server UUID
+  try{
+    const r=await api("/api/words",{method:"POST",body:JSON.stringify({
+      word:entry.word, meaning:entry.meaning, category:entry.category,
+      topic:entry.topic||"annet", forms:[], flashcard_options:[],
+    })});
+    if(r.ok){
+      const sv=await r.json();
+      const idx=state.words.findIndex(w=>w.id===tempId);
+      if(idx>=0){state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};}
+      saveStorage(); renderWordList();
+    }
+  }catch{}
 }
 
 // ── IMPORT / EXPORT ───────────────────────────────────────────────────
@@ -1240,9 +1266,8 @@ function buildSetninger(){
     }
   },state.wordIdx<total-1?"Lagre og neste ord →":"Lagre"));
 
-  const gramLabel=state.claudeKey?"🤖 Sjekk med Claude":"🔎 Sjekk grammatikk";
-  actions.appendChild(el("button",{class:"btn-sec",title:state.claudeKey?"Grammatikksjekk via Claude API":"Grammatikksjekk via LanguageTool",
-    click:()=>checkGrammar(word.word, $("sent-ta")?.value||currentSentence)},gramLabel));
+  actions.appendChild(el("button",{class:"btn-sec",title:"Grammatikksjekk via Claude AI",
+    click:()=>checkGrammar(word.word, $("sent-ta")?.value||currentSentence)},"🤖 Sjekk med Claude"));
 
   if(currentSentence.trim()){
     actions.appendChild(el("button",{class:"btn-skip",
@@ -1292,15 +1317,10 @@ async function checkGrammar(word, sentence){
   grammarDiv.style.display="block";
 
   // Loading indicator
-  const loading=el("div",{style:{color:"#888",fontSize:"13px",padding:"8px 0"}},
-    state.claudeKey?"🤖 Spør Claude…":"🔎 Sjekker grammatikk…");
+  const loading=el("div",{style:{color:"#888",fontSize:"13px",padding:"8px 0"}},"🤖 Spør Claude…");
   grammarDiv.appendChild(loading);
 
-  if(state.claudeKey){
-    await checkWithClaude(word, sentence, grammarDiv);
-  } else {
-    await checkWithLanguageTool(sentence, grammarDiv);
-  }
+  await checkWithClaude(word, sentence, grammarDiv);
 }
 
 // ── Claude API grammar check ──────────────────────────────────────────
@@ -1335,13 +1355,10 @@ async function checkWithClaude(word, sentence, container){
   const userMsg=`I'm a Norwegian learner (B2 level) practicing the word/expression: "${word}"\n\nPlease evaluate this sentence:\n"${sentence}"`;
 
   try{
-    const res=await fetch("/proxy/claude",{
+    const res=await fetch("/api/proxy/claude",{
       method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-      },
+      headers:{"Content-Type":"application/json","X-Auth-Token":state.sessionToken},
       body:JSON.stringify({
-        __api_key__:state.claudeKey,
         model:"claude-haiku-4-5-20251001",
         max_tokens:600,
         system:systemPrompt,
@@ -1366,7 +1383,7 @@ async function checkWithClaude(word, sentence, container){
     const isKeyError=err.message?.includes("401")||err.message?.includes("403")||err.message?.includes("invalid");
     container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},
       isKeyError
-        ? "❌ Ugyldig API-nøkkel. Sjekk nøkkelen i Ordbank-innstillingene."
+        ? "❌ Ugyldig API-nøkkel. Sjekk nøkkelen i Innstillinger."
         : `❌ Feil: ${err.message}. Prøv igjen, eller bruk LanguageTool (fjern nøkkelen).`
     ));
   }
@@ -1686,10 +1703,9 @@ function buildSkriv(){
     click:exportEssayPDF},"📄 Eksporter PDF"));
   ar.appendChild(el("button",{
     class:"btn-sec",
-    style:{background:state.claudeKey?"#edfaf3":"#f9f9f9",borderColor:state.claudeKey?"#2d9e6b":"#dde",color:state.claudeKey?"#1a6b4a":"#aaa",fontWeight:"700"},
-    title:state.claudeKey?"Sjekk teksten din med Claude AI":"Krever Claude API-nøkkel – legg den til i Ordbank-innstillingene",
+    style:{background:"#edfaf3",borderColor:"#2d9e6b",color:"#1a6b4a",fontWeight:"700"},
+    title:"Sjekk teksten din med Claude AI",
     click(){
-      if(!state.claudeKey){toast("Legg til Claude API-nøkkel i Ordbank → innstillinger");return;}
       const essay=($("essay-ta")?.value||state.essay).trim();
       if(!essay){toast("Skriv litt tekst først!");return;}
       const container=$("essay-grammar-result");
@@ -1804,11 +1820,10 @@ Keep grammarErrors to the most important 3-5 errors. Keep strengths and improvem
   const userMsg=`Please evaluate this Norwegian essay written by a B2-level learner:\n\n${essay}`;
 
   try{
-    const res=await fetch("/proxy/claude",{
+    const res=await fetch("/api/proxy/claude",{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:{"Content-Type":"application/json","X-Auth-Token":state.sessionToken},
       body:JSON.stringify({
-        __api_key__:state.claudeKey,
         model:"claude-haiku-4-5-20251001",
         max_tokens:900,
         system:systemPrompt,
@@ -1837,7 +1852,7 @@ Keep grammarErrors to the most important 3-5 errors. Keep strengths and improvem
     const isKeyError=err.message?.includes("401")||err.message?.includes("403")||err.message?.includes("invalid");
     container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},
       isKeyError
-        ? "❌ Ugyldig API-nøkkel. Sjekk nøkkelen i Ordbank-innstillingene."
+        ? "❌ Ugyldig API-nøkkel. Sjekk nøkkelen i Innstillinger."
         : `❌ Feil: ${err.message}. Prøv igjen.`
     ));
   }
@@ -2339,7 +2354,7 @@ function printMissedWords(mode, words){
   if(!words.length){toast("Ingen feilede ord å skrive ut.");return;}
   const win=window.open("","_blank");
   if(!win){toast("Popup ble blokkert – tillat popup for å skrive ut.");return;}
-  const subtitle=`${state.userId} · ${words.length} ord med feil`;
+  const subtitle=`${state.userName||state.userEmail} · ${words.length} ord med feil`;
   if(mode==="cloud"){
     const colors=["#e05c5c","#c0392b","#e8901a","#b8860b","#7c4dff","#4f6ef7","#1a9ec4","#1a6b4a","#2d9e6b","#16a085"];
     const sizes=[16,18,20,22,26,30,34,38,44,50];
@@ -2485,31 +2500,75 @@ function refreshLesingList(){
   const readCounts = {};
   (statsCache?.events||[]).filter(e=>e.type==="text_read").forEach(e=>{ readCounts[e.textId]=(readCounts[e.textId]||0)+1; });
 
+  // Texts unlocked by the user's plan (empty Set = no plan = all locked)
+  const hasPlan = planState.weeks && planState.weeks.length > 0;
+  const unlockedIds = hasPlan ? getUnlockedTextIds() : new Set();
+
+  // If no plan, show a prompt above the grid
   const grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:"12px"}});
+
+  if(!hasPlan){
+    const noPlanBox = el("div",{style:{gridColumn:"1/-1",background:"#fffdf0",border:"1.5px solid #f0e68c",borderRadius:"12px",padding:"18px 22px",marginBottom:"4px",display:"flex",alignItems:"center",gap:"16px"}});
+    noPlanBox.appendChild(el("div",{style:{fontSize:"28px"}},"📅"));
+    const txt = el("div",{});
+    txt.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#b8860b",marginBottom:"4px"}},"Ingen studieplan aktivert"));
+    txt.appendChild(el("div",{style:{fontSize:"13px",color:"#776",lineHeight:"1.5"}},"Lag en studieplan i Plan-fanen for å låse opp tekster. Alle tekster er synlige, men kun de som er inkludert i planen din kan åpnes."));
+    noPlanBox.appendChild(txt);
+    noPlanBox.appendChild(el("button",{style:{marginLeft:"auto",padding:"8px 16px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"9px",fontSize:"13px",fontWeight:"700",cursor:"pointer",flexShrink:"0"},
+      click(){setTab("plan");}
+    },"Lag plan →"));
+    grid.appendChild(noPlanBox);
+  }
+
   filtered.forEach(text=>{
     const meta=TOPIC_META[text.topic]||{emoji:"📄",color:"#888"};
     const hasRead = readIds.has(text.id);
-    const cardBg = hasRead ? "#f8fdf9" : "#fff";
-    const card=el("div",{style:{background:cardBg,borderRadius:"14px",padding:"18px",boxShadow:"0 1px 8px rgba(0,0,0,.07)",borderLeft:`4px solid ${meta.color}`,cursor:"pointer",transition:"box-shadow .2s"},
-      click(){lesingState.currentText=text; trackEvent("text_read",{textId:text.id,title:text.title,topic:text.topic,level:text.level||"B2"}); renderContent();}});
-    card.addEventListener("mouseenter",()=>{card.style.boxShadow="0 4px 20px rgba(0,0,0,.13)";});
-    card.addEventListener("mouseleave",()=>{card.style.boxShadow="0 1px 8px rgba(0,0,0,.07)";});
-    card.appendChild(el("div",{style:{fontSize:"11px",color:meta.color,fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},`${meta.emoji} ${text.topic}`));
-    // Read/unread badge
-    if(hasRead){
+    const isLocked = !unlockedIds.has(text.id);
+
+    const cardBg = isLocked ? "#f7f7f7" : (hasRead ? "#f8fdf9" : "#fff");
+    const borderColor = isLocked ? "#ddd" : meta.color;
+    const card = el("div",{style:{
+      background:cardBg,
+      borderRadius:"14px",padding:"18px",
+      boxShadow: isLocked ? "none" : "0 1px 8px rgba(0,0,0,.07)",
+      borderLeft:`4px solid ${borderColor}`,
+      cursor: isLocked ? "default" : "pointer",
+      transition:"box-shadow .2s",
+      position:"relative",
+    }});
+    if(!isLocked){
+      card.addEventListener("click",()=>{
+        lesingState.currentText=text;
+        trackEvent("text_read",{textId:text.id,title:text.title,topic:text.topic,level:text.level||"B2"});
+        renderContent();
+      });
+      card.addEventListener("mouseenter",()=>{card.style.boxShadow="0 4px 20px rgba(0,0,0,.13)";});
+      card.addEventListener("mouseleave",()=>{card.style.boxShadow="0 1px 8px rgba(0,0,0,.07)";});
+    }
+
+    // Topic label
+    card.appendChild(el("div",{style:{fontSize:"11px",color:isLocked?"#bbb":meta.color,fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},`${meta.emoji} ${text.topic}`));
+
+    // Status badge
+    if(isLocked){
+      card.appendChild(el("div",{class:"lesing-unread-badge",style:{background:"#f0f0f0",color:"#aaa"}},"🔒 Ikke i planen din"));
+    } else if(hasRead){
       const times = readCounts[text.id];
       card.appendChild(el("div",{class:"lesing-read-badge"},`✓ Lest${times>1?` ${times}×`:""}`));
     } else {
       card.appendChild(el("div",{class:"lesing-unread-badge"},"Ikke lest"));
     }
-    card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"15px",color:"#222",marginBottom:"8px",lineHeight:"1.3"}},text.title));
-    card.appendChild(el("div",{style:{fontSize:"12px",color:"#999",marginBottom:"10px"}},text.text.substring(0,120)+"…"));
-    const tagRow=el("div",{style:{display:"flex",gap:"5px",flexWrap:"wrap"}});
-    (text.grammarFocus||[]).slice(0,3).forEach(g=>{
-      const short=g.replace("subjunksjon-","subj: ").replace("konjunksjon-","konj: ");
-      tagRow.appendChild(el("span",{style:{padding:"2px 8px",borderRadius:"10px",fontSize:"11px",background:"#f0f4f8",color:"#666",fontWeight:"600"}},short));
-    });
-    card.appendChild(tagRow);
+
+    card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"15px",color:isLocked?"#bbb":"#222",marginBottom:"8px",lineHeight:"1.3"}},text.title));
+    card.appendChild(el("div",{style:{fontSize:"12px",color:"#bbb",marginBottom:"10px"}},text.text.substring(0,120)+"…"));
+    if(!isLocked){
+      const tagRow=el("div",{style:{display:"flex",gap:"5px",flexWrap:"wrap"}});
+      (text.grammarFocus||[]).slice(0,3).forEach(g=>{
+        const short=g.replace("subjunksjon-","subj: ").replace("konjunksjon-","konj: ");
+        tagRow.appendChild(el("span",{style:{padding:"2px 8px",borderRadius:"10px",fontSize:"11px",background:"#f0f4f8",color:"#666",fontWeight:"600"}},short));
+      });
+      card.appendChild(tagRow);
+    }
     grid.appendChild(card);
   });
   listDiv.appendChild(el("div",{style:{fontSize:"12px",color:"#999",marginBottom:"12px"}},`${filtered.length} tekst${filtered.length!==1?"er":""} funnet`));
@@ -2624,13 +2683,19 @@ function buildLesingReader(text){
       resultBox.innerHTML=`<strong>${word}</strong> — ${meaning}`;
       addBtn.textContent=`+ Legg til i ordbanken`;
       addBtn.style.display="block";
-      addBtn.onclick=()=>{
-        state.words.push({id:Date.now(),word,meaning,category:"enkeltord",topic:text.topic||"",createdAt:Date.now()});
+      addBtn.onclick=async()=>{
+        const tempId="tmp_"+Date.now();
+        const topicVal=text.topic||"annet";
+        state.words.push({id:tempId,word,meaning,category:"enkeltord",topic:topicVal,createdAt:Date.now(),forms:[],flashcard_options:[]});
         saveStorage(); renderTabs();
         resultBox.className="lookup-in-bank";
         resultBox.innerHTML=`<div class="wn">✓ ${word}</div><div class="wm">${meaning}</div><div style="font-size:11px;color:#2d9e6b;margin-top:4px">Lagt til i ordbanken!</div>`;
         addBtn.style.display="none";
         toast(`✓ «${word}» lagt til i ordbanken`);
+        try{
+          const r=await api("/api/words",{method:"POST",body:JSON.stringify({word,meaning,category:"enkeltord",topic:topicVal,forms:[],flashcard_options:[]})});
+          if(r.ok){const sv=await r.json();const idx=state.words.findIndex(w=>w.id===tempId);if(idx>=0){state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};saveStorage();}}
+        }catch{}
       };
     } else {
       resultBox.innerHTML=`<span style="color:#888">Ingen automatisk oversettelse. Prøv Bokmålsordboka.</span>`;
@@ -2929,17 +2994,15 @@ const PLAN_TOPICS = [
 
 function savePlan(){
   const payload = {weeks:planState.weeks, setup:planState.setup};
-  try{ localStorage.setItem(skPlan(state.userId), JSON.stringify(payload)); }catch{}
-  fetch(`/plan/${encodeURIComponent(state.userId)}`,{
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(payload)
-  }).catch(()=>{});
+  try{ if(state.userId) localStorage.setItem(skPlan(state.userId), JSON.stringify(payload)); }catch{}
+  api("/api/plan",{method:"POST",body:JSON.stringify({data:payload})}).catch(()=>{});
 }
 async function loadPlanFromServer(){
   try{
-    const r = await fetch(`/plan/${encodeURIComponent(state.userId)}`);
+    const r = await api("/api/plan");
     if(r.ok){
-      const data = await r.json();
+      const resp = await r.json();
+      const data = resp.data;
       if(data && data.setup){ planState.weeks=data.weeks||[]; planState.setup=data.setup; return true; }
     }
   }catch{}
@@ -2951,7 +3014,6 @@ async function loadPlanFromServer(){
   return false;
 }
 function loadPlan(){
-  // Sync version (localStorage only) — used during loginAs before async loads
   try{
     const raw = JSON.parse(localStorage.getItem(skPlan(state.userId))||"null");
     if(raw && raw.setup){ planState.weeks=raw.weeks||[]; planState.setup=raw.setup; return true; }
@@ -3045,6 +3107,36 @@ function findLastIdx(arr, fn){
   return -1;
 }
 
+// ── Plan pricing ───────────────────────────────────────────────────────
+function calcPlanPrice(months, daysPerWeek){
+  if(months===1 && daysPerWeek===1) return 0;
+  return Math.round((months-1) * (daysPerWeek*0.8-1) * 9);
+}
+function planPriceLabel(months, daysPerWeek){
+  const p = calcPlanPrice(months, daysPerWeek);
+  if(p<=0) return "Gratis";
+  return `${p} EUR`;
+}
+
+// Convert plan's {topicKey, textSlot} → lesing text id
+// Text IDs use ASCII keys: lesing_sprak_01 (slot 0 → "01")
+const TOPIC_TO_ID_PREFIX = {
+  "språk":"sprak", "miljø":"miljo"
+};
+function topicSlotToId(topicKey, slot){
+  const prefix = TOPIC_TO_ID_PREFIX[topicKey] || topicKey;
+  return `lesing_${prefix}_${String(slot+1).padStart(2,"0")}`;
+}
+
+// Set of text IDs unlocked by the user's current plan
+function getUnlockedTextIds(){
+  const ids = new Set();
+  (planState.weeks||[]).forEach(week=>{
+    (week.texts||[]).forEach(t=>ids.add(topicSlotToId(t.topicKey, t.textSlot)));
+  });
+  return ids;
+}
+
 function buildPlan(){
   const frag = document.createDocumentFragment();
 
@@ -3090,6 +3182,7 @@ function buildPlanSetup(){
         chosenMonths=m;
         monthsRow.querySelectorAll(".plan-chip").forEach(b=>b.classList.remove("on"));
         e.currentTarget.classList.add("on");
+        updatePriceBox();
       }
     }, m===1?"1 måned":`${m} måneder`);
     monthsRow.appendChild(chip);
@@ -3102,6 +3195,29 @@ function buildPlanSetup(){
   // Show what each choice implies
   const daysHint = el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"10px",minHeight:"18px"}});
   card.appendChild(daysHint);
+
+  // Price indicator
+  const priceBox = el("div",{id:"plan-price-box",style:{marginTop:"22px",padding:"16px 20px",borderRadius:"12px",background:"#f5f7fa",border:"1.5px solid #e0e4ec",display:"flex",justifyContent:"space-between",alignItems:"center"}});
+  const priceLabel = el("div",{});
+  priceLabel.appendChild(el("div",{style:{fontSize:"12px",color:"#888",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginBottom:"4px"}},"Pris for denne planen"));
+  const priceVal = el("div",{style:{fontSize:"26px",fontWeight:"800",color:"#1a6b4a"}});
+  priceLabel.appendChild(priceVal);
+  priceBox.appendChild(priceLabel);
+  const priceNote = el("div",{style:{fontSize:"12px",color:"#aaa",textAlign:"right",maxWidth:"180px",lineHeight:"1.5"}});
+  priceBox.appendChild(priceNote);
+  card.appendChild(priceBox);
+
+  function updatePriceBox(){
+    const p = calcPlanPrice(chosenMonths, chosenDays);
+    priceVal.textContent = p===0 ? "Gratis" : `${p} EUR`;
+    priceVal.style.color = p===0 ? "#1a6b4a" : "#2d4e9e";
+    priceNote.textContent = p===0
+      ? "Grunnplan: 1 måned, 1 dag/uke. Låser opp tekster som hører til planen."
+      : "Betalingsløsning kommer snart. Du kan aktivere planen nå – betaling håndteres separat.";
+    priceBox.style.borderColor = p===0 ? "#b6e8ce" : "#c5d3f5";
+    priceBox.style.background  = p===0 ? "#f0fdf8" : "#f0f4ff";
+  }
+  updatePriceBox();
 
   const sessRow = el("div",{class:"plan-chip-row"});
   function updateDaysHint(d){
@@ -3119,6 +3235,7 @@ function buildPlanSetup(){
         sessRow.querySelectorAll(".plan-chip").forEach(b=>b.classList.remove("on"));
         e.currentTarget.classList.add("on");
         updateDaysHint(d);
+        updatePriceBox();
       }
     }, `${d} dag${d>1?"er":""}`);
     sessRow.appendChild(chip);
@@ -3137,14 +3254,14 @@ function buildPlanSetup(){
     style:{padding:"12px 32px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"12px",fontSize:"15px",fontWeight:"700",cursor:"pointer"},
     click(){
       const startDate = dateInput.value || today;
-      planState.setup = {months:chosenMonths, daysPerWeek:chosenDays, startDate};
+      planState.setup = {months:chosenMonths, daysPerWeek:chosenDays, startDate, price:calcPlanPrice(chosenMonths,chosenDays)};
       planState.weeks = generatePlan(chosenMonths, chosenDays, startDate);
       const todayISO = new Date().toISOString().slice(0,10);
       planState.viewWeek = Math.max(0, findLastIdx(planState.weeks, w=>w.weekStartISO<=todayISO));
       savePlan();
       loadLesingTexts().then(()=>renderContent());
     }
-  },"Lag plan →"));
+  },"Aktiver plan →"));
 
   return card;
 }
@@ -3385,7 +3502,7 @@ function buildPlanView(){
 function buildStatistik(){
   const frag = document.createDocumentFragment();
   const hdr = el("div",{class:"card"});
-  hdr.appendChild(el("h2",{},"📊 Statistikk — "+state.userId));
+  hdr.appendChild(el("h2",{},"📊 Statistikk — "+(state.userName||state.userEmail)));
   hdr.appendChild(el("p",{style:{color:"#aaa",fontSize:"13px"}},"Laster data…"));
   frag.appendChild(hdr);
 
@@ -3415,7 +3532,7 @@ function buildStatistik(){
 
     // rebuild the card
     hdr.innerHTML="";
-    hdr.appendChild(el("h2",{},"📊 Statistikk — "+state.userId));
+    hdr.appendChild(el("h2",{},"📊 Statistikk — "+(state.userName||state.userEmail)));
 
     // ── Summary numbers
     hdr.appendChild(el("div",{class:"stat-section"},"Oversikt"));
@@ -3640,31 +3757,20 @@ function buildStatistik(){
   return frag;
 }
 
-// ── LOGIN ─────────────────────────────────────────────────────────────
-async function fetchUserData(endpoint, fallbackLocalKey, emptyVal){
-  // Try server first, then per-user localStorage key, then shared legacy key, then empty
+// ── AUTH ──────────────────────────────────────────────────────────────
+async function onLoginSuccess(token, user){
+  state.sessionToken = token;
+  state.userId = user.id;
+  state.userName = user.name;
+  state.userEmail = user.email;
   try{
-    const r = await fetch(endpoint);
-    if(r.ok){
-      const data = await r.json();
-      const isEmpty = Array.isArray(data) ? data.length === 0 : Object.keys(data).length === 0;
-      if(!isEmpty) return { data, fromServer: true };
-    }
-  } catch(e){}
-  // Server unreachable or empty — try per-user localStorage
-  try{
-    const local = JSON.parse(localStorage.getItem(fallbackLocalKey)||"null");
-    if(local && (Array.isArray(local) ? local.length > 0 : Object.keys(local).length > 0))
-      return { data: local, fromServer: false };
-  } catch(e){}
-  return { data: emptyVal, fromServer: false };
-}
+    localStorage.setItem("b2_session_token", token);
+    localStorage.setItem("b2_user_id", user.id);
+    localStorage.setItem("b2_user_name", user.name);
+    localStorage.setItem("b2_user_email", user.email);
+  }catch{}
 
-async function loginAs(userId){
-  const id = userId.trim().replace(/[^a-zA-Z0-9_\-æøåÆØÅ]/g,"");
-  if(!id) return;
-
-  // Reset all game/session state before setting userId
+  // Reset game/session state
   statsCache = null;
   fc.started = false; fc.queue = []; fc.log = [];
   ws.started = false; ws.sentences = [];
@@ -3672,74 +3778,177 @@ async function loginAs(userId){
   state.currentTopic = null; state.currentPrompt = null;
   planState.weeks = []; planState.setup = null; planState.viewWeek = 0;
 
-  state.userId = id;
-  try{ localStorage.setItem("b2_user_id", id); }catch{}
-
-  // Load words, sentences, essays and plan in parallel
-  const [wordsRes, sentsRes, essaysRes] = await Promise.all([
-    fetchUserData(`/words/${encodeURIComponent(id)}`,    skWords(id),  []),
-    fetchUserData(`/sentences/${encodeURIComponent(id)}`,skSents(id),  {}),
-    fetchUserData(`/essays/${encodeURIComponent(id)}`,   skEssays(id), []),
+  // Load all user data in parallel
+  const [wordsR, sentsR] = await Promise.all([
+    api("/api/words").catch(()=>null),
+    api("/api/sentences").catch(()=>null),
   ]);
+  if(wordsR?.ok){
+    const ws2=await wordsR.json();
+    if(Array.isArray(ws2)) state.words=ws2.map(w=>({...w,createdAt:new Date(w.created_at).getTime()}));
+  } else {
+    try{ state.words=JSON.parse(localStorage.getItem(skWords(user.id))||"[]"); }catch{}
+  }
+  if(sentsR?.ok){
+    const s=await sentsR.json();
+    if(s && typeof s==="object") state.sentences=s;
+  } else {
+    try{ state.sentences=JSON.parse(localStorage.getItem(skSents(user.id))||"{}"); }catch{}
+  }
+  saveStorage();
 
-  state.words = wordsRes.data;
-  state.sentences = sentsRes.data;
-  // essays go to localStorage so loadEssayBank() picks them up
-  try{ localStorage.setItem(skEssays(id), JSON.stringify(essaysRes.data)); }catch{}
-
-  // If server was empty but we had local data, migrate it up
-  if(!wordsRes.fromServer && state.words.length > 0) saveStorage();
-  if(!sentsRes.fromServer && Object.keys(state.sentences).length > 0) saveSentences();
-  if(!essaysRes.fromServer && essaysRes.data.length > 0) saveEssayBank(essaysRes.data);
-
-  // Update shared legacy localStorage key too (for offline fallback)
-  try{ localStorage.setItem(SK, JSON.stringify(state.words)); }catch{}
-
-  // Load plan from server (async, re-renders when done)
-  loadPlanFromServer().then(found => { if(found) renderContent(); });
+  // Essays and plan (async, re-renders when done)
+  syncEssaysFromServer();
+  loadPlanFromServer().then(found=>{ if(found) renderContent(); });
 
   // Show app
-  $("login-screen").style.display = "none";
-  $("app").style.display = "";
-  renderHeader();
-  renderTabs();
-  renderContent();
+  $("login-screen").style.display="none";
+  $("app").style.display="";
+  renderHeader(); renderTabs(); renderContent();
+}
+
+async function loginAs(email, password){
+  const loginErr=$("login-error");
+  try{
+    const r=await fetch(`${API_BASE}/auth/login`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({email:email.trim().toLowerCase(), password}),
+    });
+    if(!r.ok){
+      const err=await r.json().catch(()=>({}));
+      if(loginErr){loginErr.style.display="";loginErr.textContent=err.detail||"Feil e-post eller passord.";}
+      return;
+    }
+    const data=await r.json();
+    if(loginErr) loginErr.style.display="none";
+    await onLoginSuccess(data.token, data.user);
+  }catch(e){
+    if(loginErr){loginErr.style.display="";loginErr.textContent="Kunne ikke koble til serveren. Er backend-en startet?";}
+  }
+}
+
+async function registerUser(name, email, password){
+  const loginErr=$("login-error");
+  try{
+    const r=await fetch(`${API_BASE}/auth/register`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name:name.trim(), email:email.trim().toLowerCase(), password, marketing_consent:false}),
+    });
+    if(!r.ok){
+      const err=await r.json().catch(()=>({}));
+      if(loginErr){loginErr.style.display="";loginErr.textContent=err.detail||"Registrering feilet. Prøv igjen.";}
+      return;
+    }
+    const data=await r.json();
+    if(loginErr) loginErr.style.display="none";
+    await onLoginSuccess(data.token, data.user);
+  }catch(e){
+    if(loginErr){loginErr.style.display="";loginErr.textContent="Kunne ikke koble til serveren. Er backend-en startet?";}
+  }
 }
 
 function switchUser(){
-  // Hide app, clear displayed state, show login
-  $("app").style.display = "none";
-  $("login-screen").style.display = "flex";
-  const inp = $("login-input");
-  if(inp){ inp.value = ""; inp.focus(); }
-  // Clear userId from localStorage so refresh also shows login
-  try{ localStorage.removeItem("b2_user_id"); }catch{}
-  state.userId = "";
+  $("app").style.display="none";
+  $("login-screen").style.display="flex";
+  const inp=$("login-input"); if(inp){inp.value="";inp.focus();}
+  const pw=$("login-password"); if(pw) pw.value="";
+  const rn=$("reg-name"); if(rn) rn.style.display="none";
+  const loginErr=$("login-error"); if(loginErr) loginErr.style.display="none";
+  try{
+    localStorage.removeItem("b2_user_id");
+    localStorage.removeItem("b2_session_token");
+    localStorage.removeItem("b2_user_name");
+    localStorage.removeItem("b2_user_email");
+  }catch{}
+  state.userId=""; state.sessionToken=""; state.userName=""; state.userEmail="";
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────
 (function init(){
-  const savedId = localStorage.getItem("b2_user_id");
-  const loginScreen = $("login-screen");
-  const loginInput  = $("login-input");
-  const loginBtn    = $("login-btn");
+  const savedToken = localStorage.getItem("b2_session_token");
+  const savedId    = localStorage.getItem("b2_user_id");
+  const loginScreen  = $("login-screen");
+  const loginInput   = $("login-input");
+  const loginPw      = $("login-password");
+  const loginBtn     = $("login-btn");
+  const regName      = $("reg-name");
+  const toggleLink   = $("login-toggle");
+  const toggleText   = $("login-toggle-text");
+  const subtitle     = $("login-subtitle");
 
-  // Wire up login input
-  loginInput.addEventListener("input", ()=>{
-    const v = loginInput.value.trim();
-    loginBtn.disabled = v.length === 0;
+  let isRegisterMode = false;
+
+  function checkLoginReady(){
+    const emailOk = loginInput.value.trim().length > 0;
+    const pwOk    = loginPw.value.length >= 6;
+    const nameOk  = !isRegisterMode || regName.value.trim().length > 0;
+    loginBtn.disabled = !(emailOk && pwOk && nameOk);
+  }
+  loginInput.addEventListener("input", checkLoginReady);
+  loginPw.addEventListener("input", checkLoginReady);
+  regName.addEventListener("input", checkLoginReady);
+  loginPw.addEventListener("keydown", e=>{ if(e.key==="Enter" && !loginBtn.disabled) loginBtn.click(); });
+  loginInput.addEventListener("keydown", e=>{ if(e.key==="Enter") loginPw.focus(); });
+
+  loginBtn.addEventListener("click", ()=>{
+    if(isRegisterMode) registerUser(regName.value, loginInput.value, loginPw.value);
+    else loginAs(loginInput.value, loginPw.value);
   });
-  loginInput.addEventListener("keydown", e=>{ if(e.key==="Enter" && !loginBtn.disabled) loginBtn.click(); });
-  loginBtn.addEventListener("click", ()=>loginAs(loginInput.value));
 
-  if(savedId && savedId !== "default"){
-    // Auto-login with saved ID
-    loginAs(savedId);
+  toggleLink.addEventListener("click", e=>{
+    e.preventDefault();
+    isRegisterMode = !isRegisterMode;
+    if(isRegisterMode){
+      regName.style.display=""; subtitle.textContent="Opprett en ny konto.";
+      loginBtn.textContent="Registrer →"; toggleText.textContent="Har du konto? ";
+      toggleLink.textContent="Logg inn";
+    } else {
+      regName.style.display="none"; subtitle.textContent="Logg inn med e-postadressen din.";
+      loginBtn.textContent="Logg inn →"; toggleText.textContent="Ny bruker? ";
+      toggleLink.textContent="Registrer deg";
+    }
+    const err=$("login-error"); if(err) err.style.display="none";
+    checkLoginReady();
+  });
+
+  if(savedToken && savedId){
+    // Try auto-login with stored token — verify it still works
+    state.sessionToken = savedToken;
+    api("/api/me").then(r=>{
+      if(r.ok) return r.json().then(user=>{
+        onLoginSuccess(savedToken, {id:savedId, name:localStorage.getItem("b2_user_name")||"", email:localStorage.getItem("b2_user_email")||user.email});
+      });
+      else loginScreen.style.display="flex";
+    }).catch(()=>{ loginScreen.style.display="flex"; });
   } else {
-    // Show login screen
-    loginScreen.style.display = "flex";
+    loginScreen.style.display="flex";
   }
 })();
+
+// ── INNSTILLINGER TAB ─────────────────────────────────────────────────
+function buildInnstillinger(){
+  const frag=document.createDocumentFragment();
+
+  // ── Brukerprofil ──
+  const userCard=el("div",{class:"card"});
+  userCard.appendChild(el("h2",{},"👤 Brukerprofil"));
+  userCard.appendChild(el("p",{style:{fontSize:"13px",color:"#555",marginBottom:"6px",lineHeight:"1.6"}},
+    el("strong",{},"Navn: "),state.userName||"—"));
+  userCard.appendChild(el("p",{style:{fontSize:"13px",color:"#555",marginBottom:"14px",lineHeight:"1.6"}},
+    el("strong",{},"E-post: "),state.userEmail||"—"));
+  userCard.appendChild(el("button",{class:"btn-sec",style:{width:"100%"},click:switchUser},"Logg ut"));
+  frag.appendChild(userCard);
+
+  // ── Abonnement ──
+  const subCard=el("div",{class:"card",style:{opacity:".7"}});
+  subCard.appendChild(el("h2",{},"💳 Abonnement"));
+  subCard.appendChild(el("p",{style:{fontSize:"13px",color:"#888",lineHeight:"1.6"}},"Abonnementsplaner kommer snart…"));
+  frag.appendChild(subCard);
+
+  return frag;
+}
 </script>
 </body>
 </html>
