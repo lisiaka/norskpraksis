@@ -3817,7 +3817,8 @@ async function loginAs(email, password){
     });
     if(!r.ok){
       const err=await r.json().catch(()=>({}));
-      if(loginErr){loginErr.style.display="";loginErr.textContent=err.detail||"Feil e-post eller passord.";}
+      const msg=typeof err.detail==="string"?err.detail:Array.isArray(err.detail)?err.detail.map(e=>e.msg).join(", "):"Feil e-post eller passord.";
+      if(loginErr){loginErr.style.display="";loginErr.textContent=msg;}
       return;
     }
     const data=await r.json();
@@ -3838,7 +3839,8 @@ async function registerUser(name, email, password){
     });
     if(!r.ok){
       const err=await r.json().catch(()=>({}));
-      if(loginErr){loginErr.style.display="";loginErr.textContent=err.detail||"Registrering feilet. Prøv igjen.";}
+      const msg=typeof err.detail==="string"?err.detail:Array.isArray(err.detail)?err.detail.map(e=>e.msg).join(", "):"Registrering feilet. Prøv igjen.";
+      if(loginErr){loginErr.style.display="";loginErr.textContent=msg;}
       return;
     }
     const data=await r.json();
@@ -3882,7 +3884,7 @@ function switchUser(){
 
   function checkLoginReady(){
     const emailOk = loginInput.value.trim().length > 0;
-    const pwOk    = loginPw.value.length >= 6;
+    const pwOk    = loginPw.value.length >= 8;
     const nameOk  = !isRegisterMode || regName.value.trim().length > 0;
     loginBtn.disabled = !(emailOk && pwOk && nameOk);
   }
