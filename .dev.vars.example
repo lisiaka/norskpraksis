@@ -1,0 +1,27 @@
+# Copy this file to .dev.vars for local Wrangler development.
+# NEVER commit .dev.vars — it contains real secrets.
+
+# Existing secrets
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
+DEMO_PASSWORD=your-demo-password-here
+
+# Subscription: Vipps Recurring API (sandbox)
+# Get these from https://developer.vipps.no
+VIPPS_CLIENT_ID=your-vipps-client-id
+VIPPS_CLIENT_SECRET=your-vipps-client-secret
+VIPPS_SUBSCRIPTION_KEY=your-vipps-subscription-key
+VIPPS_MERCHANT_SERIAL=your-merchant-serial-number
+VIPPS_WEBHOOK_SECRET=your-vipps-webhook-hmac-secret
+
+# Subscription: PayPal Subscriptions API (sandbox)
+# Get these from https://developer.paypal.com
+PAYPAL_CLIENT_ID=your-paypal-client-id
+PAYPAL_CLIENT_SECRET=your-paypal-client-secret
+PAYPAL_PLAN_ID=your-paypal-billing-plan-id
+PAYPAL_WEBHOOK_ID=your-paypal-webhook-id
+
+# Set to "true" to enable the /api/test/simulate-renewal endpoint locally
+SUBSCRIPTION_TEST_MODE=true
+
+# Override base URL for local dev (redirect URLs sent to payment providers)
+APP_BASE_URL=http://localhost:8788

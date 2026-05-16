@@ -6,48 +6,99 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running the App
 
+**Frontend only (port 8080):**
 ```bash
 python3 start_server.py
 ```
 
-Starts a local HTTP server on port 8080 and opens `http://localhost:8080/norsk_b2_pro.html` in the browser. There is no build step — the app is a single HTML file.
+**Full stack with Cloudflare Pages Functions (port 8788):**
+```bash
+npm run dev   # wrangler pages dev
+```
+Copy `.dev.vars.example` → `.dev.vars` and fill in secrets before running wrangler.
+
+**Run Playwright tests:**
+```bash
+npm test
+# For subscription tests (requires wrangler running + SUBSCRIPTION_TEST_MODE=true in .dev.vars):
+npx playwright test tests/abonnement.spec.ts
+```
 
 ## Architecture
 
-This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learning. All HTML, CSS, and JS are inline in that one file (~92KB). There is no framework, no bundler, and no external JS dependencies.
+This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learning. All HTML, CSS, and JS are inline in that one file. No framework, no bundler, no external JS dependencies.
 
-**The Python server (`start_server.py`) has two jobs:**
-1. Serve static files from the local directory
-2. Proxy Claude API requests at `/proxy/claude` to avoid browser CORS restrictions — it reads the API key from the request payload and forwards to `https://api.anthropic.com/v1/messages`
+**Backends:**
+- **FastAPI** (`http://localhost:8000`) — auth (JWT), words, sentences, essays, stats, plan
+- **Cloudflare Pages Functions** (`functions/api/[[route]].ts`) — subscription management (KV storage), Vipps/PayPal webhooks, Claude proxy
 
-**State** is a single `state` object kept in memory and persisted to `localStorage`:
-- `b2_words_v2` — the user's vocabulary bank (array of word objects)
-- `b2_claude_key` — the user's Claude API key
+**State** is a single `state` object in memory + `localStorage`:
+- `b2_session_token` — JWT from FastAPI auth
+- `b2_user_id` / `b2_user_name` / `b2_user_email` — user identity
+- `b2_free_access_{userId}` — free tier text tracking `{ openedTexts[], topicsUsed[] }`
+- `state.subscription` — loaded from `/api/subscription/{userId}` after login
 
-**UI rendering** uses a custom `el(tag, props, ...children)` helper that creates DOM nodes imperatively. The entire UI is re-rendered by calling `render()` on state changes.
+**UI rendering** uses a custom `el(tag, props, ...children)` helper. Re-renders by calling `renderContent()`.
 
 **Tabs / features:**
-- `ordbank` — vocabulary bank (add, search, filter, import/export JSON)
-- `setninger` — sentence practice using words from the bank
-- `flashcards` — multiple-choice and write-the-word quiz modes
-- `oppgaver` — 24 essay prompts across 6 themes
-- `skriv` — essay editor with optional Claude grammar feedback
+- `ordbank` — vocabulary bank (add, search, filter, import/export)
+- `lesing` — reading texts with subscription access control + paywall overlay
+- `setninger` — sentence practice
+- `flashcards` — quiz modes
+- `setningsbygging` — word-sort game
+- `oppgaver` — essay prompts
+- `skriv` — essay editor with Claude grammar feedback
+- `plan` — study plan (unlocks texts in Lesing tab)
+- `statistikk` — learning statistics
+- `innstillinger` — profile, subscription management (upgrade/cancel)
+
+**Subscription access logic:**
+- `isActiveSubscriber()` — returns true if `state.subscription.status` is active/grace/cancelled-but-not-expired
+- `canOpenText(textId, topicKey)` — returns true for subscribers; for free users: max 3 texts, 1 per topic
+- `recordTextOpened(textId, topicKey)` — persists free-tier usage to localStorage
+
+**Cloudflare Functions structure:**
+```
+functions/api/
+├── [[route]].ts          # Main router + Env interface
+├── handlers/
+│   ├── subscription.ts   # GET/POST /api/subscribe, GET/POST /api/subscription/*
+│   ├── webhook-vipps.ts  # POST /api/webhook/vipps
+│   ├── webhook-paypal.ts # POST /api/webhook/paypal
+│   └── test-simulate.ts  # POST /api/test/simulate-renewal (test mode only)
+└── lib/
+    ├── subscription-kv.ts # KV read/write helpers
+    ├── crypto.ts          # HMAC-SHA256 verification (Web Crypto API)
+    ├── idempotency.ts     # Webhook deduplication (30-day TTL)
+    ├── vipps.ts           # Vipps Recurring API v3 client
+    └── paypal.ts          # PayPal Subscriptions API v2 client
+```
+
+**Subscription test flow (without real payments):**
+```bash
+# Set SUBSCRIPTION_TEST_MODE=true in .dev.vars, then:
+curl -X POST http://localhost:8788/api/test/simulate-renewal \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"test-user","outcome":"success"}'
+```
 
 **External APIs used:**
-- MyMemory (`api.mymemory.translated.net`) — free translation/dictionary lookups
-- Claude API — grammar checking and essay feedback (user supplies their own key)
-- Bokmålsordboka (`ordbokene.no`) — Norwegian dictionary deep links
-
-**Word object shape:**
-```json
-{ "word": "...", "translation": "...", "type": "enkeltord|uttrykk|koblingsord", "topic": "...", "added": 1234567890 }
-```
+- FastAPI backend (`http://localhost:8000`) — auth + user data
+- MyMemory (`api.mymemory.translated.net`) — translation lookups
+- Claude API — grammar feedback (proxied via Cloudflare function)
+- Bokmålsordboka (`ordbokene.no`) — dictionary deep links
+- Vipps Recurring API v3 — Norwegian payment subscriptions
+- PayPal Subscriptions API v2 — international payment subscriptions
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `norsk_b2_pro.html` | The entire application |
-| `start_server.py` | Dev server + Claude API proxy |
-| `ordbank-2-med-emner.json` | Sample word bank with topic tags (for import testing) |
-| `norsk_b2_trening.html` | Older version, kept as backup |
+| `norsk_b2_pro.html` | The entire frontend application |
+| `start_server.py` | Local HTTP server (port 8080) |
+| `wrangler.toml` | Cloudflare Pages config + KV binding |
+| `.dev.vars.example` | Template for local secrets (copy to `.dev.vars`) |
+| `tsconfig.json` | TypeScript config for `functions/` |
+| `functions/api/[[route]].ts` | Cloudflare Pages Function router |
+| `tests/abonnement.spec.ts` | Playwright E2E tests for subscription flows |
+| `ordbank-2-med-emner.json` | Sample word bank for import testing |

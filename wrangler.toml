@@ -1,0 +1,25 @@
+name = "norsk-b2-pro"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "."
+
+[[kv_namespaces]]
+binding = "USER_DATA"
+id = "f80b81c06d9d4290b8df2749139f5069"
+preview_id = "9568396c71474fd0a9c9aea6c632e27d"
+
+[vars]
+APP_BASE_URL = "https://norsk-b2-pro.pages.dev"
+SUBSCRIPTION_TEST_MODE = "false"
+
+# Secrets (added via CLI — never stored here):
+#   wrangler secret put ANTHROPIC_API_KEY
+#   wrangler secret put DEMO_PASSWORD
+#   wrangler secret put VIPPS_CLIENT_ID
+#   wrangler secret put VIPPS_CLIENT_SECRET
+#   wrangler secret put VIPPS_SUBSCRIPTION_KEY
+#   wrangler secret put VIPPS_MERCHANT_SERIAL
+#   wrangler secret put VIPPS_WEBHOOK_SECRET
+#   wrangler secret put PAYPAL_CLIENT_ID
+#   wrangler secret put PAYPAL_CLIENT_SECRET
+#   wrangler secret put PAYPAL_PLAN_ID
+#   wrangler secret put PAYPAL_WEBHOOK_ID

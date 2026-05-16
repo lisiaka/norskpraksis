@@ -1,0 +1,5 @@
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.anthropic.com https://api.mymemory.translated.net https://ordbokene.no https://apitest.vipps.no https://api.vipps.no https://api-m.sandbox.paypal.com https://api-m.paypal.com; frame-ancestors 'none'; form-action 'self' https://apitest.vipps.no https://api.vipps.no https://www.paypal.com https://www.sandbox.paypal.com;
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

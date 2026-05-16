@@ -203,6 +203,19 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 /* ── Read indicator on text cards ── */
 .lesing-read-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;background:#edfaf3;color:#2d9e6b;border:1px solid #b6e8ce;margin-bottom:8px;}
 .lesing-unread-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;background:#f5f5f5;color:#bbb;border:1px solid #e0e0e0;margin-bottom:8px;}
+/* ── Paywall overlay ── */
+.paywall-overlay{position:absolute;inset:0;border-radius:14px;background:rgba(255,255,255,.92);backdrop-filter:blur(3px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;text-align:center;z-index:2;}
+.paywall-overlay .paywall-icon{font-size:28px;}
+.paywall-overlay .paywall-title{font-weight:800;font-size:14px;color:#1a1a1a;}
+.paywall-overlay .paywall-sub{font-size:12px;color:#666;line-height:1.4;}
+.paywall-overlay .paywall-btn{margin-top:4px;padding:8px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;}
+.paywall-overlay .paywall-btn:hover{background:#15573c;}
+/* Subscription status badge in Innstillinger */
+.sub-status-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:10px;font-size:12px;font-weight:700;}
+.sub-status-badge.active{background:#edfaf3;color:#2d9e6b;border:1px solid #b6e8ce;}
+.sub-status-badge.inactive{background:#f5f5f5;color:#999;border:1px solid #e0e0e0;}
+.sub-status-badge.grace{background:#fff8e1;color:#e6a817;border:1px solid #ffe082;}
+.sub-status-badge.cancelled{background:#ffeaea;color:#c0392b;border:1px solid #f5b7b1;}
 /* ── Statistics tab ── */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
 .stat-box{background:#fff;border-radius:12px;padding:20px 18px;border:1px solid #e8ecf0;text-align:center;}
@@ -524,7 +537,10 @@ const TIPS = [
 
 // ── STATE ─────────────────────────────────────────────────────────────
 const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, currentTopic:null, currentPrompt:null, essay:"",
-  wordIdx:0, sentences:{}, sentTopicFilter:"" }; // sentences: {wordId: "written sentence"}
+  wordIdx:0, sentences:{}, sentTopicFilter:"",
+  subscription: null, // loaded after login: { status, provider, renewalDate, ... } | null
+  freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
+}; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
 const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, errorOnly:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false};
@@ -535,6 +551,82 @@ const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selecte
 // Study plan state (persisted to localStorage per user)
 const planState = { weeks:[], viewWeek:0, setup:null }; // setup: {months, sessionsPerWeek, startDate}
 const skPlan = id => `b2_plan_${id}`;
+
+// ── Subscription helpers ─────────────────────────────────────────────────────
+
+const skFreeAccess = id => `b2_free_access_${id}`;
+
+function loadFreeAccess(userId){
+  try{
+    const raw=localStorage.getItem(skFreeAccess(userId));
+    if(raw) state.freeAccess=JSON.parse(raw);
+    else state.freeAccess={openedTexts:[],topicsUsed:[]};
+  }catch{ state.freeAccess={openedTexts:[],topicsUsed:[]}; }
+}
+
+function saveFreeAccess(userId){
+  try{ localStorage.setItem(skFreeAccess(userId), JSON.stringify(state.freeAccess)); }catch{}
+}
+
+/**
+ * Returns true if the current user can open a text.
+ * Subscribers: always true.
+ * Free users: max 3 texts total, max 1 per topic (already-opened texts are always accessible).
+ */
+function canOpenText(textId, topicKey){
+  // Active subscriber — unrestricted
+  if(isActiveSubscriber()) return true;
+  // Already opened this text — allow re-read
+  if(state.freeAccess.openedTexts.includes(textId)) return true;
+  // Enforce limits
+  if(state.freeAccess.openedTexts.length >= 3) return false;
+  if(state.freeAccess.topicsUsed.includes(topicKey)) return false;
+  return true;
+}
+
+/**
+ * Record that a free user has opened a text.
+ */
+function recordTextOpened(textId, topicKey){
+  if(isActiveSubscriber()) return; // subscribers don't need tracking
+  if(!state.freeAccess.openedTexts.includes(textId)){
+    state.freeAccess.openedTexts.push(textId);
+  }
+  if(!state.freeAccess.topicsUsed.includes(topicKey)){
+    state.freeAccess.topicsUsed.push(topicKey);
+  }
+  saveFreeAccess(state.userId);
+}
+
+/**
+ * Returns true if state.subscription grants active subscriber status.
+ * Active = status "active", "grace", or "cancelled" with renewalDate still in future.
+ */
+function isActiveSubscriber(){
+  const sub=state.subscription;
+  if(!sub) return false;
+  if(sub.status==="active"||sub.status==="grace") return true;
+  if(sub.status==="cancelled"&&sub.renewalDate){
+    return new Date(sub.renewalDate)>new Date();
+  }
+  return false;
+}
+
+/**
+ * Load subscription status from the backend.
+ * Sets state.subscription (or null if not subscribed / on error).
+ */
+async function loadSubscription(userId){
+  try{
+    const r=await api(`/api/subscription/${encodeURIComponent(userId)}`);
+    if(r&&r.ok){
+      const data=await r.json();
+      state.subscription=data&&data.status?data:null;
+    } else {
+      state.subscription=null;
+    }
+  }catch{ state.subscription=null; }
+}
 
 // Load session token and userId immediately
 state.sessionToken = localStorage.getItem("b2_session_token")||"";
@@ -2500,30 +2592,52 @@ function refreshLesingList(){
   const readCounts = {};
   (statsCache?.events||[]).filter(e=>e.type==="text_read").forEach(e=>{ readCounts[e.textId]=(readCounts[e.textId]||0)+1; });
 
-  // Texts unlocked by the user's plan (empty Set = no plan = all locked)
+  // Subscriber sees all texts; free users are subject to plan + free-tier limits
+  const subscriber = isActiveSubscriber();
   const hasPlan = planState.weeks && planState.weeks.length > 0;
-  const unlockedIds = hasPlan ? getUnlockedTextIds() : new Set();
+  const unlockedByPlan = hasPlan ? getUnlockedTextIds() : new Set();
 
-  // If no plan, show a prompt above the grid
+  // If free user with no plan, show a prompt (subscriber sees no prompt)
   const grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:"12px"}});
 
-  if(!hasPlan){
+  if(!subscriber && !hasPlan){
     const noPlanBox = el("div",{style:{gridColumn:"1/-1",background:"#fffdf0",border:"1.5px solid #f0e68c",borderRadius:"12px",padding:"18px 22px",marginBottom:"4px",display:"flex",alignItems:"center",gap:"16px"}});
     noPlanBox.appendChild(el("div",{style:{fontSize:"28px"}},"📅"));
     const txt = el("div",{});
     txt.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#b8860b",marginBottom:"4px"}},"Ingen studieplan aktivert"));
-    txt.appendChild(el("div",{style:{fontSize:"13px",color:"#776",lineHeight:"1.5"}},"Lag en studieplan i Plan-fanen for å låse opp tekster. Alle tekster er synlige, men kun de som er inkludert i planen din kan åpnes."));
-    noPlanBox.appendChild(txt);
-    noPlanBox.appendChild(el("button",{style:{marginLeft:"auto",padding:"8px 16px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"9px",fontSize:"13px",fontWeight:"700",cursor:"pointer",flexShrink:"0"},
+    txt.appendChild(el("div",{style:{fontSize:"13px",color:"#776",lineHeight:"1.5"}},"Lag en studieplan i Plan-fanen for å låse opp tekster. Eller oppgrader til abonnement for ubegrenset tilgang."));
+    const btnRow=el("div",{style:{marginLeft:"auto",display:"flex",gap:"8px",flexShrink:"0"}});
+    btnRow.appendChild(el("button",{style:{padding:"8px 16px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"9px",fontSize:"13px",fontWeight:"700",cursor:"pointer"},
       click(){setTab("plan");}
     },"Lag plan →"));
+    btnRow.appendChild(el("button",{style:{padding:"8px 16px",background:"#fff",color:"#1a6b4a",border:"1.5px solid #1a6b4a",borderRadius:"9px",fontSize:"13px",fontWeight:"700",cursor:"pointer"},
+      click(){setTab("innstillinger");}
+    },"Oppgrader →"));
+    noPlanBox.appendChild(txt);
+    noPlanBox.appendChild(btnRow);
     grid.appendChild(noPlanBox);
+  }
+
+  if(!subscriber && hasPlan){
+    const used=state.freeAccess.openedTexts.length;
+    const remaining=Math.max(0,3-used);
+    if(remaining<3){
+      const infoBox=el("div",{style:{gridColumn:"1/-1",background:"#f0f7ff",border:"1.5px solid #aad4f5",borderRadius:"12px",padding:"14px 18px",marginBottom:"4px",fontSize:"13px",color:"#1a5276",display:"flex",alignItems:"center",gap:"12px"}});
+      infoBox.appendChild(el("span",{style:{fontSize:"20px"}},"📖"));
+      infoBox.appendChild(el("span",{},`Du har ${remaining===0?"brukt alle":"${remaining} av"} 3 gratis tekster igjen. `+
+        el("span",{},el("a",{href:"#",style:{color:"#1a6b4a",fontWeight:"700"},onclick(e){e.preventDefault();setTab("innstillinger");}},
+          "Oppgrader til abonnement for ubegrenset tilgang →")).outerHTML));
+      grid.appendChild(infoBox);
+    }
   }
 
   filtered.forEach(text=>{
     const meta=TOPIC_META[text.topic]||{emoji:"📄",color:"#888"};
     const hasRead = readIds.has(text.id);
-    const isLocked = !unlockedIds.has(text.id);
+    // Determine if text is openable
+    const planLocked = !subscriber && !unlockedByPlan.has(text.id);
+    const freeLocked  = !subscriber && !canOpenText(text.id, text.topic);
+    const isLocked    = planLocked || freeLocked;
 
     const cardBg = isLocked ? "#f7f7f7" : (hasRead ? "#f8fdf9" : "#fff");
     const borderColor = isLocked ? "#ddd" : meta.color;
@@ -2538,6 +2652,7 @@ function refreshLesingList(){
     }});
     if(!isLocked){
       card.addEventListener("click",()=>{
+        recordTextOpened(text.id, text.topic);
         lesingState.currentText=text;
         trackEvent("text_read",{textId:text.id,title:text.title,topic:text.topic,level:text.level||"B2"});
         renderContent();
@@ -2550,8 +2665,10 @@ function refreshLesingList(){
     card.appendChild(el("div",{style:{fontSize:"11px",color:isLocked?"#bbb":meta.color,fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},`${meta.emoji} ${text.topic}`));
 
     // Status badge
-    if(isLocked){
+    if(planLocked){
       card.appendChild(el("div",{class:"lesing-unread-badge",style:{background:"#f0f0f0",color:"#aaa"}},"🔒 Ikke i planen din"));
+    } else if(freeLocked){
+      card.appendChild(el("div",{class:"lesing-unread-badge",style:{background:"#ffeaea",color:"#c0392b",border:"1px solid #f5b7b1"}},"🔒 Krever abonnement"));
     } else if(hasRead){
       const times = readCounts[text.id];
       card.appendChild(el("div",{class:"lesing-read-badge"},`✓ Lest${times>1?` ${times}×`:""}`));
@@ -2569,6 +2686,17 @@ function refreshLesingList(){
       });
       card.appendChild(tagRow);
     }
+
+    // Paywall overlay for subscription-locked texts
+    if(freeLocked){
+      const overlay=el("div",{class:"paywall-overlay"});
+      overlay.appendChild(el("div",{class:"paywall-icon"},"🔒"));
+      overlay.appendChild(el("div",{class:"paywall-title"},"Krever abonnement"));
+      overlay.appendChild(el("div",{class:"paywall-sub"},"Du har brukt alle 3 gratis tekster.\nOppgrader for ubegrenset tilgang."));
+      overlay.appendChild(el("button",{class:"paywall-btn",click(e){e.stopPropagation();setTab("innstillinger");}},"Oppgrader til abonnement →"));
+      card.appendChild(overlay);
+    }
+
     grid.appendChild(card);
   });
   listDiv.appendChild(el("div",{style:{fontSize:"12px",color:"#999",marginBottom:"12px"}},`${filtered.length} tekst${filtered.length!==1?"er":""} funnet`));
@@ -3777,6 +3905,11 @@ async function onLoginSuccess(token, user){
   state.words = []; state.sentences = {}; state.essay = "";
   state.currentTopic = null; state.currentPrompt = null;
   planState.weeks = []; planState.setup = null; planState.viewWeek = 0;
+  state.subscription = null;
+
+  // Load subscription status + free access tracking
+  loadFreeAccess(user.id);
+  loadSubscription(user.id).then(()=>{ if(isActiveSubscriber()) state.freeAccess={openedTexts:[],topicsUsed:[]}; });
 
   // Load all user data in parallel
   const [wordsR, sentsR] = await Promise.all([
@@ -3800,6 +3933,19 @@ async function onLoginSuccess(token, user){
   // Essays and plan (async, re-renders when done)
   syncEssaysFromServer();
   loadPlanFromServer().then(found=>{ if(found) renderContent(); });
+
+  // Handle return from payment provider (e.g. ?subscriptionStatus=success)
+  const urlParams=new URLSearchParams(window.location.search);
+  if(urlParams.get("subscriptionStatus")==="success"){
+    history.replaceState(null,"",window.location.pathname);
+    // Reload subscription status and clear free-access tracking
+    await loadSubscription(user.id);
+    if(isActiveSubscriber()){
+      state.freeAccess={openedTexts:[],topicsUsed:[]};
+      saveFreeAccess(user.id);
+    }
+    setTab("innstillinger");
+  }
 
   // Show app
   $("login-screen").style.display="none";
@@ -3929,6 +4075,102 @@ function switchUser(){
   }
 })();
 
+// ── SUBSCRIPTION SECTION (used in Innstillinger) ─────────────────────────────
+
+function buildSubscriptionSection(container){
+  const sub = state.subscription;
+  const active = isActiveSubscriber();
+
+  if(active && sub){
+    // ── Active subscriber ──
+    const statusLabel = sub.status==="grace" ? "Aktiv (betalingsforsøk pågår)"
+      : sub.status==="cancelled" ? "Avsluttet"
+      : "Aktivt abonnement";
+    const badgeClass = sub.status==="grace" ? "grace"
+      : sub.status==="cancelled" ? "cancelled"
+      : "active";
+
+    container.appendChild(el("div",{class:`sub-status-badge ${badgeClass}`,style:{marginBottom:"12px"}},
+      `✓ ${statusLabel}`));
+
+    const info=el("div",{style:{fontSize:"13px",color:"#555",lineHeight:"1.8",marginBottom:"16px"}});
+    const provider = sub.provider==="vipps" ? "Vipps" : "PayPal";
+    info.appendChild(el("div",{},el("strong",{},"Betalingsmetode: "),provider));
+    if(sub.renewalDate){
+      const d=new Date(sub.renewalDate).toLocaleDateString("nb-NO",{day:"numeric",month:"long",year:"numeric"});
+      if(sub.status==="cancelled"){
+        info.appendChild(el("div",{},el("strong",{},"Tilgang til: "),d));
+      } else {
+        info.appendChild(el("div",{},el("strong",{},"Neste fornyelse: "),d));
+      }
+    }
+    if(sub.status==="grace"&&sub.gracePeriodEnd){
+      const d=new Date(sub.gracePeriodEnd).toLocaleDateString("nb-NO",{day:"numeric",month:"long",year:"numeric"});
+      info.appendChild(el("div",{style:{color:"#e6a817"}},`⚠️ Betaling mislyktes. Siste forsøk: ${d}`));
+    }
+    container.appendChild(info);
+
+    if(sub.status==="active"||sub.status==="grace"){
+      container.appendChild(el("button",{class:"btn-sec",style:{fontSize:"13px"},
+        async click(){
+          if(!confirm("Er du sikker på at du vil avslutte abonnementet?\nDu beholder tilgang til fornyelsesdatoen.")) return;
+          const r=await api(`/api/subscription/${encodeURIComponent(state.userId)}/cancel`,{method:"POST"});
+          if(r&&r.ok){
+            const data=await r.json();
+            state.subscription={...sub,status:"cancelled",cancelledAt:new Date().toISOString()};
+            renderContent();
+          } else {
+            alert("Kunne ikke avslutte abonnementet. Prøv igjen.");
+          }
+        }
+      },"Avslutt abonnement"));
+    }
+  } else {
+    // ── Free user ──
+    container.appendChild(el("div",{class:"sub-status-badge inactive",style:{marginBottom:"12px"}},"Gratis bruker"));
+
+    const used=state.freeAccess.openedTexts.length;
+    const remaining=Math.max(0,3-used);
+    container.appendChild(el("p",{style:{fontSize:"13px",color:"#555",lineHeight:"1.6",marginBottom:"16px"}},
+      `Du har åpnet ${used} av 3 gratis tekster (${remaining} gjenstår). `+
+      `Oppgrader for ubegrenset tilgang til alle tekster.`));
+
+    container.appendChild(el("p",{style:{fontSize:"14px",fontWeight:"700",color:"#1a1a1a",marginBottom:"10px"}},"99 kr/måned — Velg betalingsmetode:"));
+
+    // Provider selector
+    let selectedProvider="vipps";
+    const providerRow=el("div",{style:{display:"flex",gap:"10px",marginBottom:"14px"}});
+
+    const vippsBtn=el("button",{style:{flex:"1",padding:"10px",border:"2px solid #1a6b4a",borderRadius:"10px",background:"#edfaf3",fontWeight:"700",fontSize:"13px",cursor:"pointer"},
+      click(){selectedProvider="vipps";vippsBtn.style.borderColor="#1a6b4a";vippsBtn.style.background="#edfaf3";paypalBtn.style.borderColor="#ddd";paypalBtn.style.background="#fff";}
+    },"🟠 Vipps");
+    const paypalBtn=el("button",{style:{flex:"1",padding:"10px",border:"2px solid #ddd",borderRadius:"10px",background:"#fff",fontWeight:"700",fontSize:"13px",cursor:"pointer"},
+      click(){selectedProvider="paypal";paypalBtn.style.borderColor="#1a6b4a";paypalBtn.style.background="#edfaf3";vippsBtn.style.borderColor="#ddd";vippsBtn.style.background="#fff";}
+    },"🔵 PayPal");
+    providerRow.appendChild(vippsBtn);
+    providerRow.appendChild(paypalBtn);
+    container.appendChild(providerRow);
+
+    const errDiv=el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
+    container.appendChild(errDiv);
+
+    container.appendChild(el("button",{class:"btn-add",style:{width:"100%"},
+      async click(){
+        errDiv.style.display="none";
+        const r=await api("/api/subscribe",{method:"POST",body:JSON.stringify({userId:state.userId,provider:selectedProvider})});
+        if(r&&r.ok){
+          const data=await r.json();
+          if(data.redirectUrl) window.location.href=data.redirectUrl;
+        } else {
+          const err=r?await r.json().catch(()=>({})):{};
+          errDiv.textContent=err.error||"Noe gikk galt. Prøv igjen.";
+          errDiv.style.display="";
+        }
+      }
+    },"Oppgrader til abonnement →"));
+  }
+}
+
 // ── INNSTILLINGER TAB ─────────────────────────────────────────────────
 function buildInnstillinger(){
   const frag=document.createDocumentFragment();
@@ -3944,9 +4186,9 @@ function buildInnstillinger(){
   frag.appendChild(userCard);
 
   // ── Abonnement ──
-  const subCard=el("div",{class:"card",style:{opacity:".7"}});
+  const subCard=el("div",{class:"card"});
   subCard.appendChild(el("h2",{},"💳 Abonnement"));
-  subCard.appendChild(el("p",{style:{fontSize:"13px",color:"#888",lineHeight:"1.6"}},"Abonnementsplaner kommer snart…"));
+  buildSubscriptionSection(subCard);
   frag.appendChild(subCard);
 
   return frag;
