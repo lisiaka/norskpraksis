@@ -635,7 +635,7 @@ state.userName = localStorage.getItem("b2_user_name")||"";
 state.userEmail = localStorage.getItem("b2_user_email")||"";
 
 // ── API HELPER ─────────────────────────────────────────────────────────
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://norskb2-backend-production.up.railway.app";
 async function api(path, opts = {}){
   const headers = {"Content-Type":"application/json", ...(opts.headers||{})};
   if(state.sessionToken) headers["Authorization"] = `Bearer ${state.sessionToken}`;
