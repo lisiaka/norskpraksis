@@ -537,7 +537,7 @@ const TIPS = [
 
 // ── STATE ─────────────────────────────────────────────────────────────
 const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, currentTopic:null, currentPrompt:null, essay:"",
-  wordIdx:0, sentences:{}, sentTopicFilter:"",
+  wordIdx:0, sentences:{}, sentTopicFilter:"", openWordId:null,
   subscription: null, // loaded after login: { status, provider, renewalDate, ... } | null
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
 }; // sentences: {wordId: "written sentence"}
@@ -1130,7 +1130,8 @@ function renderWordList(){
     sec.appendChild(title);
     const grid=el("div",{class:"word-grid"});
     cw.forEach(w=>{
-      const chip=el("div",{class:"word-chip",style:{borderLeftColor:cat.color}});
+      const wrap=el("div",{style:{gridColumn:"span 1"}});
+      const chip=el("div",{class:"word-chip",style:{borderLeftColor:cat.color,cursor:"pointer"}});
       const info=el("div",{style:{flex:"1",minWidth:"0"}});
       const wn=el("div",{class:"wn"},w.word);
       if(w.topic) wn.appendChild(el("span",{class:"word-topic-tag"},w.topic));
@@ -1138,9 +1139,52 @@ function renderWordList(){
       if(w.meaning)info.appendChild(el("div",{class:"wm"},w.meaning));
       chip.appendChild(info);
       chip.appendChild(el("button",{class:"btn-del",title:"Fjern",
-        click(){const wid=w.id;state.words=state.words.filter(x=>x.id!==wid);saveStorage();renderWordList();renderTabs();api(`/api/words/${encodeURIComponent(wid)}`,{method:"DELETE"}).catch(()=>{});}
+        click(e){e.stopPropagation();const wid=w.id;state.words=state.words.filter(x=>x.id!==wid);if(state.openWordId===wid)state.openWordId=null;saveStorage();renderWordList();renderTabs();api(`/api/words/${encodeURIComponent(wid)}`,{method:"DELETE"}).catch(()=>{});}
       },"×"));
-      grid.appendChild(chip);
+      chip.addEventListener("click",()=>{state.openWordId=state.openWordId===w.id?null:w.id;renderWordList();});
+      wrap.appendChild(chip);
+
+      if(state.openWordId===w.id){
+        const panel=el("div",{style:{background:"#f8fdf9",border:"1px solid #c8e6d4",borderRadius:"10px",padding:"14px 16px",marginTop:"6px",fontSize:"13px"}});
+        const mkField=(label,val,id)=>{
+          const row=el("div",{style:{marginBottom:"10px"}});
+          row.appendChild(el("label",{style:{display:"block",fontWeight:"700",color:"#1a6b4a",marginBottom:"3px",fontSize:"12px"}},label));
+          row.appendChild(el("input",{id,type:"text",value:val||"",style:{width:"100%",boxSizing:"border-box",padding:"6px 10px",border:"1px solid #c8e6d4",borderRadius:"7px",fontSize:"13px"}}));
+          return row;
+        };
+        panel.appendChild(mkField("Ord",w.word,"dp-word"));
+        panel.appendChild(mkField("Betydning",w.meaning,"dp-meaning"));
+        panel.appendChild(mkField("Tema",w.topic,"dp-topic"));
+        panel.appendChild(mkField("Bøyningsformer (kommaseparert)",(w.forms||[]).join(", "),"dp-forms"));
+        panel.appendChild(mkField("Distraktorer – flervalg-svar (kommaseparert)",(w.flashcard_options||[]).join(", "),"dp-distractors"));
+
+        const btnRow=el("div",{style:{display:"flex",gap:"8px",marginTop:"4px",flexWrap:"wrap"}});
+        const saveBtn=el("button",{class:"btn-add",style:{padding:"7px 18px",fontSize:"13px"},
+          async click(){
+            const upd={
+              word:panel.querySelector("#dp-word").value.trim()||w.word,
+              meaning:panel.querySelector("#dp-meaning").value.trim()||w.meaning,
+              topic:panel.querySelector("#dp-topic").value.trim()||w.topic,
+              forms:panel.querySelector("#dp-forms").value.split(",").map(s=>s.trim()).filter(Boolean),
+              flashcard_options:panel.querySelector("#dp-distractors").value.split(",").map(s=>s.trim()).filter(Boolean).slice(0,4),
+            };
+            const r=await api(`/api/words/${encodeURIComponent(w.id)}`,{method:"PATCH",body:JSON.stringify(upd)});
+            if(r.ok){const sv=await r.json();const idx=state.words.findIndex(x=>x.id===w.id);if(idx>=0)state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};saveStorage();}
+            renderWordList();
+          }
+        },"Lagre");
+        const aiBtn=el("button",{style:{padding:"7px 18px",fontSize:"13px",background:"#fff",border:"1px solid #1a6b4a",color:"#1a6b4a",borderRadius:"9px",fontWeight:"600",cursor:"pointer"},
+          async click(){
+            aiBtn.disabled=true; aiBtn.textContent="Genererer…";
+            await generateFormsAndDistractors(w.id,w.word,w.meaning);
+            renderWordList();
+          }
+        },"✨ Generer med AI");
+        btnRow.appendChild(saveBtn); btnRow.appendChild(aiBtn);
+        panel.appendChild(btnRow);
+        wrap.appendChild(panel);
+      }
+      grid.appendChild(wrap);
     });
     sec.appendChild(grid); container.appendChild(sec);
   });
@@ -1202,6 +1246,7 @@ async function addWord(){
       const idx=state.words.findIndex(w=>w.id===tempId);
       if(idx>=0){state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};}
       saveStorage(); renderWordList();
+      generateFormsAndDistractors(sv.id, sv.word, sv.meaning);
     }
   }catch{}
 }
@@ -1266,6 +1311,9 @@ function importWords(file){
         if(idx>=0) state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};
       });
       saveStorage();
+      // Generate forms+distractors for up to first 5 imported words (sequential to avoid rate limits)
+      const toGenerate=saved.slice(0,5);
+      (async()=>{for(const sv of toGenerate) await generateFormsAndDistractors(sv.id,sv.word,sv.meaning);})();
     }).catch(()=>{});
   };
   reader.readAsText(file,"UTF-8");
@@ -1493,6 +1541,30 @@ async function checkWithClaude(word, sentence, container){
   }
 }
 
+async function generateFormsAndDistractors(wordId, word, meaning){
+  try{
+    const prompt=`For the Norwegian word "${word}" (meaning: "${meaning}"), return a JSON object with two keys:\n1. "forms": array of inflected forms (verb: present/past/past-participle; noun: plural-indefinite, plural-definite, singular-definite; adjective: neuter, plural; phrase: leave empty). Do not include the base form itself.\n2. "distractors": array of exactly 4 English translations of Norwegian words that sound similar to "${word}" but mean something different. Each entry must be a plain English string.\n\nRespond with only the JSON object, no explanation.`;
+    const res=await fetch("/api/proxy/claude",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Auth-Token":state.sessionToken},
+      body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:300,messages:[{role:"user",content:prompt}]}),
+    });
+    if(!res.ok) return;
+    const data=await res.json();
+    const raw=(data.content?.[0]?.text||"{}").replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
+    const parsed=JSON.parse(raw);
+    const forms=Array.isArray(parsed.forms)?parsed.forms.filter(f=>typeof f==="string"&&f.trim()):[];
+    const distractors=Array.isArray(parsed.distractors)?parsed.distractors.filter(d=>typeof d==="string"&&d.trim()).slice(0,4):[];
+    if(!forms.length&&!distractors.length) return;
+    const r=await api(`/api/words/${encodeURIComponent(wordId)}`,{method:"PATCH",body:JSON.stringify({forms,flashcard_options:distractors})});
+    if(!r.ok) return;
+    const sv=await r.json();
+    const idx=state.words.findIndex(w=>w.id===wordId);
+    if(idx>=0){state.words[idx]={...state.words[idx],forms:sv.forms,flashcard_options:sv.flashcard_options};}
+    saveStorage();
+  }catch{}
+}
+
 function renderClaudeResult(r, container){
   container.innerHTML="";
   const isOk=r.correct&&r.natural;
@@ -1613,7 +1685,8 @@ function fillSentenceFeedback(container,sentence,word){
     container.appendChild(el("span",{style:{color:"#bbb"}},"Begynn å skrive…"));
     return;
   }
-  const used=sentence.toLowerCase().includes(word.word.toLowerCase());
+  const low=sentence.toLowerCase();
+  const used=[word.word,...(word.forms||[])].some(f=>f.length>=2&&low.includes(f.toLowerCase()));
   const wc=sentence.trim().split(/\s+/).length;
   if(used){
     container.appendChild(el("span",{class:"sent-badge"},"✓ Ordet er brukt!"));
@@ -2108,7 +2181,10 @@ function fillSidebarChips(container, used, relevantTopics){
 function detectUsed(essay,words){
   const used=new Set(); if(!essay.trim())return used;
   const low=essay.toLowerCase();
-  words.forEach(w=>{ if(w.word.length>=2&&low.includes(w.word.toLowerCase()))used.add(w.id); });
+  words.forEach(w=>{
+    const forms=[w.word,...(w.forms||[])];
+    if(forms.some(f=>f.length>=2&&low.includes(f.toLowerCase()))) used.add(w.id);
+  });
   return used;
 }
 function wcCount(t){return t.trim()?t.trim().split(/\s+/).length:0;}
@@ -2388,9 +2464,18 @@ function startFlashcards(){
 
 function fcGetOptions(word){
   const correct=word.meaning||word.word;
-  const pool=shuffle(state.words.filter(w=>w.id!==word.id&&w.meaning&&w.meaning.trim())).slice(0,3).map(w=>w.meaning);
-  while(pool.length<3) pool.push("—");
-  return shuffle([{text:correct,correct:true},...pool.map(t=>({text:t,correct:false}))]);
+  const stored=(word.flashcard_options||[]).filter(d=>d&&d.trim());
+  const wrongPool=stored.length>=3
+    ? shuffle(stored).slice(0,3)
+    : (()=>{
+        const fromStored=shuffle(stored).slice(0,stored.length);
+        const needed=3-fromStored.length;
+        const fromBank=shuffle(state.words.filter(w=>w.id!==word.id&&w.meaning&&w.meaning.trim())).slice(0,needed).map(w=>w.meaning);
+        const pool=[...fromStored,...fromBank];
+        while(pool.length<3) pool.push("—");
+        return pool;
+      })();
+  return shuffle([{text:correct,correct:true},...wrongPool.map(t=>({text:t,correct:false}))]);
 }
 
 // ── PRINT ─────────────────────────────────────────────────────────────
