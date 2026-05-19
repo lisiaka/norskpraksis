@@ -1256,10 +1256,10 @@ function importWords(file){
     toast(`✓ ${toAdd.length} nye ord importert! (${skipped} duplikater hoppet over)`);
     // Persist to backend in background
     api("/api/words/batch",{method:"POST",body:JSON.stringify(toAdd.map(w=>({
-      word:w.word, meaning:w.meaning||"", category:w.category||"enkeltord",
+      word:w.word, meaning:w.meaning||"-", category:w.category||"enkeltord",
       topic:w.topic||"annet", forms:[], flashcard_options:[],
     })))}).then(async r=>{
-      if(!r.ok) return;
+      if(!r.ok){console.error("Batch import failed",r.status);return;}
       const saved=await r.json();
       saved.forEach((sv,i)=>{
         const idx=state.words.findIndex(w=>w.id===tempEntries[i].id);
