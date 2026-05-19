@@ -3235,17 +3235,6 @@ function findLastIdx(arr, fn){
   return -1;
 }
 
-// ── Plan pricing ───────────────────────────────────────────────────────
-function calcPlanPrice(months, daysPerWeek){
-  if(months===1 && daysPerWeek===1) return 0;
-  return Math.round((months-1) * (daysPerWeek*0.8-1) * 9);
-}
-function planPriceLabel(months, daysPerWeek){
-  const p = calcPlanPrice(months, daysPerWeek);
-  if(p<=0) return "Gratis";
-  return `${p} EUR`;
-}
-
 // Convert plan's {topicKey, textSlot} → lesing text id
 // Text IDs use ASCII keys: lesing_sprak_01 (slot 0 → "01")
 const TOPIC_TO_ID_PREFIX = {
@@ -3310,7 +3299,6 @@ function buildPlanSetup(){
         chosenMonths=m;
         monthsRow.querySelectorAll(".plan-chip").forEach(b=>b.classList.remove("on"));
         e.currentTarget.classList.add("on");
-        updatePriceBox();
       }
     }, m===1?"1 måned":`${m} måneder`);
     monthsRow.appendChild(chip);
@@ -3323,29 +3311,6 @@ function buildPlanSetup(){
   // Show what each choice implies
   const daysHint = el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"10px",minHeight:"18px"}});
   card.appendChild(daysHint);
-
-  // Price indicator
-  const priceBox = el("div",{id:"plan-price-box",style:{marginTop:"22px",padding:"16px 20px",borderRadius:"12px",background:"#f5f7fa",border:"1.5px solid #e0e4ec",display:"flex",justifyContent:"space-between",alignItems:"center"}});
-  const priceLabel = el("div",{});
-  priceLabel.appendChild(el("div",{style:{fontSize:"12px",color:"#888",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginBottom:"4px"}},"Pris for denne planen"));
-  const priceVal = el("div",{style:{fontSize:"26px",fontWeight:"800",color:"#1a6b4a"}});
-  priceLabel.appendChild(priceVal);
-  priceBox.appendChild(priceLabel);
-  const priceNote = el("div",{style:{fontSize:"12px",color:"#aaa",textAlign:"right",maxWidth:"180px",lineHeight:"1.5"}});
-  priceBox.appendChild(priceNote);
-  card.appendChild(priceBox);
-
-  function updatePriceBox(){
-    const p = calcPlanPrice(chosenMonths, chosenDays);
-    priceVal.textContent = p===0 ? "Gratis" : `${p} EUR`;
-    priceVal.style.color = p===0 ? "#1a6b4a" : "#2d4e9e";
-    priceNote.textContent = p===0
-      ? "Grunnplan: 1 måned, 1 dag/uke. Låser opp tekster som hører til planen."
-      : "Betalingsløsning kommer snart. Du kan aktivere planen nå – betaling håndteres separat.";
-    priceBox.style.borderColor = p===0 ? "#b6e8ce" : "#c5d3f5";
-    priceBox.style.background  = p===0 ? "#f0fdf8" : "#f0f4ff";
-  }
-  updatePriceBox();
 
   const sessRow = el("div",{class:"plan-chip-row"});
   function updateDaysHint(d){
@@ -3363,12 +3328,22 @@ function buildPlanSetup(){
         sessRow.querySelectorAll(".plan-chip").forEach(b=>b.classList.remove("on"));
         e.currentTarget.classList.add("on");
         updateDaysHint(d);
-        updatePriceBox();
       }
     }, `${d} dag${d>1?"er":""}`);
     sessRow.appendChild(chip);
   });
   card.appendChild(sessRow);
+
+  if(!isActiveSubscriber()){
+    const notice = el("div",{style:{marginTop:"20px",padding:"14px 16px",borderRadius:"10px",background:"#fffbea",border:"1.5px solid #f5d060",fontSize:"13px",color:"#6b5500",lineHeight:"1.6"}});
+    notice.appendChild(el("span",{},"Studieplan er gratis å lage og bruke. Du trenger "));
+    const upgradeLink = el("a",{href:"#",style:{color:"#2d4e9e",fontWeight:"700",textDecoration:"underline"},
+      click(e){e.preventDefault();setTab("innstillinger");}
+    },"abonnement");
+    notice.appendChild(upgradeLink);
+    notice.appendChild(el("span",{}," for å låse opp tekster i Lesing-fanen."));
+    card.appendChild(notice);
+  }
 
   card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px",color:"#333",margin:"18px 0 8px"}},
     "Startdato"));
@@ -3382,7 +3357,7 @@ function buildPlanSetup(){
     style:{padding:"12px 32px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"12px",fontSize:"15px",fontWeight:"700",cursor:"pointer"},
     click(){
       const startDate = dateInput.value || today;
-      planState.setup = {months:chosenMonths, daysPerWeek:chosenDays, startDate, price:calcPlanPrice(chosenMonths,chosenDays)};
+      planState.setup = {months:chosenMonths, daysPerWeek:chosenDays, startDate};
       planState.weeks = generatePlan(chosenMonths, chosenDays, startDate);
       const todayISO = new Date().toISOString().slice(0,10);
       planState.viewWeek = Math.max(0, findLastIdx(planState.weeks, w=>w.weekStartISO<=todayISO));
