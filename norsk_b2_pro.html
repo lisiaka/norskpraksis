@@ -1246,15 +1246,27 @@ function importWords(file){
     }catch{toast("Kunne ikke lese filen. Sjekk formatet.");return;}
     if(!imported.length){toast("Ingen ord funnet i filen.");return;}
     const existing=new Set(state.words.map(w=>w.word.toLowerCase()));
-    let added=0;
-    imported.forEach(w=>{
-      if(!existing.has(w.word.toLowerCase())){
-        state.words.push({id:Date.now()+Math.random()*9999,...w});
-        existing.add(w.word.toLowerCase()); added++;
-      }
-    });
+    const toAdd=imported.filter(w=>!existing.has(w.word.toLowerCase()));
+    const skipped=imported.length-toAdd.length;
+    if(!toAdd.length){toast(`Ingen nye ord (${skipped} duplikater hoppet over)`);return;}
+    // Assign temp IDs and add to local state immediately
+    const tempEntries=toAdd.map(w=>({id:"tmp_"+Date.now()+Math.random()*9999,...w,forms:[],flashcard_options:[]}));
+    tempEntries.forEach(e=>state.words.push(e));
     saveStorage(); renderWordList(); renderTabs();
-    toast(`✓ ${added} nye ord importert! (${imported.length-added} duplikater hoppet over)`);
+    toast(`✓ ${toAdd.length} nye ord importert! (${skipped} duplikater hoppet over)`);
+    // Persist to backend in background
+    api("/api/words/batch",{method:"POST",body:JSON.stringify(toAdd.map(w=>({
+      word:w.word, meaning:w.meaning||"", category:w.category||"enkeltord",
+      topic:w.topic||"annet", forms:[], flashcard_options:[],
+    })))}).then(async r=>{
+      if(!r.ok) return;
+      const saved=await r.json();
+      saved.forEach((sv,i)=>{
+        const idx=state.words.findIndex(w=>w.id===tempEntries[i].id);
+        if(idx>=0) state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};
+      });
+      saveStorage();
+    }).catch(()=>{});
   };
   reader.readAsText(file,"UTF-8");
 }
