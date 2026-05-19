@@ -26,6 +26,7 @@ export interface Env {
   USER_DATA: KVNamespace;
   ANTHROPIC_API_KEY: string;
   DEMO_PASSWORD: string;
+  JWT_SECRET_KEY?: string;
   // Subscription env vars
   APP_BASE_URL: string;
   SUBSCRIPTION_TEST_MODE?: string;
@@ -48,11 +49,37 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
 /**
  * Validate the X-Auth-Token header.
- * Token = btoa(userId + ':' + DEMO_PASSWORD)
+ * Accepts either:
+ *  - Railway JWT (verified with JWT_SECRET_KEY if available)
+ *  - Legacy btoa(userId + ':' + DEMO_PASSWORD) token
  */
-function validateToken(request: Request, env: Env, expectedUserId: string | null = null): boolean {
+async function validateToken(request: Request, env: Env, expectedUserId: string | null = null): Promise<boolean> {
   const token = request.headers.get("X-Auth-Token") ?? "";
   if (!token) return false;
+
+  // Try JWT validation first (Railway tokens)
+  if (env.JWT_SECRET_KEY && token.includes(".")) {
+    try {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const [headerB64, payloadB64, sigB64] = parts;
+        const encoder = new TextEncoder();
+        const keyData = encoder.encode(env.JWT_SECRET_KEY);
+        const key = await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
+        const toBase64 = (s: string) => s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4);
+        const sigBytes = Uint8Array.from(atob(toBase64(sigB64)), c => c.charCodeAt(0));
+        const data = encoder.encode(`${headerB64}.${payloadB64}`);
+        const valid = await crypto.subtle.verify("HMAC", key, sigBytes, data);
+        if (!valid) return false;
+        const payload = JSON.parse(atob(toBase64(payloadB64)));
+        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return false;
+        if (expectedUserId && payload.sub !== expectedUserId) return false;
+        return true;
+      }
+    } catch { /* fall through to legacy */ }
+  }
+
+  // Legacy: btoa(userId + ':' + DEMO_PASSWORD)
   try {
     const decoded = atob(token);
     const colon = decoded.indexOf(":");
@@ -130,7 +157,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleClaudeProxy(request: Request, env: Env): Promise<Response> {
-  if (!validateToken(request, env)) return unauthorized();
+  if (!await validateToken(request, env)) return unauthorized();
   const payload = await request.json<Record<string, unknown>>();
   delete payload["__api_key__"];
   const resp = await fetch(ANTHROPIC_API_URL, {
@@ -155,7 +182,7 @@ async function handleGetUserData(
   userId: string,
   type: string
 ): Promise<Response> {
-  if (!validateToken(request, env, userId)) return unauthorized();
+  if (!await validateToken(request, env, userId)) return unauthorized();
   const fallback =
     type === "stats" ? { events: [] }
     : type === "essays" ? []
@@ -181,7 +208,7 @@ async function handlePostUserData(
   userId: string,
   type: string
 ): Promise<Response> {
-  if (!validateToken(request, env, userId)) return unauthorized();
+  if (!await validateToken(request, env, userId)) return unauthorized();
   const body = await request.text();
 
   if (type === "stats") {
