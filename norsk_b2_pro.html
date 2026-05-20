@@ -1842,12 +1842,30 @@ function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=
 
 // ── SKRIV TAB ─────────────────────────────────────────────────────────
 function buildSkriv(){
-  if(!state.currentPrompt) return el("div",{class:"empty-state",style:{padding:"70px 20px"}},
-    el("div",{class:"big"},"✍️"),
-    el("p",{style:{fontSize:"17px",marginBottom:"16px"}},"Velg et tema for å begynne å skrive!"),
-    el("button",{style:{padding:"11px 28px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"10px",fontSize:"15px",fontWeight:"700"},
-      click(){setTab("oppgaver");}
-    },"Velg oppgave →"));
+  if(!state.currentPrompt){
+    const frag = document.createDocumentFragment();
+    // Essay bank always visible even without a prompt
+    const bankPanel=el("div",{class:"essay-bank-panel",style:{maxWidth:"720px",margin:"0 auto 24px"}});
+    const refreshBtn2 = el("button",{style:{fontSize:"11px",padding:"2px 8px",borderRadius:"6px",
+      border:"1px solid #ccc",background:"#f8f8f8",cursor:"pointer",marginLeft:"8px"},
+      click: async ()=>{ refreshBtn2.textContent="⏳"; await syncEssaysFromServer(); refreshBtn2.textContent="↻"; }
+    },"↻");
+    bankPanel.appendChild(el("h3",{},["💾 Mine lagrede essayer",
+      el("span",{style:{fontSize:"12px",fontWeight:"500",color:"#888",marginLeft:"8px"}},`(${loadEssayBank().length})`),
+      refreshBtn2
+    ]));
+    const bankList2=el("div",{id:"essay-bank-list"});
+    bankPanel.appendChild(bankList2);
+    refreshEssayBank();
+    frag.appendChild(bankPanel);
+    frag.appendChild(el("div",{class:"empty-state",style:{padding:"40px 20px"}},
+      el("div",{class:"big"},"✍️"),
+      el("p",{style:{fontSize:"17px",marginBottom:"16px"}},"Velg et tema for å begynne å skrive!"),
+      el("button",{style:{padding:"11px 28px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"10px",fontSize:"15px",fontWeight:"700"},
+        click(){setTab("oppgaver");}
+      },"Velg oppgave →")));
+    return frag;
+  }
 
   const meta=TOPICS[state.currentTopic];
   const used=detectUsed(state.essay,state.words);
@@ -4382,6 +4400,52 @@ function buildInnstillinger(){
 
   userCard.appendChild(el("button",{class:"btn-sec",style:{width:"100%"},click:switchUser},"Logg ut"));
   frag.appendChild(userCard);
+
+  // ── Din lærer (students only) ──
+  if(state.userRole !== "teacher"){
+    const teacherCard = el("div",{class:"card"});
+    teacherCard.appendChild(el("h2",{},"👩‍🏫 Din lærer"));
+    const teacherMsg = el("div",{style:{fontSize:"13px",color:"#555",marginBottom:"10px"}},"Laster lærere…");
+    const teacherSel = el("select",{style:{width:"100%",padding:"8px",borderRadius:"6px",border:"1px solid #ccc",
+      fontSize:"14px",marginBottom:"10px",display:"none"}});
+    const teacherSaveBtn = el("button",{class:"btn-primary",style:{width:"100%",display:"none"},
+      click: async ()=>{
+        const val = teacherSel.value;
+        if(!val){ return; }
+        teacherSaveBtn.disabled=true; teacherSaveBtn.textContent="Lagrer…";
+        const r = await api("/api/me/teacher",{method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({teacher_id:val})});
+        if(r.ok){
+          teacherMsg.textContent="✅ Du er nå tilknyttet læreren. Læreren kan nå se fremgangen din.";
+          teacherMsg.style.color="#1a6b4a";
+        } else {
+          const d = await r.json().catch(()=>({detail:"Feil"}));
+          teacherMsg.textContent = d.detail||"Kunne ikke lagre.";
+          teacherMsg.style.color="#c0392b";
+        }
+        teacherSaveBtn.disabled=false; teacherSaveBtn.textContent="Lagre valg";
+      }
+    },"Lagre valg");
+    teacherCard.appendChild(teacherMsg);
+    teacherCard.appendChild(teacherSel);
+    teacherCard.appendChild(teacherSaveBtn);
+    // Load teachers async
+    api("/api/me/teachers").then(r=>r.ok?r.json():null).then(teachers=>{
+      if(!teachers||teachers.length===0){
+        teacherMsg.textContent="Ingen lærere er registrert ennå.";
+        return;
+      }
+      teacherSel.innerHTML="";
+      teacherSel.appendChild(el("option",{value:""},"— Velg din lærer —"));
+      teachers.forEach(t=>{
+        teacherSel.appendChild(el("option",{value:t.id},`${t.name} (${t.email})`));
+      });
+      teacherMsg.textContent="Velg læreren din fra listen:";
+      teacherSel.style.display=""; teacherSaveBtn.style.display="";
+    }).catch(()=>{ teacherMsg.textContent="Kunne ikke laste lærere."; });
+    frag.appendChild(teacherCard);
+  }
 
   // ── Abonnement ──
   const subCard=el("div",{class:"card"});
