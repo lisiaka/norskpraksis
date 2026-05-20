@@ -813,21 +813,42 @@ function deleteEssay(id){
   api(`/api/essays/${encodeURIComponent(id)}`,{method:"DELETE"}).catch(()=>{});
 }
 
-function loadEssayIntoEditor(entry){
+async function loadEssayIntoEditor(entry){
   state.essay=entry.text;
   state.loadedEssayReview=entry.teacherReview||null;
   const ta=$("essay-ta"); if(ta) ta.value=entry.text;
   // Restore topic/prompt if different
   if(entry.topic && TOPICS[entry.topic]){
     state.currentTopic=entry.topic;
-    // Try to find the matching prompt
     const prompts=PROMPTS[entry.topic]||[];
     const found=prompts.find(p=>p.id===entry.promptId||p.text===entry.promptText);
     if(found) state.currentPrompt=found; else if(prompts.length) state.currentPrompt=prompts[0];
   }
   updateWritePanel();
-  const egr=$("essay-grammar-result"); if(egr){egr.innerHTML="";egr.style.display="none";}
   renderTabs(); renderContent();
+
+  // Restore saved Claude feedback if available
+  if(entry.claudeFeedback){
+    try{
+      const result = typeof entry.claudeFeedback==="string" ? JSON.parse(entry.claudeFeedback) : entry.claudeFeedback;
+      const container=$("essay-grammar-result");
+      if(container){ container.style.display="block"; renderEssayClaudeResult(result, container); }
+    }catch{}
+  }
+
+  // If no teacher review cached, fetch fresh from server in case it was added since last sync
+  if(!entry.teacherReview && entry.id && !entry.id.startsWith("essay_")){
+    const r = await api("/api/essays").catch(()=>null);
+    if(r?.ok){
+      const essays = await r.json().catch(()=>null);
+      const fresh = Array.isArray(essays) && essays.find(e=>e.id===entry.id);
+      if(fresh?.teacher_review){
+        state.loadedEssayReview = fresh.teacher_review;
+        renderContent();
+      }
+    }
+  }
+
   toast("📂 Essay lastet inn!");
 }
 
