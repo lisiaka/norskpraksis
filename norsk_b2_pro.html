@@ -162,8 +162,8 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .essay-bank-panel{background:#f8fdf9;border-radius:14px;border:1.5px solid #d4edda;padding:16px;margin-top:14px;}
 .essay-bank-panel h3{font-size:13px;color:#1a6b4a;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
 .essay-bank-empty{font-size:13px;color:#bbb;text-align:center;padding:18px 0;}
-.saved-essay-row{background:#fff;border-radius:10px;border:1.5px solid #e8f0e8;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;transition:border-color .2s;}
-.saved-essay-row:hover{border-color:#2d9e6b;}
+.saved-essay-row{background:#fff;border-radius:10px;border:1.5px solid #e8f0e8;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;transition:border-color .2s,background .15s;cursor:pointer;}
+.saved-essay-row:hover{border-color:#2d9e6b;background:#f4fbf7;}
 .saved-essay-info{flex:1;min-width:0;}
 .saved-essay-title{font-weight:700;font-size:14px;color:#222;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .saved-essay-meta{font-size:12px;color:#999;line-height:1.5;}
@@ -881,7 +881,7 @@ function refreshEssayBank(){
     return;
   }
   bank.forEach(entry=>{
-    const row=el("div",{class:"saved-essay-row"});
+    const row=el("div",{class:"saved-essay-row",click(){loadEssayIntoEditor(entry);}});
     const info=el("div",{class:"saved-essay-info"});
     const titleDiv=el("div",{class:"saved-essay-title"});
     titleDiv.textContent=entry.title;
@@ -903,10 +903,11 @@ function refreshEssayBank(){
     metaDiv.textContent=`${entry.topicName||entry.topic||"–"} · ${entry.wordCount} ord · ${dateStr}`;
     info.appendChild(metaDiv);
     row.appendChild(info);
-    const acts=el("div",{class:"saved-essay-actions"});
-    acts.appendChild(el("button",{class:"btn-load-essay",click(){loadEssayIntoEditor(entry);}},"📂 Åpne"));
-    acts.appendChild(el("button",{class:"btn-del-essay",click(){if(confirm("Slette dette essayet?"))deleteEssay(entry.id);}},"🗑️"));
-    row.appendChild(acts);
+    const delBtn=el("button",{class:"btn-del-essay",click(e){
+      e.stopPropagation();
+      if(confirm("Slette dette essayet?")) deleteEssay(entry.id);
+    }},"🗑️");
+    row.appendChild(delBtn);
     panel.appendChild(row);
   });
 }
