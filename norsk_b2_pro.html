@@ -540,6 +540,8 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   wordIdx:0, sentences:{}, sentTopicFilter:"", openWordId:null,
   subscription: null, // loaded after login: { status, provider, renewalDate, ... } | null
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
+  loadedEssayReview: null, // teacher review for the currently loaded essay
+  userRole: "student", // "student" | "teacher" — set from JWT after login
 }; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
@@ -633,6 +635,7 @@ state.sessionToken = localStorage.getItem("b2_session_token")||"";
 state.userId = localStorage.getItem("b2_user_id")||"";
 state.userName = localStorage.getItem("b2_user_name")||"";
 state.userEmail = localStorage.getItem("b2_user_email")||"";
+state.userRole = localStorage.getItem("b2_user_role")||"student";
 
 // ── API HELPER ─────────────────────────────────────────────────────────
 const API_BASE = "https://norskb2-backend-production.up.railway.app";
@@ -737,6 +740,8 @@ async function syncEssaysFromServer(){
     const merged = [...serverEssays.map(e=>({
       id: e.id, title: e.title, text: e.text, topic: e.topic,
       promptId: e.prompt_id, claudeLevel: e.claude_level,
+      claudeFeedback: e.claude_feedback||null,
+      teacherReview: e.teacher_review||null,
       savedAt: new Date(e.created_at).getTime(),
     })), ...localOnly];
     saveEssayBank(merged);
@@ -772,6 +777,7 @@ async function saveCurrentEssay(){
       topic:entry.topic||"annet",
       prompt_id:entry.promptId||null,
       claude_level:entry.claudeLevel||null,
+      claude_feedback:entry.claudeFeedback||null,
     })});
     if(r.ok){
       const sv=await r.json();
@@ -794,6 +800,7 @@ function deleteEssay(id){
 
 function loadEssayIntoEditor(entry){
   state.essay=entry.text;
+  state.loadedEssayReview=entry.teacherReview||null;
   const ta=$("essay-ta"); if(ta) ta.value=entry.text;
   // Restore topic/prompt if different
   if(entry.topic && TOPICS[entry.topic]){
@@ -846,6 +853,13 @@ function refreshEssayBank(){
       const LEVEL_COLORS={"A1":"#e74c3c","A2":"#e67e22","B1":"#f39c12","B2":"#2ecc71","C1":"#27ae60","C2":"#1abc9c"};
       const lv=el("span",{class:"saved-essay-level",style:{background:(LEVEL_COLORS[entry.claudeLevel]||"#ccc")+"22",color:(LEVEL_COLORS[entry.claudeLevel]||"#888")}},entry.claudeLevel);
       titleDiv.appendChild(lv);
+    }
+    if(entry.teacherReview?.liked){
+      titleDiv.appendChild(el("span",{style:{background:"#e8f8f0",color:"#27ae60",borderRadius:"4px",
+        padding:"2px 7px",fontSize:"11px",fontWeight:"600",marginLeft:"6px"}},"✓ Godkjent av lærer"));
+    } else if(entry.teacherReview?.comment){
+      titleDiv.appendChild(el("span",{style:{background:"#eaf2fb",color:"#2980b9",borderRadius:"4px",
+        padding:"2px 7px",fontSize:"11px",fontWeight:"600",marginLeft:"6px"}},"💬 Kommentar fra lærer"));
     }
     info.appendChild(titleDiv);
     const metaDiv=el("div",{class:"saved-essay-meta"});
@@ -926,7 +940,17 @@ function renderTabs(){
   const doneCount=Object.keys(state.sentences).filter(id=>state.sentences[id]?.trim()).length;
   // Sidebar brand
   c.appendChild(el("div",{class:"sidebar-brand"},"🇳🇴 B2 Norsk"));
-  // Grouped nav sections
+
+  if(state.userRole==="teacher"){
+    // Teachers only see the teacher dashboard
+    c.appendChild(el("div",{class:"nav-section-label"},"Lærer"));
+    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"?" active":""),click(){setTab("laerer");}}, "👩‍🏫 Klassen min"));
+    c.appendChild(el("div",{class:"nav-section-label"},"Konto"));
+    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="innstillinger"?" active":""),click(){setTab("innstillinger");}}, "⚙️ Innstillinger"));
+    return;
+  }
+
+  // Grouped nav sections for students
   const sections=[
     {label:"Lær",tabs:[
       {key:"ordbank",     label:`📚 Ordbank${state.words.length?` (${state.words.length})`:""}`},
@@ -966,6 +990,7 @@ function renderContent(){
   if(state.tab==="plan")        c.appendChild(buildPlan());
   if(state.tab==="statistik")     c.appendChild(buildStatistik());
   if(state.tab==="innstillinger") c.appendChild(buildInnstillinger());
+  if(state.tab==="laerer")        c.appendChild(buildLaerer());
 }
 
 // ── ORDBANK TAB ───────────────────────────────────────────────────────
@@ -1895,6 +1920,26 @@ function buildSkriv(){
   const essayGrammarDiv=el("div",{id:"essay-grammar-result",class:"grammar-result",style:{display:"none",marginTop:"14px"}});
   left.appendChild(essayGrammarDiv);
 
+  // Teacher review section (shown when a saved essay with a review is loaded)
+  if(state.loadedEssayReview){
+    const rev=state.loadedEssayReview;
+    const revBox=el("div",{style:{background:"#f0f7ff",border:"1px solid #b3d1f5",borderRadius:"10px",
+      padding:"14px 16px",marginTop:"14px"}});
+    const revHdr=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}});
+    revHdr.appendChild(el("span",{style:{fontWeight:"700",fontSize:"14px",color:"#2c5f9e"}},"👩‍🏫 Tilbakemelding fra lærer"));
+    if(rev.liked) revHdr.appendChild(el("span",{style:{background:"#e8f8f0",color:"#27ae60",
+      borderRadius:"4px",padding:"2px 8px",fontSize:"12px",fontWeight:"600"}},"✓ Godkjent"));
+    revBox.appendChild(revHdr);
+    if(rev.comment){
+      const commentEl=el("div",{style:{fontSize:"14px",lineHeight:"1.7",color:"#333",whiteSpace:"pre-wrap"}});
+      commentEl.textContent=rev.comment;
+      revBox.appendChild(commentEl);
+    } else {
+      revBox.appendChild(el("div",{style:{fontSize:"13px",color:"#888",fontStyle:"italic"}},"Læreren har godkjent stilen din, men ikke skrevet en kommentar."));
+    }
+    left.appendChild(revBox);
+  }
+
   // ── Essay bank panel ──
   const bankPanel=el("div",{class:"essay-bank-panel"});
   const bankHdr=el("div",{});
@@ -2016,13 +2061,27 @@ Keep grammarErrors to the most important 3-5 errors. Keep strengths and improvem
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
     renderEssayClaudeResult(result, container);
-    // Save the Claude level back into the essay bank entry if this essay is already saved
+    // Save Claude level + feedback back into the essay bank and to the server
     if(result.level){
       const ta=$("essay-ta");
       const currentText=(ta?ta.value:state.essay).trim();
       const bank=loadEssayBank();
       const idx=bank.findIndex(e=>e.text.trim()===currentText);
-      if(idx>=0){ bank[idx].claudeLevel=result.level; saveEssayBank(bank); refreshEssayBank(); }
+      if(idx>=0){
+        bank[idx].claudeLevel=result.level;
+        bank[idx].claudeFeedback=JSON.stringify(result);
+        saveEssayBank(bank);
+        refreshEssayBank();
+        // Persist feedback to backend if the essay has a server id
+        const serverId=bank[idx].id;
+        if(serverId && !serverId.startsWith("local-")){
+          api(`/api/essays/${encodeURIComponent(serverId)}`,{
+            method:"PATCH",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({claude_feedback:JSON.stringify(result)}),
+          }).catch(()=>{});
+        }
+      }
     }
   }catch(err){
     container.innerHTML="";
@@ -3963,11 +4022,13 @@ async function onLoginSuccess(token, user){
   state.userId = user.id;
   state.userName = user.name;
   state.userEmail = user.email;
+  state.userRole = user.role || "student";
   try{
     localStorage.setItem("b2_session_token", token);
     localStorage.setItem("b2_user_id", user.id);
     localStorage.setItem("b2_user_name", user.name);
     localStorage.setItem("b2_user_email", user.email);
+    localStorage.setItem("b2_user_role", state.userRole);
   }catch{}
 
   // Reset game/session state
@@ -3976,6 +4037,7 @@ async function onLoginSuccess(token, user){
   ws.started = false; ws.sentences = [];
   state.words = []; state.sentences = {}; state.essay = "";
   state.currentTopic = null; state.currentPrompt = null;
+  state.loadedEssayReview = null;
   planState.weeks = []; planState.setup = null; planState.viewWeek = 0;
   state.subscription = null;
 
@@ -4019,7 +4081,8 @@ async function onLoginSuccess(token, user){
     setTab("innstillinger");
   }
 
-  // Show app
+  // Show app — teachers land on the Lærer dashboard
+  if(state.userRole==="teacher") state.tab="laerer";
   $("login-screen").style.display="none";
   $("app").style.display="";
   renderHeader(); renderTabs(); renderContent();
@@ -4081,8 +4144,9 @@ function switchUser(){
     localStorage.removeItem("b2_session_token");
     localStorage.removeItem("b2_user_name");
     localStorage.removeItem("b2_user_email");
+    localStorage.removeItem("b2_user_role");
   }catch{}
-  state.userId=""; state.sessionToken=""; state.userName=""; state.userEmail="";
+  state.userId=""; state.sessionToken=""; state.userName=""; state.userEmail=""; state.userRole="student";
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────
@@ -4265,6 +4329,311 @@ function buildInnstillinger(){
 
   return frag;
 }
+
+// ── LÆRER DASHBOARD ───────────────────────────────────────────────────────
+
+const teacherState = {
+  view: "roster",        // "roster" | "progress" | "essays" | "essay-detail"
+  students: null,        // cached list from API
+  selectedStudent: null, // { id, name, email, assigned_at }
+  studentProgress: null, // progress response from API
+  studentEssays: null,   // list of essays from API
+  selectedEssay: null,   // single essay object
+};
+
+function buildLaerer(){
+  const frag = document.createDocumentFragment();
+  const wrap = el("div", {style:{maxWidth:"800px",margin:"0 auto",padding:"16px"}});
+
+  if(teacherState.view === "roster")       wrap.appendChild(buildLaererRoster());
+  else if(teacherState.view === "progress") wrap.appendChild(buildLaererProgress());
+  else if(teacherState.view === "essays")   wrap.appendChild(buildLaererEssayList());
+  else if(teacherState.view === "essay-detail") wrap.appendChild(buildLaererEssayDetail());
+
+  frag.appendChild(wrap);
+  return frag;
+}
+
+function laererSetView(view){ teacherState.view=view; renderContent(); }
+
+// ── Roster view ────────────────────────────────────────────────────────────
+function buildLaererRoster(){
+  const frag = document.createDocumentFragment();
+  const hdr = el("div",{style:{display:"flex",alignItems:"center",gap:"12px",marginBottom:"20px"}});
+  hdr.appendChild(el("h2",{style:{margin:0}},"👩‍🏫 Klassen min"));
+  frag.appendChild(hdr);
+
+  // Add student form
+  const addBox = el("div",{class:"card",style:{marginBottom:"20px",padding:"16px"}});
+  addBox.appendChild(el("h3",{style:{margin:"0 0 12px"}},"Legg til elev"));
+  const emailInput = el("input",{type:"email",placeholder:"Elevens e-postadresse",
+    style:{width:"100%",padding:"8px",marginBottom:"8px",boxSizing:"border-box",
+      border:"1px solid #ccc",borderRadius:"6px",fontSize:"14px"}});
+  const addErr = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
+  const addBtn = el("button",{class:"btn-primary",style:{width:"100%"},
+    click: async ()=>{
+      const email = emailInput.value.trim();
+      if(!email){ addErr.textContent="Skriv inn en e-postadresse"; addErr.style.display=""; return; }
+      addErr.style.display="none";
+      addBtn.disabled=true; addBtn.textContent="Legger til…";
+      try{
+        const r = await api("/api/teacher/students",{method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({student_email:email})});
+        if(r.ok){
+          emailInput.value="";
+          teacherState.students=null; // bust cache
+          renderContent();
+        } else {
+          const d=await r.json().catch(()=>({detail:"Ukjent feil"}));
+          addErr.textContent=d.detail||"Kunne ikke legge til eleven";
+          addErr.style.display="";
+          addBtn.disabled=false; addBtn.textContent="Legg til";
+        }
+      }catch(e){ addErr.textContent="Nettverksfeil"; addErr.style.display=""; addBtn.disabled=false; addBtn.textContent="Legg til"; }
+    }
+  },"Legg til");
+  addBox.appendChild(emailInput);
+  addBox.appendChild(addErr);
+  addBox.appendChild(addBtn);
+  frag.appendChild(addBox);
+
+  // Student list
+  const listWrap = el("div",{});
+  frag.appendChild(listWrap);
+
+  async function loadStudents(){
+    if(teacherState.students===null){
+      const r = await api("/api/teacher/students").catch(()=>null);
+      if(r?.ok) teacherState.students=await r.json();
+      else teacherState.students=[];
+    }
+    listWrap.innerHTML="";
+    if(!teacherState.students.length){
+      listWrap.appendChild(el("p",{style:{color:"#888"}},"Ingen elever tilknyttet ennå."));
+      return;
+    }
+    teacherState.students.forEach(s=>{
+      const row = el("div",{class:"card",style:{display:"flex",alignItems:"center",gap:"12px",
+        padding:"12px 16px",marginBottom:"8px",cursor:"pointer"}});
+      const info = el("div",{style:{flex:"1"},click:()=>{
+        teacherState.selectedStudent=s;
+        teacherState.studentProgress=null;
+        teacherState.studentEssays=null;
+        laererSetView("progress");
+      }});
+      info.appendChild(el("div",{style:{fontWeight:"600"}},$esc(s.name)));
+      info.appendChild(el("div",{style:{fontSize:"13px",color:"#888"}},$esc(s.email)));
+      const removeBtn = el("button",{class:"btn-danger",style:{fontSize:"12px",padding:"4px 10px"},
+        click: async (e)=>{
+          e.stopPropagation();
+          if(!confirm(`Fjerne ${s.name} fra klassen din?`)) return;
+          const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}`,{method:"DELETE"}).catch(()=>null);
+          if(r?.ok){ teacherState.students=null; renderContent(); }
+          else toast("Kunne ikke fjerne eleven");
+        }
+      },"Fjern");
+      row.appendChild(info);
+      row.appendChild(removeBtn);
+      listWrap.appendChild(row);
+    });
+  }
+  loadStudents();
+  return frag;
+}
+
+// ── Progress view ──────────────────────────────────────────────────────────
+function buildLaererProgress(){
+  const frag = document.createDocumentFragment();
+  const s = teacherState.selectedStudent;
+
+  const back = el("button",{class:"btn-secondary",style:{marginBottom:"16px"},
+    click:()=>laererSetView("roster")},"← Tilbake");
+  frag.appendChild(back);
+  frag.appendChild(el("h2",{style:{marginBottom:"16px"}},`Fremgang: ${$esc(s?.name||"")}`));
+
+  const progWrap = el("div",{});
+  frag.appendChild(progWrap);
+
+  async function loadProgress(){
+    if(!teacherState.studentProgress){
+      const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}/progress`).catch(()=>null);
+      if(r?.ok) teacherState.studentProgress=await r.json();
+    }
+    const p = teacherState.studentProgress?.progress;
+    progWrap.innerHTML="";
+    if(!p){ progWrap.appendChild(el("p",{style:{color:"#888"}},"Kunne ikke laste fremgang.")); return; }
+
+    const grid = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"12px",marginBottom:"24px"}});
+    [
+      ["📅","Studieplaner",p.study_plans_created],
+      ["📖","Tekster lest",p.texts_read],
+      ["🔤","Ord øvd",p.words_practiced],
+      ["🎮","Flashcard-sesjoner",p.flashcard_sessions],
+      ["✍️","Stiler levert",p.essays_submitted],
+    ].forEach(([icon,label,val])=>{
+      const card=el("div",{class:"card",style:{padding:"16px",textAlign:"center"}});
+      card.appendChild(el("div",{style:{fontSize:"28px"}},$esc(icon)));
+      card.appendChild(el("div",{style:{fontSize:"24px",fontWeight:"700",margin:"4px 0"}},$esc(String(val))));
+      card.appendChild(el("div",{style:{fontSize:"13px",color:"#888"}},$esc(label)));
+      grid.appendChild(card);
+    });
+    progWrap.appendChild(grid);
+
+    if(p.essays_submitted>0){
+      const essayBtn=el("button",{class:"btn-primary",
+        click:()=>{teacherState.studentEssays=null;laererSetView("essays");}},
+        "📄 Se stiler");
+      progWrap.appendChild(essayBtn);
+    }
+  }
+  loadProgress();
+  return frag;
+}
+
+// ── Essay list view ────────────────────────────────────────────────────────
+function buildLaererEssayList(){
+  const frag = document.createDocumentFragment();
+  const s = teacherState.selectedStudent;
+
+  const back = el("button",{class:"btn-secondary",style:{marginBottom:"16px"},
+    click:()=>laererSetView("progress")},"← Tilbake");
+  frag.appendChild(back);
+  frag.appendChild(el("h2",{style:{marginBottom:"16px"}},`Stiler: ${$esc(s?.name||"")}`));
+
+  const listWrap = el("div",{});
+  frag.appendChild(listWrap);
+
+  async function loadEssays(){
+    if(!teacherState.studentEssays){
+      const r=await api(`/api/teacher/students/${encodeURIComponent(s.id)}/essays`).catch(()=>null);
+      if(r?.ok) teacherState.studentEssays=await r.json();
+      else teacherState.studentEssays=[];
+    }
+    listWrap.innerHTML="";
+    if(!teacherState.studentEssays.length){
+      listWrap.appendChild(el("p",{style:{color:"#888"}},"Ingen stiler levert ennå.")); return;
+    }
+    teacherState.studentEssays.forEach(essay=>{
+      const card=el("div",{class:"card",style:{padding:"14px 16px",marginBottom:"10px",cursor:"pointer"},
+        click:()=>{teacherState.selectedEssay=essay;laererSetView("essay-detail");}});
+      const topRow=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"}});
+      topRow.appendChild(el("span",{style:{fontWeight:"600",flex:"1"}},$esc(essay.title)));
+      if(essay.teacher_review?.liked)
+        topRow.appendChild(el("span",{style:{color:"#27ae60",fontSize:"13px"}},"✓ Godkjent"));
+      else if(essay.teacher_review?.comment)
+        topRow.appendChild(el("span",{style:{color:"#2980b9",fontSize:"13px"}},"💬 Kommentar"));
+      card.appendChild(topRow);
+      card.appendChild(el("div",{style:{fontSize:"13px",color:"#888"}},
+        `${$esc(essay.topic)} · ${new Date(essay.created_at).toLocaleDateString("nb-NO")}`));
+      listWrap.appendChild(card);
+    });
+  }
+  loadEssays();
+  return frag;
+}
+
+// ── Essay detail + review form ─────────────────────────────────────────────
+function buildLaererEssayDetail(){
+  const frag = document.createDocumentFragment();
+  const essay = teacherState.selectedEssay;
+  const review = essay?.teacher_review;
+
+  const back=el("button",{class:"btn-secondary",style:{marginBottom:"16px"},
+    click:()=>laererSetView("essays")},"← Tilbake til stiler");
+  frag.appendChild(back);
+
+  // Essay text
+  const essayCard=el("div",{class:"card",style:{padding:"16px",marginBottom:"16px"}});
+  essayCard.appendChild(el("h3",{style:{margin:"0 0 8px"}},$esc(essay.title)));
+  essayCard.appendChild(el("div",{style:{fontSize:"13px",color:"#888",marginBottom:"12px"}},
+    `${$esc(essay.topic)} · ${new Date(essay.created_at).toLocaleDateString("nb-NO")}`));
+  const essayText=el("div",{style:{whiteSpace:"pre-wrap",lineHeight:"1.7",fontSize:"15px"}});
+  essayText.textContent=essay.text;
+  essayCard.appendChild(essayText);
+  frag.appendChild(essayCard);
+
+  // AI feedback
+  if(essay.claude_feedback){
+    const aiCard=el("div",{class:"card",style:{padding:"16px",marginBottom:"16px",background:"#f0f7ff"}});
+    aiCard.appendChild(el("h4",{style:{margin:"0 0 8px",color:"#2c5f9e"}},"🤖 AI-tilbakemelding"));
+    const aiText=el("div",{style:{whiteSpace:"pre-wrap",lineHeight:"1.7",fontSize:"14px"}});
+    aiText.textContent=essay.claude_feedback;
+    aiCard.appendChild(aiText);
+    frag.appendChild(aiCard);
+  }
+
+  // Teacher review form
+  const reviewCard=el("div",{class:"card",style:{padding:"16px"}});
+  reviewCard.appendChild(el("h4",{style:{margin:"0 0 12px"}},"Din tilbakemelding"));
+
+  // Like toggle
+  let liked=review?.liked||false;
+  const likeBtn=el("button",{
+    class:liked?"btn-primary":"btn-secondary",
+    style:{marginBottom:"12px"},
+    click:()=>{
+      liked=!liked;
+      likeBtn.textContent=liked?"✓ Godkjent":"👍 Godkjenn stilen";
+      likeBtn.className=liked?"btn-primary":"btn-secondary";
+    }
+  }, liked?"✓ Godkjent":"👍 Godkjenn stilen");
+  reviewCard.appendChild(likeBtn);
+
+  // Comment textarea
+  reviewCard.appendChild(el("div",{style:{marginBottom:"6px",fontWeight:"600",fontSize:"14px"}},"Kommentar (valgfritt):"));
+  const commentArea=el("textarea",{rows:"4",
+    style:{width:"100%",padding:"8px",boxSizing:"border-box",border:"1px solid #ccc",
+      borderRadius:"6px",fontSize:"14px",resize:"vertical"}});
+  commentArea.value=review?.comment||"";
+  reviewCard.appendChild(commentArea);
+
+  const saveErr=el("div",{style:{color:"#c0392b",fontSize:"13px",marginTop:"6px",display:"none"}});
+  const saveBtn=el("button",{class:"btn-primary",style:{marginTop:"10px",width:"100%"},
+    click: async ()=>{
+      saveErr.style.display="none";
+      saveBtn.disabled=true; saveBtn.textContent="Lagrer…";
+      try{
+        const r=await api(`/api/teacher/essays/${encodeURIComponent(essay.id)}/review`,{
+          method:"PUT",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({liked, comment:commentArea.value.trim()||null})
+        });
+        if(r.ok){
+          const updated=await r.json();
+          // Update cached essay review
+          if(teacherState.studentEssays){
+            const idx=teacherState.studentEssays.findIndex(e=>e.id===essay.id);
+            if(idx>=0) teacherState.studentEssays[idx].teacher_review=updated;
+          }
+          teacherState.selectedEssay={...essay, teacher_review:updated};
+          toast("✓ Tilbakemelding lagret");
+          saveBtn.textContent="Lagret ✓";
+          saveBtn.disabled=false;
+        } else {
+          const d=await r.json().catch(()=>({detail:"Ukjent feil"}));
+          saveErr.textContent=d.detail||"Kunne ikke lagre";
+          saveErr.style.display="";
+          saveBtn.textContent="Lagre tilbakemelding";
+          saveBtn.disabled=false;
+        }
+      }catch(e){
+        saveErr.textContent="Nettverksfeil";
+        saveErr.style.display="";
+        saveBtn.textContent="Lagre tilbakemelding";
+        saveBtn.disabled=false;
+      }
+    }
+  },"Lagre tilbakemelding");
+  reviewCard.appendChild(saveErr);
+  reviewCard.appendChild(saveBtn);
+  frag.appendChild(reviewCard);
+
+  return frag;
+}
+
+// Escape helper (used in teacher dashboard if not already defined globally)
+function $esc(str){ return String(str||""); }
 </script>
 </body>
 </html>
