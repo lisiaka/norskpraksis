@@ -639,9 +639,9 @@ state.userRole = localStorage.getItem("b2_user_role")||"student";
 
 // ── API HELPER ─────────────────────────────────────────────────────────
 const _host = window.location.hostname;
-const API_BASE = (_host === "localhost" || _host === "127.0.0.1" || _host.startsWith("dev.") || _host.includes(".pages.dev"))
-  ? "https://norskb2-backend-staging.up.railway.app"
-  : "https://norskb2-backend-production.up.railway.app";
+const API_BASE = _host === "norsk-b2-pro.pages.dev"
+  ? "https://norskb2-backend-production.up.railway.app"
+  : "https://norskb2-backend-staging.up.railway.app";
 async function api(path, opts = {}){
   const headers = {"Content-Type":"application/json", ...(opts.headers||{})};
   if(state.sessionToken) headers["Authorization"] = `Bearer ${state.sessionToken}`;
