@@ -378,6 +378,11 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
     <h2>B2 Norsk Treningsverktøy</h2>
     <p id="login-subtitle">Logg inn med e-postadressen din.</p>
     <input id="reg-name" class="login-input" type="text" placeholder="Ditt navn" autocomplete="name" style="display:none;margin-bottom:10px"/>
+    <div id="reg-role" style="display:none;margin-bottom:12px;text-align:left;font-size:14px;color:#444">
+      <div style="margin-bottom:6px;font-weight:600">Jeg er:</div>
+      <label style="margin-right:20px;cursor:pointer"><input type="radio" name="reg-role-choice" value="student" checked style="margin-right:5px"/>Elev</label>
+      <label style="cursor:pointer"><input type="radio" name="reg-role-choice" value="teacher" style="margin-right:5px"/>Lærer</label>
+    </div>
     <input id="login-input" class="login-input" type="email" placeholder="E-postadresse" autocomplete="email" autocapitalize="off"/>
     <input id="login-password" class="login-input" type="password" placeholder="Passord" autocomplete="current-password" style="margin-top:10px"/>
     <div id="login-error" style="display:none;color:#c0392b;font-size:13px;margin-top:6px;text-align:center;"></div>
@@ -4113,13 +4118,13 @@ async function loginAs(email, password){
   }
 }
 
-async function registerUser(name, email, password){
+async function registerUser(name, email, password, role="student"){
   const loginErr=$("login-error");
   try{
     const r=await fetch(`${API_BASE}/auth/register`,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({name:name.trim(), email:email.trim().toLowerCase(), password, marketing_consent:false}),
+      body:JSON.stringify({name:name.trim(), email:email.trim().toLowerCase(), password, marketing_consent:false, role}),
     });
     if(!r.ok){
       const err=await r.json().catch(()=>({}));
@@ -4180,19 +4185,24 @@ function switchUser(){
   loginInput.addEventListener("keydown", e=>{ if(e.key==="Enter") loginPw.focus(); });
 
   loginBtn.addEventListener("click", ()=>{
-    if(isRegisterMode) registerUser(regName.value, loginInput.value, loginPw.value);
-    else loginAs(loginInput.value, loginPw.value);
+    if(isRegisterMode){
+      const roleChoice = document.querySelector("input[name='reg-role-choice']:checked");
+      registerUser(regName.value, loginInput.value, loginPw.value, roleChoice ? roleChoice.value : "student");
+    } else {
+      loginAs(loginInput.value, loginPw.value);
+    }
   });
 
+  const regRole = $("reg-role");
   toggleLink.addEventListener("click", e=>{
     e.preventDefault();
     isRegisterMode = !isRegisterMode;
     if(isRegisterMode){
-      regName.style.display=""; subtitle.textContent="Opprett en ny konto.";
+      regName.style.display=""; regRole.style.display=""; subtitle.textContent="Opprett en ny konto.";
       loginBtn.textContent="Registrer →"; toggleText.textContent="Har du konto? ";
       toggleLink.textContent="Logg inn";
     } else {
-      regName.style.display="none"; subtitle.textContent="Logg inn med e-postadressen din.";
+      regName.style.display="none"; regRole.style.display="none"; subtitle.textContent="Logg inn med e-postadressen din.";
       loginBtn.textContent="Logg inn →"; toggleText.textContent="Ny bruker? ";
       toggleLink.textContent="Registrer deg";
     }
@@ -4319,8 +4329,45 @@ function buildInnstillinger(){
   userCard.appendChild(el("h2",{},"👤 Brukerprofil"));
   userCard.appendChild(el("p",{style:{fontSize:"13px",color:"#555",marginBottom:"6px",lineHeight:"1.6"}},
     el("strong",{},"Navn: "),state.userName||"—"));
-  userCard.appendChild(el("p",{style:{fontSize:"13px",color:"#555",marginBottom:"14px",lineHeight:"1.6"}},
+  userCard.appendChild(el("p",{style:{fontSize:"13px",color:"#555",marginBottom:"6px",lineHeight:"1.6"}},
     el("strong",{},"E-post: "),state.userEmail||"—"));
+  userCard.appendChild(el("p",{style:{fontSize:"13px",color:"#555",marginBottom:"14px",lineHeight:"1.6"}},
+    el("strong",{},"Rolle: "),state.userRole==="teacher"?"Lærer 👩‍🏫":"Elev 📚"));
+
+  // Role switcher
+  const roleWrap = el("div",{style:{marginBottom:"14px",padding:"12px",background:"#f8f9fa",borderRadius:"8px",border:"1px solid #e0e0e0"}});
+  roleWrap.appendChild(el("div",{style:{fontSize:"13px",fontWeight:"600",marginBottom:"8px",color:"#333"}},"Endre rolle:"));
+  const roleMsg = el("div",{style:{display:"none",fontSize:"13px",color:"#1a6b4a",marginTop:"8px"}});
+  const makeRoleBtn = (label, value) => {
+    const isActive = state.userRole === value;
+    const btn = el("button",{
+      class: isActive ? "btn-primary" : "btn-sec",
+      style:{marginRight:"8px", opacity: isActive ? "1" : "0.7"},
+      click: async ()=>{
+        if(isActive) return;
+        btn.disabled=true; btn.textContent="Lagrer…";
+        try{
+          const r = await api("/api/me",{method:"PUT",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({role:value})});
+          if(r.ok){
+            roleMsg.textContent="Rolle oppdatert! Logg ut og inn igjen for å aktivere den nye rollen.";
+            roleMsg.style.display="";
+          } else {
+            roleMsg.textContent="Kunne ikke endre rolle.";
+            roleMsg.style.color="#c0392b"; roleMsg.style.display="";
+          }
+        } catch{ roleMsg.textContent="Feil ved tilkobling."; roleMsg.style.color="#c0392b"; roleMsg.style.display=""; }
+        btn.disabled=false; btn.textContent=label;
+      }
+    }, label);
+    return btn;
+  };
+  roleWrap.appendChild(makeRoleBtn("Elev 📚","student"));
+  roleWrap.appendChild(makeRoleBtn("Lærer 👩‍🏫","teacher"));
+  roleWrap.appendChild(roleMsg);
+  userCard.appendChild(roleWrap);
+
   userCard.appendChild(el("button",{class:"btn-sec",style:{width:"100%"},click:switchUser},"Logg ut"));
   frag.appendChild(userCard);
 
