@@ -821,7 +821,7 @@ function loadEssayIntoEditor(entry){
   if(entry.topic && TOPICS[entry.topic]){
     state.currentTopic=entry.topic;
     // Try to find the matching prompt
-    const prompts=TOPICS[entry.topic]?.prompts||[];
+    const prompts=PROMPTS[entry.topic]||[];
     const found=prompts.find(p=>p.id===entry.promptId||p.text===entry.promptText);
     if(found) state.currentPrompt=found; else if(prompts.length) state.currentPrompt=prompts[0];
   }
@@ -1846,15 +1846,21 @@ function buildSkriv(){
     const frag = document.createDocumentFragment();
     // Essay bank always visible even without a prompt
     const bankPanel=el("div",{class:"essay-bank-panel",style:{maxWidth:"720px",margin:"0 auto 24px"}});
-    const refreshBtn2 = el("button",{style:{fontSize:"11px",padding:"2px 8px",borderRadius:"6px",
-      border:"1px solid #ccc",background:"#f8f8f8",cursor:"pointer",marginLeft:"8px"},
-      click: async ()=>{ refreshBtn2.textContent="⏳"; await syncEssaysFromServer(); refreshBtn2.textContent="↻"; }
-    },"↻");
-    bankPanel.appendChild(el("h3",{},["💾 Mine lagrede essayer",
-      el("span",{style:{fontSize:"12px",fontWeight:"500",color:"#888",marginLeft:"8px"}},`(${loadEssayBank().length})`),
-      refreshBtn2
-    ]));
     const bankList2=el("div",{id:"essay-bank-list"});
+    const chevron2=el("span",{style:{marginLeft:"auto",fontSize:"14px",transition:"transform 0.2s"}},"▼");
+    const hdrBtn2=el("button",{style:{width:"100%",background:"none",border:"none",cursor:"pointer",
+      display:"flex",alignItems:"center",gap:"6px",padding:"0",textAlign:"left"},
+      click: async ()=>{
+        const open = bankList2.style.display !== "none";
+        bankList2.style.display = open ? "none" : "";
+        chevron2.style.transform = open ? "rotate(-90deg)" : "rotate(0deg)";
+        if(!open){ chevron2.textContent="⏳"; await syncEssaysFromServer(); chevron2.textContent="▼"; }
+      }
+    });
+    hdrBtn2.appendChild(el("span",{style:{fontSize:"13px",color:"#1a6b4a",fontWeight:"700"}},"💾 Mine lagrede essayer"));
+    hdrBtn2.appendChild(el("span",{style:{fontSize:"12px",fontWeight:"500",color:"#888"}},`(${loadEssayBank().length})`));
+    hdrBtn2.appendChild(chevron2);
+    bankPanel.appendChild(hdrBtn2);
     bankPanel.appendChild(bankList2);
     refreshEssayBank();
     frag.appendChild(bankPanel);
@@ -1975,19 +1981,23 @@ function buildSkriv(){
 
   // ── Essay bank panel ──
   const bankPanel=el("div",{class:"essay-bank-panel"});
-  const bankHdr=el("div",{});
-  const refreshBtn = el("button",{style:{fontSize:"11px",padding:"2px 8px",borderRadius:"6px",
-    border:"1px solid #ccc",background:"#f8f8f8",cursor:"pointer",marginLeft:"8px"},
-    click: async ()=>{ refreshBtn.textContent="⏳"; await syncEssaysFromServer(); refreshBtn.textContent="↻"; }
-  },"↻");
-  bankHdr.appendChild(el("h3",{},["💾 Mine lagrede essayer",
-    el("span",{style:{fontSize:"12px",fontWeight:"500",color:"#888",marginLeft:"8px"}},`(${loadEssayBank().length})`),
-    refreshBtn
-  ]));
-  bankPanel.appendChild(bankHdr);
   const bankList=el("div",{id:"essay-bank-list"});
+  const chevron=el("span",{style:{marginLeft:"auto",fontSize:"14px",transition:"transform 0.2s"}},"▼");
+  const hdrBtn=el("button",{style:{width:"100%",background:"none",border:"none",cursor:"pointer",
+    display:"flex",alignItems:"center",gap:"6px",padding:"0",textAlign:"left"},
+    click: async ()=>{
+      const open = bankList.style.display !== "none";
+      bankList.style.display = open ? "none" : "";
+      chevron.style.transform = open ? "rotate(-90deg)" : "rotate(0deg)";
+      if(!open){ chevron.textContent="⏳"; await syncEssaysFromServer(); chevron.textContent="▼"; }
+    }
+  });
+  hdrBtn.appendChild(el("span",{style:{fontSize:"13px",color:"#1a6b4a",fontWeight:"700"}}, "💾 Mine lagrede essayer"));
+  hdrBtn.appendChild(el("span",{style:{fontSize:"12px",fontWeight:"500",color:"#888"}},`(${loadEssayBank().length})`));
+  hdrBtn.appendChild(chevron);
+  bankPanel.appendChild(hdrBtn);
   bankPanel.appendChild(bankList);
-  refreshEssayBank(); // populate synchronously
+  refreshEssayBank();
   left.appendChild(bankPanel);
 
   layout.appendChild(left);
