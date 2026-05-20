@@ -739,9 +739,15 @@ function saveEssayBank(bank){
 async function syncEssaysFromServer(){
   try{
     const r = await api("/api/essays");
-    if(!r.ok) return;
+    if(!r.ok){
+      console.warn("[essays] sync failed, status:", r.status);
+      return;
+    }
     const serverEssays = await r.json();
-    if(!Array.isArray(serverEssays)) return;
+    if(!Array.isArray(serverEssays)){
+      console.warn("[essays] unexpected response:", serverEssays);
+      return;
+    }
     // Merge with any locally-only entries (those without a server-style UUID id)
     const serverIds = new Set(serverEssays.map(e=>e.id));
     const localOnly = loadEssayBank().filter(e=>!serverIds.has(e.id));
@@ -754,7 +760,7 @@ async function syncEssaysFromServer(){
     })), ...localOnly];
     saveEssayBank(merged);
     refreshEssayBank();
-  }catch(e){}
+  }catch(e){ console.error("[essays] sync error:", e); }
 }
 
 async function saveCurrentEssay(){
@@ -1952,8 +1958,13 @@ function buildSkriv(){
   // ── Essay bank panel ──
   const bankPanel=el("div",{class:"essay-bank-panel"});
   const bankHdr=el("div",{});
+  const refreshBtn = el("button",{style:{fontSize:"11px",padding:"2px 8px",borderRadius:"6px",
+    border:"1px solid #ccc",background:"#f8f8f8",cursor:"pointer",marginLeft:"8px"},
+    click: async ()=>{ refreshBtn.textContent="⏳"; await syncEssaysFromServer(); refreshBtn.textContent="↻"; }
+  },"↻");
   bankHdr.appendChild(el("h3",{},["💾 Mine lagrede essayer",
-    el("span",{style:{fontSize:"12px",fontWeight:"500",color:"#888",marginLeft:"8px"}},`(${loadEssayBank().length})`)
+    el("span",{style:{fontSize:"12px",fontWeight:"500",color:"#888",marginLeft:"8px"}},`(${loadEssayBank().length})`),
+    refreshBtn
   ]));
   bankPanel.appendChild(bankHdr);
   const bankList=el("div",{id:"essay-bank-list"});
