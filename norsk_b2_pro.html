@@ -4500,6 +4500,7 @@ const teacherState = {
   studentTexts: null,    // list of texts read from API
   studentWords: null,    // word bank topics from API
   studentSentences: null,// list of sentences from API
+  studentPlan: null,     // plan + progress from API
 };
 
 function buildLaerer(){
@@ -4513,6 +4514,7 @@ function buildLaerer(){
   else if(teacherState.view === "texts")      wrap.appendChild(buildLaererTexts());
   else if(teacherState.view === "words")      wrap.appendChild(buildLaererWords());
   else if(teacherState.view === "sentences")  wrap.appendChild(buildLaererSentences());
+  else if(teacherState.view === "plan")       wrap.appendChild(buildLaererPlan());
 
   frag.appendChild(wrap);
   return frag;
@@ -4587,6 +4589,7 @@ function buildLaererRoster(){
         teacherState.studentTexts=null;
         teacherState.studentWords=null;
         teacherState.studentSentences=null;
+        teacherState.studentPlan=null;
         laererSetView("progress");
       }});
       info.appendChild(el("div",{style:{fontWeight:"600"}},$esc(s.name)));
@@ -4633,7 +4636,7 @@ function buildLaererProgress(){
 
     const grid = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:"12px",marginBottom:"24px"}});
     [
-      ["📅","Studieplaner",p.study_plans_created,null],
+      ["📅","Studieplan",null,()=>{teacherState.studentPlan=null;laererSetView("plan");}],
       ["📖","Tekster lest",p.texts_read,()=>{teacherState.studentTexts=null;laererSetView("texts");}],
       ["🔤","Ord i ordbank",p.words_in_bank,()=>{teacherState.studentWords=null;laererSetView("words");}],
       ["✅","Ord øvd",p.words_practiced,()=>{teacherState.studentWords=null;laererSetView("words");}],
@@ -4644,7 +4647,7 @@ function buildLaererProgress(){
       const card=el("div",{class:"card",style:{padding:"16px",textAlign:"center",cursor:onClick?"pointer":"default",border:onClick?"1px solid #cce0f5":""},
         ...(onClick?{click:onClick}:{})});
       card.appendChild(el("div",{style:{fontSize:"24px"}},$esc(icon)));
-      card.appendChild(el("div",{style:{fontSize:"22px",fontWeight:"700",margin:"4px 0"}},$esc(String(val))));
+      if(val!==null) card.appendChild(el("div",{style:{fontSize:"22px",fontWeight:"700",margin:"4px 0"}},$esc(String(val))));
       card.appendChild(el("div",{style:{fontSize:"12px",color:"#888"}},$esc(label)));
       if(onClick) card.appendChild(el("div",{style:{fontSize:"11px",color:"#2c8ec4",marginTop:"4px"}},"Se detaljer →"));
       grid.appendChild(card);
@@ -4652,6 +4655,138 @@ function buildLaererProgress(){
     progWrap.appendChild(grid);
   }
   loadProgress();
+  return frag;
+}
+
+// ── Study plan view ────────────────────────────────────────────────────────
+function buildLaererPlan(){
+  const frag = document.createDocumentFragment();
+  const s = teacherState.selectedStudent;
+
+  frag.appendChild(el("button",{class:"btn-secondary",style:{marginBottom:"16px"},
+    click:()=>laererSetView("progress")},"← Tilbake"));
+  frag.appendChild(el("h2",{style:{marginBottom:"4px"}},`Studieplan: ${$esc(s?.name||"")}`));
+
+  const wrap = el("div",{});
+  frag.appendChild(wrap);
+
+  async function load(){
+    if(!teacherState.studentPlan){
+      const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}/plan`).catch(()=>null);
+      teacherState.studentPlan = r?.ok ? await r.json() : null;
+    }
+    wrap.innerHTML="";
+    const plan = teacherState.studentPlan;
+    if(!plan || !plan.data?.setup){
+      wrap.appendChild(el("p",{style:{color:"#888",marginTop:"16px"}},"Eleven har ikke opprettet en studieplan ennå.")); return;
+    }
+
+    // Load texts JSON so we can resolve text references
+    await loadLesingTexts();
+
+    const {weeks, setup} = plan.data;
+    const readIds = new Set(plan.texts_read_ids||[]);
+    const essaysDone = new Set(plan.essays_written||[]);
+
+    // ── Summary header
+    const totalTexts = weeks.reduce((n,w)=>n+w.texts.length,0);
+    const doneTexts  = weeks.reduce((n,w)=>n+w.texts.filter(t=>{
+      const tx=getPlanText(t.topicKey,t.textSlot); return tx&&readIds.has(tx.id);
+    }).length,0);
+    const progPct = totalTexts ? Math.round(doneTexts/totalTexts*100) : 0;
+
+    const hdr = el("div",{class:"card",style:{marginBottom:"14px"}});
+    const meta = el("div",{style:{fontSize:"13px",color:"#777",marginBottom:"8px"}});
+    meta.textContent=`${setup.months} mnd · ${setup.daysPerWeek} dag${setup.daysPerWeek>1?"er":""}/uke · ${weeks.length} uker · start: ${new Date(setup.startDate).toLocaleDateString("nb-NO")}`;
+    hdr.appendChild(meta);
+
+    const sumRow = el("div",{style:{display:"flex",gap:"16px",flexWrap:"wrap",marginBottom:"10px",fontSize:"14px"}});
+    sumRow.appendChild(el("span",{},`📖 Tekster: ${doneTexts}/${totalTexts}`));
+    hdr.appendChild(sumRow);
+
+    hdr.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"4px"}},`Lesefremdrift: ${progPct}%`));
+    const pw=el("div",{class:"plan-prog-wrap"});
+    pw.appendChild(el("div",{class:"plan-prog-fill",style:{width:progPct+"%"}}));
+    hdr.appendChild(pw);
+
+    if(plan.updated_at){
+      hdr.appendChild(el("div",{style:{fontSize:"11px",color:"#bbb",marginTop:"8px"}},
+        `Sist oppdatert: ${new Date(plan.updated_at).toLocaleDateString("nb-NO")}`));
+    }
+    wrap.appendChild(hdr);
+
+    // ── Week list
+    const todayISO = new Date().toISOString().slice(0,10);
+    weeks.forEach((week,i)=>{
+      const isCurrent = week.weekStartISO <= todayISO &&
+        (i===weeks.length-1 || weeks[i+1].weekStartISO > todayISO);
+      const weekTexts = week.texts.map(t=>getPlanText(t.topicKey,t.textSlot)).filter(Boolean);
+      const weekDone  = weekTexts.filter(t=>readIds.has(t.id)).length;
+      const essayPrompts = week.essayPrompts || (week.essayPrompt?[week.essayPrompt]:[]);
+      const essaysDoneCount = essayPrompts.filter(p=>essaysDone.has(p.title)||essaysDone.has(p.id)).length;
+
+      const sec = el("div",{style:{marginBottom:"8px"}});
+      const hdrRow = el("div",{
+        style:{display:"flex",alignItems:"center",gap:"8px",padding:"10px 14px",
+          background:isCurrent?"#f0fdf4":"#f8f9fa",
+          borderRadius:"8px",border:`1px solid ${isCurrent?"#86efac":"#e0e0e0"}`,cursor:"pointer"},
+        click(){
+          const body=sec.querySelector(".plan-week-teacher-body");
+          body.style.display=body.style.display==="none"?"block":"none";
+        }
+      });
+      if(isCurrent) hdrRow.appendChild(el("span",{style:{fontSize:"11px",background:"#1a6b4a",color:"#fff",padding:"2px 7px",borderRadius:"10px",fontWeight:"700"}},"Nå"));
+      hdrRow.appendChild(el("span",{style:{fontWeight:"700",minWidth:"60px"}},`Uke ${week.weekNum}`));
+      hdrRow.appendChild(el("span",{style:{flex:"1",color:"#555",fontSize:"13px"}},$esc(week.topicEmoji+" "+week.topicName)));
+      hdrRow.appendChild(el("span",{style:{fontSize:"12px",color:"#888",whiteSpace:"nowrap"}},$esc(week.dateRange||"")));
+      hdrRow.appendChild(el("span",{style:{fontSize:"13px",marginLeft:"8px"}},
+        `${weekDone}/${weekTexts.length} 📖`+(essayPrompts.length?` · ${essaysDoneCount}/${essayPrompts.length} ✍️`:"")));
+      sec.appendChild(hdrRow);
+
+      const body = el("div",{class:"plan-week-teacher-body",style:{display:isCurrent?"block":"none",padding:"8px 0 4px"}});
+
+      // Texts
+      weekTexts.forEach(text=>{
+        const done = readIds.has(text.id);
+        const row = el("div",{
+          style:{display:"flex",alignItems:"center",gap:"8px",padding:"6px 10px",
+            borderRadius:"6px",marginBottom:"4px",cursor:"pointer",
+            background:done?"#f0fdf4":"#fff",border:"1px solid "+(done?"#86efac":"#e8ecf0")},
+          click:async()=>{
+            lesingState.currentText=text; state.tab="lesing"; renderContent();
+          }
+        });
+        row.appendChild(el("span",{style:{fontSize:"16px"}},done?"✅":"⬜"));
+        row.appendChild(el("span",{style:{flex:"1",fontSize:"13px",fontWeight:done?"600":"400"}},$esc(text.title)));
+        row.appendChild(el("span",{style:{fontSize:"11px",color:"#2c8ec4"}},"Åpne →"));
+        body.appendChild(row);
+      });
+
+      // Essays
+      essayPrompts.forEach(prompt=>{
+        const done = essaysDone.has(prompt.title)||essaysDone.has(prompt.id);
+        const row = el("div",{
+          style:{display:"flex",alignItems:"center",gap:"8px",padding:"6px 10px",
+            borderRadius:"6px",marginBottom:"4px",
+            background:done?"#f0fdf4":"#fff",border:"1px solid "+(done?"#86efac":"#e8ecf0")}
+        });
+        row.appendChild(el("span",{style:{fontSize:"16px"}},done?"✅":"⬜"));
+        row.appendChild(el("span",{style:{fontSize:"13px",color:"#555"}},$esc("✍️ "+prompt.title)));
+        body.appendChild(row);
+      });
+
+      // Word target
+      if(week.wordTarget){
+        const wrow = el("div",{style:{padding:"4px 10px",fontSize:"12px",color:"#888"}});
+        wrow.textContent=`🔤 Ordmål: ${week.wordTarget} ord`;
+        body.appendChild(wrow);
+      }
+
+      sec.appendChild(body);
+      wrap.appendChild(sec);
+    });
+  }
+  load();
   return frag;
 }
 
