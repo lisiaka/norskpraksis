@@ -550,7 +550,7 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
 }; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
-const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, errorOnly:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false};
+const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, learningFilter:"", started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false};
 
 // Word-sort game state
 const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selectedAnswerIdx:null};
@@ -2372,13 +2372,16 @@ function buildFcSetup(frag){
         click(){fc.maxWords=val;renderContent();}},label)));
     card.appendChild(mBar);
 
-    // Error-only toggle
-    const errRow=el("div",{class:"fc-toggle-row"});
-    errRow.appendChild(el("span",{class:"fc-toggle-label"},"❌ Bare ord med flest feil"));
-    errRow.appendChild(el("button",{class:"toggle-btn"+(fc.errorOnly?" on":""),
-      click(){fc.errorOnly=!fc.errorOnly; if(fc.errorOnly) loadStats().then(()=>renderContent()); else renderContent();}},
-      fc.errorOnly?"PÅ":"AV"));
-    card.appendChild(errRow);
+    // Learning filter chips
+    const lBar=el("div",{class:"fc-filter-bar"});
+    lBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"LÆRING: "));
+    [["","Alle ord"],["not_learned","Ikke lært ennå"],["error_only","Flest feil"]].forEach(([val,label])=>
+      lBar.appendChild(el("button",{class:"topic-chip"+(fc.learningFilter===val?" active":""),
+        click(){
+          fc.learningFilter=val;
+          if(val) loadStats().then(()=>renderContent()); else renderContent();
+        }},label)));
+    card.appendChild(lBar);
   }
 
   const avail=getFcWords();
@@ -2543,6 +2546,19 @@ function buildFcDone(frag){
   return frag;
 }
 
+function buildLastAnswerMap(){
+  // Returns {wordLower: wasCorrect} for the MOST RECENT answer for each word.
+  // Events in statsCache are newest-first, so first occurrence = most recent answer.
+  const last={};
+  (statsCache?.events||[]).filter(e=>e.type==="flashcard_session").forEach(session=>{
+    (session.words||[]).forEach(w=>{
+      const key=w.word?.toLowerCase();
+      if(key && !(key in last)) last[key]=w.correct;
+    });
+  });
+  return last;
+}
+
 function getNetMissedWords(){
   // Returns [{word,meaning,id,...bankWord, netErrors}] from all flashcard sessions
   const wrong={}, correct={}, meanings={};
@@ -2568,7 +2584,10 @@ function getFcWords(){
   let w=state.words.slice();
   if(fc.topicFilter) w=w.filter(x=>x.topic===fc.topicFilter);
   if(fc.timeFilter){const cut=Date.now()-fc.timeFilter*24*60*60*1000;w=w.filter(x=>(x.createdAt||0)>=cut);}
-  if(fc.errorOnly){
+  if(fc.learningFilter==="not_learned"){
+    const last=buildLastAnswerMap();
+    w=w.filter(x=>{const k=x.word.toLowerCase(); return !(k in last)||last[k]===false;});
+  } else if(fc.learningFilter==="error_only"){
     const missed=new Set(getNetMissedWords().map(x=>x.word.toLowerCase()));
     w=w.filter(x=>missed.has(x.word.toLowerCase()));
   }
@@ -3794,7 +3813,7 @@ function buildPlanView(){
     click(){state.sentTopicFilter=week.topicKey; setTab("setninger");}
   },"💬 Øv setninger"));
   btnRow.appendChild(el("button",{class:"plan-go-btn sec",
-    click(){fc.topicFilter=week.topicKey; fc.errorOnly=false; setTab("flashcards");}
+    click(){fc.topicFilter=week.topicKey; fc.learningFilter=""; setTab("flashcards");}
   },"🎮 Flashcards"));
   btnRow.appendChild(el("button",{class:"plan-go-btn sec",
     click(){state.topicFilter=week.topicKey; setTab("ordbank");}
@@ -4025,7 +4044,7 @@ function buildStatistik(){
         click(){
           const errorWords = shuffle(missedWords).slice(0,10);
           if(errorWords.length<2){toast("Trenger minst 2 feilord for å spille.");return;}
-          fc.topicFilter=""; fc.timeFilter=0; fc.maxWords=0; fc.errorOnly=false;
+          fc.topicFilter=""; fc.timeFilter=0; fc.maxWords=0; fc.learningFilter="";
           fc.queue=errorWords.map(w=>{
             const type=Math.random()<0.5?"write":"choice";
             return {...w,_type:type,_options:type==="choice"?fcGetOptions(w):null};
