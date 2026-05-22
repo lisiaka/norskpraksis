@@ -441,6 +441,34 @@ const TOPICS = {
   utdanning:     {name:"Utdanning",             emoji:"🎓", color:"#d35400"},
 };
 
+// 12 canonical topic values used across word bank, flashcards, setninger, and lesing
+const VALID_TOPIC_LIST = [
+  "arbeid","demokrati","familie","helse",
+  "integrering","internasjonalt","miljø","natur",
+  "politikk","språk","teknologi","utdanning"
+];
+
+// Maps common near-match strings to a canonical topic, or "" if unrecognised
+function normalizeTopic(str){
+  if(!str) return "";
+  const s=str.trim().toLowerCase();
+  const map={
+    "arbeid":"arbeid","jobb":"arbeid","økonomi":"arbeid","yrke":"arbeid",
+    "demokrati":"demokrati",
+    "familie":"familie","barn":"familie",
+    "helse":"helse","medisin":"helse","psykisk helse":"helse",
+    "integrering":"integrering","innvandring":"integrering","kultur":"integrering","mangfold":"integrering",
+    "internasjonalt":"internasjonalt","globalisering":"internasjonalt","internasjonal":"internasjonalt",
+    "miljo":"miljø","miljø":"miljø","klima":"miljø","miljøvern":"miljø","natur og klima":"miljø",
+    "natur":"natur","friluftsliv":"natur","dyr":"natur",
+    "politikk":"politikk","politisk":"politikk",
+    "sprak":"språk","språk":"språk","norsk":"språk","dialekt":"språk",
+    "teknologi":"teknologi","digitalt":"teknologi","ai":"teknologi","data":"teknologi",
+    "utdanning":"utdanning","skole":"utdanning","studie":"utdanning",
+  };
+  return map[s]||"";
+}
+
 const PROMPTS = {
   arbeid:[
     {title:"Arbeidsmarkedet i endring",text:"Automatisering og kunstig intelligens endrer arbeidsmarkedet i stor fart. Skriv en tekst der du diskuterer hvilke yrker som er truet, og hva som kan gjøres for å forberede arbeidstakere på fremtidens arbeidsmarked."},
@@ -541,7 +569,7 @@ const TIPS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────
-const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, currentTopic:null, currentPrompt:null, essay:"",
+const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", currentTopic:null, currentPrompt:null, essay:"",
   wordIdx:0, sentences:{}, sentTopicFilter:"", openWordId:null,
   subscription: null, // loaded after login: { status, provider, renewalDate, ... } | null
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
@@ -1072,19 +1100,17 @@ function buildOrdbank(){
   CATS.forEach(c=>{ const o=el("option",{value:c.key},c.label); if(c.key===form.category)o.selected=true; sel.appendChild(o); });
   cDiv.appendChild(sel); row2.appendChild(cDiv);
 
-  // Topic field with datalist
+  // Topic field — dropdown with the 12 canonical topics
   const tDiv=el("div",{});
   tDiv.appendChild(el("label",{class:"field-label",for:"fi-topic"},"Tema (valgfritt)"));
-  const tIn=el("input",{
-    id:"fi-topic",class:"text-input",type:"text",placeholder:"f.eks. klima",
-    list:"topic-list",
-    input(e){form.topic=e.target.value;},
-    keydown(e){if(e.key==="Enter")addWord();},
+  const tSel=el("select",{id:"fi-topic",class:"sel",change(e){form.topic=e.target.value;}});
+  tSel.appendChild(el("option",{value:""},"— Ingen tema —"));
+  VALID_TOPIC_LIST.forEach(t=>{
+    const o=el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1));
+    if(t===form.topic) o.selected=true;
+    tSel.appendChild(o);
   });
-  tDiv.appendChild(tIn);
-  const dl=el("datalist",{id:"topic-list"});
-  getTopics().forEach(t=>dl.appendChild(el("option",{value:t})));
-  tDiv.appendChild(dl);
+  tDiv.appendChild(tSel);
   row2.appendChild(tDiv);
 
   row2.appendChild(el("button",{class:"btn-add",style:{whiteSpace:"nowrap"},click:addWord},"+ Legg til"));
@@ -1104,16 +1130,31 @@ function buildOrdbank(){
   if(state.words.length>0){
     const filterSection=el("div",{style:{marginBottom:"14px"}});
 
-    // Topic filter row
-    if(getTopics().length>0){
+    // Topic filter row (uses canonical 12 topics, only those with ≥1 word)
+    const activeTopics=VALID_TOPIC_LIST.filter(t=>state.words.some(w=>w.topic===t));
+    if(activeTopics.length>0){
       const topicBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"8px"}});
       topicBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TEMA:"));
-      [["","Alle"],...getTopics().map(t=>[t,t])].forEach(([val,label])=>{
+      [["","Alle"],...activeTopics.map(t=>[t,t])].forEach(([val,label])=>{
         topicBar.appendChild(el("button",{class:"topic-chip"+(state.topicFilter===val?" active":""),
           click(e){state.topicFilter=val;e.currentTarget.parentNode.querySelectorAll('.topic-chip').forEach(b=>b.classList.remove('active'));e.currentTarget.classList.add('active');renderWordList();}},label));
       });
       filterSection.appendChild(topicBar);
     }
+
+    // Practiced filter row
+    const pracBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"8px"}});
+    pracBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"ØVELSE:"));
+    [["","Alle ord"],["not_practiced","Ikke øvd ennå"]].forEach(([val,label])=>{
+      pracBar.appendChild(el("button",{class:"topic-chip"+(state.practicedFilter===val?" active":""),
+        click(e){
+          state.practicedFilter=val;
+          e.currentTarget.parentNode.querySelectorAll('.topic-chip').forEach(b=>b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          if(val) loadStats().then(()=>renderWordList()); else renderWordList();
+        }},label));
+    });
+    filterSection.appendChild(pracBar);
 
     // Time filter row
     const timeBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"8px"}});
@@ -1153,13 +1194,21 @@ function buildOrdbank(){
   return frag;
 }
 
-// Returns words matching current topic + time + search filters
+// Returns words matching current topic + time + practiced + search filters
 function getFilteredWords(){
   let filtered=state.words;
   if(state.topicFilter) filtered=filtered.filter(w=>w.topic===state.topicFilter);
   if(state.timeFilter){
     const cutoff=Date.now()-state.timeFilter*24*60*60*1000;
     filtered=filtered.filter(w=>(w.createdAt||0)>=cutoff);
+  }
+  if(state.practicedFilter==="not_practiced"){
+    const lastAnswers=buildLastAnswerMap();
+    filtered=filtered.filter(w=>{
+      const hasSentence=!!(state.sentences[w.id]?.trim());
+      const wasCorrect=lastAnswers[w.word.toLowerCase()]===true;
+      return !hasSentence&&!wasCorrect;
+    });
   }
   if(state.search) filtered=filtered.filter(w=>
     w.word.toLowerCase().includes(state.search.toLowerCase())||
@@ -1216,7 +1265,20 @@ function renderWordList(){
         };
         panel.appendChild(mkField("Ord",w.word,"dp-word"));
         panel.appendChild(mkField("Betydning",w.meaning,"dp-meaning"));
-        panel.appendChild(mkField("Tema",w.topic,"dp-topic"));
+        // Tema — select dropdown
+        {
+          const tRow=el("div",{style:{marginBottom:"10px"}});
+          tRow.appendChild(el("label",{style:{display:"block",fontWeight:"700",color:"#1a6b4a",marginBottom:"3px",fontSize:"12px"}},"Tema"));
+          const tSel=el("select",{id:"dp-topic",style:{width:"100%",boxSizing:"border-box",padding:"6px 10px",border:"1px solid #c8e6d4",borderRadius:"7px",fontSize:"13px"}});
+          tSel.appendChild(el("option",{value:""},"— Ingen tema —"));
+          VALID_TOPIC_LIST.forEach(t=>{
+            const o=el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1));
+            if(t===(w.topic||"")) o.selected=true;
+            tSel.appendChild(o);
+          });
+          tRow.appendChild(tSel);
+          panel.appendChild(tRow);
+        }
         panel.appendChild(mkField("Bøyningsformer (kommaseparert)",(w.forms||[]).join(", "),"dp-forms"));
         panel.appendChild(mkField("Distraktorer – flervalg-svar (kommaseparert)",(w.flashcard_options||[]).join(", "),"dp-distractors"));
 
@@ -1333,7 +1395,7 @@ function importWords(file){
           word:String(w.word).trim(),
           meaning:String(w.meaning||"").trim(),
           category:CAT_MAP[w.category]?w.category:"enkeltord",
-          topic:String(w.topic||"").trim(),
+          topic:normalizeTopic(String(w.topic||"")),
           createdAt:w.createdAt||Date.now(),
         }));
       } else {
@@ -1346,7 +1408,7 @@ function importWords(file){
               if(m){word=m[1].trim();meaning=m[2].trim();}
             }
             if(!CAT_MAP[category])category="enkeltord";
-            imported.push({word,meaning,category,topic,createdAt:Date.now()});
+            imported.push({word,meaning,category,topic:normalizeTopic(topic),createdAt:Date.now()});
           }
         });
       }
@@ -1397,7 +1459,7 @@ function buildSetninger(){
   }
 
   // ── Topic filter bar ──
-  const topics=getTopics();
+  const topics=VALID_TOPIC_LIST.filter(t=>state.words.some(w=>w.topic===t));
   if(topics.length>0){
     const filterBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"14px"}});
     filterBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TEMA:"));
@@ -1475,10 +1537,15 @@ function buildSetninger(){
     click(){
       const t=$("sent-ta"); if(t) state.sentences[word.id]=t.value;
       saveSentences();
-      if(state.wordIdx<total-1){state.wordIdx++;renderContent();}
-      else{renderContent();}
+      // Find the next word without a sentence (prefer higher index, then wrap)
+      const unwritten=sentWords.map((w,i)=>({w,i})).filter(({w})=>!state.sentences[w.id]?.trim());
+      if(unwritten.length){
+        const after=unwritten.find(x=>x.i>state.wordIdx);
+        state.wordIdx=(after||unwritten[0]).i;
+      }
+      renderContent();
     }
-  },state.wordIdx<total-1?"Lagre og neste ord →":"Lagre"));
+  },sentWords.some((w,i)=>i!==state.wordIdx&&!state.sentences[w.id]?.trim())?"Lagre og neste ord →":"Lagre"));
 
   actions.appendChild(el("button",{class:"btn-sec",title:"Grammatikksjekk via Claude AI",
     click:()=>checkGrammar(word.word, $("sent-ta")?.value||currentSentence)},"🤖 Sjekk med Claude"));
@@ -1556,17 +1623,17 @@ async function checkWithClaude(word, sentence, container){
     container.appendChild(box);
     return;
   }
-  const systemPrompt=`You are a Norwegian language teacher evaluating a sentence written by a B2-level learner. Respond ONLY with valid JSON — no prose, no markdown — in exactly this structure:
+  const systemPrompt=`Du er en norsklærer som vurderer setninger skrevet av en elev på B2-nivå. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "correct": boolean,
   "natural": boolean,
-  "overall": "1–2 sentence assessment in English",
-  "errors": [{"text":"problematic word or phrase","issue":"brief explanation","fix":"corrected form"}],
-  "improved": "full improved sentence, or null if already correct and natural",
-  "tip": "one short pedagogical tip, or null"
+  "overall": "1–2 setningers vurdering på norsk",
+  "errors": [{"text":"problematisk ord eller uttrykk","issue":"kort forklaring på norsk","fix":"korrigert form"}],
+  "improved": "full forbedret setning på norsk, eller null om den allerede er korrekt og naturlig",
+  "tip": "ett kort pedagogisk tips på norsk, eller null"
 }`;
 
-  const userMsg=`I'm a Norwegian learner (B2 level) practicing the word/expression: "${word}"\n\nPlease evaluate this sentence:\n"${sentence}"`;
+  const userMsg=`Jeg er en norsk-elev på B2-nivå og øver på ordet/uttrykket: "${word}"\n\nVennligst vurder denne setningen:\n"${sentence}"`;
 
   try{
     const res=await fetch("/api/proxy/claude",{
@@ -2098,16 +2165,16 @@ async function checkEssayWithClaude(essay, container){
     return;
   }
 
-  const systemPrompt=`You are a Norwegian language teacher evaluating a written essay by a B2-level learner. Respond ONLY with valid JSON — no prose, no markdown — in exactly this structure:
+  const systemPrompt=`Du er en norsklærer som vurderer et essay skrevet av en elev på B2-nivå. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "level": "A1|A2|B1|B2|C1|C2",
-  "levelComment": "1-2 sentences explaining why this level",
-  "grammarErrors": [{"text":"problematic word or phrase","issue":"brief explanation in English","fix":"corrected form"}],
-  "strengths": ["strength 1","strength 2"],
-  "improvements": ["suggestion 1","suggestion 2","suggestion 3"],
-  "overall": "2-3 sentence overall assessment in English"
+  "levelComment": "1-2 setninger som forklarer nivåvurderingen på norsk",
+  "grammarErrors": [{"text":"problematisk ord eller uttrykk","issue":"kort forklaring på norsk","fix":"korrigert form"}],
+  "strengths": ["styrke 1 på norsk","styrke 2 på norsk"],
+  "improvements": ["forbedringsforslag 1 på norsk","forbedringsforslag 2 på norsk"],
+  "overall": "2-3 setningers helhetsvurdering på norsk"
 }
-Keep grammarErrors to the most important 3-5 errors. Keep strengths and improvements to 2-4 items each.`;
+Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements til 2-4 elementer hver.`;
 
   const userMsg=`Please evaluate this Norwegian essay written by a B2-level learner:\n\n${essay}`;
 
@@ -2346,7 +2413,7 @@ function buildFcSetup(frag){
   card.appendChild(desc);
 
   // Filters
-  const topics=getTopics();
+  const topics=VALID_TOPIC_LIST.filter(t=>state.words.some(w=>w.topic===t));
   if(topics.length>0||state.words.length>0){
     card.appendChild(el("span",{class:"fc-section-label"},"FILTRER ORD (valgfritt)"));
     if(topics.length>0){
@@ -5037,13 +5104,21 @@ function buildLaererEssayDetail(){
   essayCard.appendChild(essayText);
   frag.appendChild(essayCard);
 
-  // AI feedback
+  // AI feedback — rendered using the same formatted component as the student side
   if(essay.claude_feedback){
     const aiCard=el("div",{class:"card",style:{padding:"16px",marginBottom:"16px",background:"#f0f7ff"}});
     aiCard.appendChild(el("h4",{style:{margin:"0 0 8px",color:"#2c5f9e"}},"🤖 AI-tilbakemelding"));
-    const aiText=el("div",{style:{whiteSpace:"pre-wrap",lineHeight:"1.7",fontSize:"14px"}});
-    aiText.textContent=essay.claude_feedback;
-    aiCard.appendChild(aiText);
+    try{
+      const feedbackData=typeof essay.claude_feedback==="string"
+        ?JSON.parse(essay.claude_feedback):essay.claude_feedback;
+      const aiContainer=el("div",{});
+      renderEssayClaudeResult(feedbackData,aiContainer);
+      aiCard.appendChild(aiContainer);
+    }catch{
+      const aiText=el("div",{style:{whiteSpace:"pre-wrap",lineHeight:"1.7",fontSize:"14px"}});
+      aiText.textContent=essay.claude_feedback;
+      aiCard.appendChild(aiText);
+    }
     frag.appendChild(aiCard);
   }
 
