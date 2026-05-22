@@ -3231,6 +3231,17 @@ function buildLesingReader(text){
           optWrap.appendChild(btn);
         });
         qBlock.appendChild(optWrap);
+      } else {
+        // Open-ended question — render a small textarea
+        const savedAnswer=typeof textAnswers[qi]==="string"?textAnswers[qi]:"";
+        const openTa=el("textarea",{style:{width:"100%",minHeight:"72px",padding:"8px 10px",borderRadius:"8px",border:"1px solid #d0d0d0",fontSize:"13px",lineHeight:"1.6",resize:"vertical",boxSizing:"border-box"}});
+        openTa.placeholder="Skriv svaret ditt her…";
+        openTa.value=savedAnswer;
+        openTa.addEventListener("input",e=>{
+          if(!lesingState.answers[text.id]) lesingState.answers[text.id]={};
+          lesingState.answers[text.id][qi]=e.target.value;
+        });
+        qBlock.appendChild(openTa);
       }
       qSection.appendChild(qBlock);
     });
@@ -3285,6 +3296,23 @@ function buildLesingReader(text){
       try{renderGjenfortellResult(JSON.parse(prevSaved.claude_feedback),feedbackContainer);}catch{}
     }
 
+    const saveBtn=el("button",{class:"btn-io",style:{marginBottom:"8px",marginRight:"8px",background:"#f0faf5",color:"#1a6b4a",border:"1px solid #b6e8ce"}});
+    saveBtn.textContent="Lagre sammendrag";
+    saveBtn.addEventListener("click",async()=>{
+      if(!lesingState.summaryText.trim()){toast("Skriv et sammendrag først");return;}
+      const textId=lesingState.currentText?.id; if(!textId) return;
+      saveBtn.disabled=true; saveBtn.textContent="Lagrer…";
+      try{
+        const r=await api(`/api/reading-summaries/${encodeURIComponent(textId)}`,{
+          method:"PUT",
+          body:JSON.stringify({summary_text:lesingState.summaryText}),
+        });
+        if(r?.ok){const saved=await r.json();lesingState.savedSummaries[textId]=saved;toast("Sammendrag lagret");}
+        else{toast("Kunne ikke lagre");}
+      }catch{toast("Kunne ikke lagre");}
+      saveBtn.disabled=false; saveBtn.textContent="Lagre sammendrag";
+    });
+
     const checkBtn=el("button",{class:"btn-io",style:{marginBottom:"12px"}});
     checkBtn.textContent="Sjekk med AI";
     checkBtn.addEventListener("click",async()=>{
@@ -3294,6 +3322,7 @@ function buildLesingReader(text){
 
     gjArea.appendChild(ta);
     gjArea.appendChild(wcLabel);
+    gjArea.appendChild(saveBtn);
     gjArea.appendChild(checkBtn);
     gjArea.appendChild(feedbackContainer);
   }
@@ -3417,11 +3446,11 @@ function buildLesingReader(text){
     if(filtered.length>1){
       const navRow=el("div",{style:{display:"flex",justifyContent:"space-between",maxWidth:"720px",margin:"14px auto 0"}});
       if(idx>0){
-        const prevBtn=el("button",{class:"btn-io",click(){setLesingText(filtered[idx-1]);trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();}},"← "+filtered[idx-1].title.substring(0,30));
+        const prevBtn=el("button",{class:"btn-io",click(){setLesingText(filtered[idx-1]);trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();window.scrollTo(0,0);}},"← "+filtered[idx-1].title.substring(0,30));
         navRow.appendChild(prevBtn);
       } else { navRow.appendChild(el("span",{})); }
       if(idx<filtered.length-1){
-        const nextBtn=el("button",{class:"btn-io",click(){setLesingText(filtered[idx+1]);trackEvent("text_read",{textId:filtered[idx+1].id,title:filtered[idx+1].title,topic:filtered[idx+1].topic,level:filtered[idx+1].level||"B2"});renderContent();}},(filtered[idx+1].title.substring(0,30))+" →");
+        const nextBtn=el("button",{class:"btn-io",click(){setLesingText(filtered[idx+1]);trackEvent("text_read",{textId:filtered[idx+1].id,title:filtered[idx+1].title,topic:filtered[idx+1].topic,level:filtered[idx+1].level||"B2"});renderContent();window.scrollTo(0,0);}},(filtered[idx+1].title.substring(0,30))+" →");
         navRow.appendChild(nextBtn);
       }
       frag.appendChild(navRow);
