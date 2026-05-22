@@ -4812,7 +4812,7 @@ function buildInnstillinger(){
 // ── LÆRER DASHBOARD ───────────────────────────────────────────────────────
 
 const teacherState = {
-  view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences"
+  view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences" | "summaries"
   students: null,        // cached list from API
   selectedStudent: null, // { id, name, email, assigned_at }
   studentProgress: null, // progress response from API
@@ -4822,6 +4822,7 @@ const teacherState = {
   studentWords: null,    // word bank topics from API
   studentSentences: null,// list of sentences from API
   studentPlan: null,     // plan + progress from API
+  studentSummaries: null,// list of reading summaries from API
 };
 
 function buildLaerer(){
@@ -4836,6 +4837,7 @@ function buildLaerer(){
   else if(teacherState.view === "words")      wrap.appendChild(buildLaererWords());
   else if(teacherState.view === "sentences")  wrap.appendChild(buildLaererSentences());
   else if(teacherState.view === "plan")       wrap.appendChild(buildLaererPlan());
+  else if(teacherState.view === "summaries")  wrap.appendChild(buildLaererSummaries());
 
   frag.appendChild(wrap);
   return frag;
@@ -4911,6 +4913,7 @@ function buildLaererRoster(){
         teacherState.studentWords=null;
         teacherState.studentSentences=null;
         teacherState.studentPlan=null;
+        teacherState.studentSummaries=null;
         laererSetView("progress");
       }});
       info.appendChild(el("div",{style:{fontWeight:"600"}},$esc(s.name)));
@@ -4964,6 +4967,7 @@ function buildLaererProgress(){
       ["🎮","Flashcard-sesjoner",p.flashcard_sessions,null],
       ["💬","Setninger",p.sentences_written,()=>{teacherState.studentSentences=null;laererSetView("sentences");}],
       ["✍️","Stiler levert",p.essays_submitted,p.essays_submitted>0?()=>{teacherState.studentEssays=null;laererSetView("essays");}:null],
+      ["📝","Gjenfortellinger",(p.summaries_written||0),(p.summaries_written||0)>0?()=>{teacherState.studentSummaries=null;laererSetView("summaries");}:null],
     ].forEach(([icon,label,val,onClick])=>{
       const card=el("div",{class:"card",style:{padding:"16px",textAlign:"center",cursor:onClick?"pointer":"default",border:onClick?"1px solid #cce0f5":""},
         ...(onClick?{click:onClick}:{})});
@@ -5423,6 +5427,73 @@ function buildLaererEssayDetail(){
   reviewCard.appendChild(saveBtn);
   frag.appendChild(reviewCard);
 
+  return frag;
+}
+
+// ── Reading summaries view ─────────────────────────────────────────────────
+function buildLaererSummaries(){
+  const frag = document.createDocumentFragment();
+  const s = teacherState.selectedStudent;
+
+  frag.appendChild(el("button",{class:"btn-secondary",style:{marginBottom:"16px"},
+    click:()=>laererSetView("progress")},"← Tilbake"));
+  frag.appendChild(el("h2",{style:{marginBottom:"4px"}},`Gjenfortellinger: ${$esc(s?.name||"")}`));
+
+  const wrap = el("div",{});
+  frag.appendChild(wrap);
+
+  async function load(){
+    if(!teacherState.studentSummaries){
+      const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}/reading-summaries`).catch(()=>null);
+      teacherState.studentSummaries = r?.ok ? await r.json() : [];
+    }
+    wrap.innerHTML="";
+    if(!teacherState.studentSummaries.length){
+      wrap.appendChild(el("p",{style:{color:"#888",marginTop:"16px"}},"Ingen gjenfortellinger skrevet ennå.")); return;
+    }
+
+    // Load texts so we can show titles
+    const texts = await loadLesingTexts().catch(()=>[]);
+    const textMap = Object.fromEntries((texts||[]).map(t=>[t.id,t]));
+
+    const note = el("p",{style:{color:"#888",fontSize:"13px",margin:"4px 0 16px"}});
+    note.textContent=`${teacherState.studentSummaries.length} gjenfortelling${teacherState.studentSummaries.length!==1?"er":""}`;
+    wrap.appendChild(note);
+
+    teacherState.studentSummaries.forEach(sm=>{
+      const tx = textMap[sm.text_id];
+      const card = el("div",{class:"card",style:{padding:"16px",marginBottom:"12px"}});
+
+      // Header: text title + topic badge + date
+      const hdr = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",flexWrap:"wrap",marginBottom:"12px"}});
+      hdr.appendChild(el("span",{style:{fontWeight:"700",flex:"1",fontSize:"15px"}},$esc(tx?.title||sm.text_id)));
+      if(tx?.topic) hdr.appendChild(el("span",{style:{fontSize:"12px",background:"#e8f4fd",color:"#2c8ec4",padding:"2px 8px",borderRadius:"10px"}},$esc(tx.topic)));
+      hdr.appendChild(el("span",{style:{fontSize:"12px",color:"#aaa"}},new Date(sm.updated_at).toLocaleDateString("nb-NO")));
+      card.appendChild(hdr);
+
+      // Summary text
+      const textBox = el("div",{style:{background:"#f8f9fa",borderRadius:"8px",padding:"12px 14px",fontSize:"14px",lineHeight:"1.7",color:"#333",whiteSpace:"pre-wrap",fontFamily:"Georgia,serif",marginBottom:sm.claude_feedback?"12px":"0"}});
+      textBox.textContent=sm.summary_text;
+      card.appendChild(textBox);
+
+      // AI feedback (if present)
+      if(sm.claude_feedback){
+        try{
+          const parsed=JSON.parse(sm.claude_feedback);
+          const fbContainer=el("div",{});
+          renderGjenfortellResult(parsed,fbContainer);
+          card.appendChild(fbContainer);
+        }catch{
+          const raw=el("div",{style:{fontSize:"12px",color:"#aaa",marginTop:"8px",whiteSpace:"pre-wrap"}});
+          raw.textContent=sm.claude_feedback;
+          card.appendChild(raw);
+        }
+      }
+
+      wrap.appendChild(card);
+    });
+  }
+  load();
   return frag;
 }
 
