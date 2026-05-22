@@ -17,7 +17,32 @@
       "ressurs"
     ],
     "source": "Basert på forskning.no / MultiLing",
-    "text": "Mange nordmenn tror at det å vokse opp med flere språk forvirrer barn, men forskning viser at det motsatte er tilfelle. Barn som vokser opp i flerspråklige familier, utvikler ofte bedre kognitiv fleksibilitet enn enspråklige jevnaldrende. De er vant til å skifte mellom ulike språksystemer, noe som styrker konsentrasjonen og evnen til å løse komplekse problemer.\n\nSelv om det kan ta noe lengre tid før flerspråklige barn behersker hvert enkelt språk fullt ut, er dette en midlertidig fase. Forskersenteret MultiLing ved Universitetet i Oslo har dokumentert at flerspråklighet ikke hemmer, men snarere beriker barnets totale språklige utvikling. Morsmålet, som er det første språket barnet lærer hjemme, danner et solid fundament som hjelper barnet når det skal tilegne seg nye språk.\n\nDessverre blir morsmålet til mange innvandrerbarn undervurdert i det norske skolesystemet. Lærere som mangler kunnskap om flerspråklighet, oppfordrer av og til foreldre til å snakke norsk hjemme, fordi de tror dette gir barnet bedre forutsetninger. Når foreldre følger dette rådet, risikerer de imidlertid å svekke den dypeste og mest naturlige kommunikasjonen i familien.\n\nFremtiden krever mennesker som behersker flere språk, og dermed bør samfunnet se på flerspråklighet som en verdifull ressurs. Bedrifter som opererer internasjonalt, søker aktivt etter ansatte som snakker flere språk flytende. Skolen bør anerkjenne elevenes samlede språklige kompetanse, slik at alle elever føler at de har noe verdifullt å bidra med."
+    "text": "Mange nordmenn tror at det å vokse opp med flere språk forvirrer barn, men forskning viser at det motsatte er tilfelle. Barn som vokser opp i flerspråklige familier, utvikler ofte bedre kognitiv fleksibilitet enn enspråklige jevnaldrende. De er vant til å skifte mellom ulike språksystemer, noe som styrker konsentrasjonen og evnen til å løse komplekse problemer.\n\nSelv om det kan ta noe lengre tid før flerspråklige barn behersker hvert enkelt språk fullt ut, er dette en midlertidig fase. Forskersenteret MultiLing ved Universitetet i Oslo har dokumentert at flerspråklighet ikke hemmer, men snarere beriker barnets totale språklige utvikling. Morsmålet, som er det første språket barnet lærer hjemme, danner et solid fundament som hjelper barnet når det skal tilegne seg nye språk.\n\nDessverre blir morsmålet til mange innvandrerbarn undervurdert i det norske skolesystemet. Lærere som mangler kunnskap om flerspråklighet, oppfordrer av og til foreldre til å snakke norsk hjemme, fordi de tror dette gir barnet bedre forutsetninger. Når foreldre følger dette rådet, risikerer de imidlertid å svekke den dypeste og mest naturlige kommunikasjonen i familien.\n\nFremtiden krever mennesker som behersker flere språk, og dermed bør samfunnet se på flerspråklighet som en verdifull ressurs. Bedrifter som opererer internasjonalt, søker aktivt etter ansatte som snakker flere språk flytende. Skolen bør anerkjenne elevenes samlede språklige kompetanse, slik at alle elever føler at de har noe verdifullt å bidra med.",
+    "questions": [
+      {
+        "question": "Hva viser forskning om barn som vokser opp i flerspråklige familier?",
+        "options": [
+          "De forvirres og forsinkes i språkutviklingen",
+          "De utvikler bedre kognitiv fleksibilitet",
+          "De sliter mer med å lese og skrive",
+          "De lærer morsmålet dårligere"
+        ],
+        "answer": 1
+      },
+      {
+        "question": "Hva skjer med flerspråklige barn på lang sikt, ifølge teksten?",
+        "options": [
+          "De lærer aldri noe språk fullt ut",
+          "De gir opp ett av språkene sine",
+          "Den midlertidige forsinkelsen hentes inn",
+          "De trenger spesialundervisning"
+        ],
+        "answer": 2
+      },
+      {
+        "question": "Hvilket forskningssenter nevnes i teksten, og hvor holder det til?"
+      }
+    ]
   },
   {
     "id": "lesing_sprak_02",
@@ -226,7 +251,32 @@
       "Nav"
     ],
     "source": "Basert på IMDI og introduksjonsloven",
-    "text": "Introduksjonsprogrammet er et av de viktigste virkemidlene i norsk integreringspolitikk. Programmet, som ble innført i 2004 og styrket gjennom integreringsloven av 2021, gir nyankomne flyktninger og familiegjenforente systematisk opplæring i norsk og samfunnskunnskap, kombinert med arbeidsrettet aktivitet. Målet er at deltakerne skal bli selvforsørgende så raskt som mulig.\n\nProgrammet er obligatorisk for de fleste nyankomne i alderen 18–55 år, og varer normalt i to år, men kan forlenges til tre år dersom behovet er til stede. Deltakerne mottar en introduksjonsstønad som tilsvarer to ganger grunnbeløpet i Folketrygden, og denne stønaden er betinget av aktiv deltakelse i programmet. Fravær uten gyldig grunn fører til trekk i stønaden.\n\nKommunene har ansvar for å organisere og gjennomføre programmet, og kvaliteten varierer dessverre mye fra kommune til kommune. Noen kommuner tilbyr godt koordinerte løp med tett oppfølging og gode praksisplasser, mens andre strever med å skaffe nok kvalifiserte lærere og relevante arbeidsplasser for praksis. Denne ulikheten i tilbud er en av de største utfordringene i norsk integreringspolitikk.\n\nForskning viser at de som gjennomfører introduksjonsprogrammet med et klart arbeidsrettet innhold, har langt høyere sannsynlighet for å komme i jobb etter endt program. Det er derfor et politisk mål å gjøre programmet mer arbeidsrettet og å koble det bedre til næringslivets behov, slik at flyktningene raskere finner veien inn i arbeidslivet."
+    "text": "Introduksjonsprogrammet er et av de viktigste virkemidlene i norsk integreringspolitikk. Programmet, som ble innført i 2004 og styrket gjennom integreringsloven av 2021, gir nyankomne flyktninger og familiegjenforente systematisk opplæring i norsk og samfunnskunnskap, kombinert med arbeidsrettet aktivitet. Målet er at deltakerne skal bli selvforsørgende så raskt som mulig.\n\nProgrammet er obligatorisk for de fleste nyankomne i alderen 18–55 år, og varer normalt i to år, men kan forlenges til tre år dersom behovet er til stede. Deltakerne mottar en introduksjonsstønad som tilsvarer to ganger grunnbeløpet i Folketrygden, og denne stønaden er betinget av aktiv deltakelse i programmet. Fravær uten gyldig grunn fører til trekk i stønaden.\n\nKommunene har ansvar for å organisere og gjennomføre programmet, og kvaliteten varierer dessverre mye fra kommune til kommune. Noen kommuner tilbyr godt koordinerte løp med tett oppfølging og gode praksisplasser, mens andre strever med å skaffe nok kvalifiserte lærere og relevante arbeidsplasser for praksis. Denne ulikheten i tilbud er en av de største utfordringene i norsk integreringspolitikk.\n\nForskning viser at de som gjennomfører introduksjonsprogrammet med et klart arbeidsrettet innhold, har langt høyere sannsynlighet for å komme i jobb etter endt program. Det er derfor et politisk mål å gjøre programmet mer arbeidsrettet og å koble det bedre til næringslivets behov, slik at flyktningene raskere finner veien inn i arbeidslivet.",
+    "questions": [
+      {
+        "question": "Hva er hovedmålet med introduksjonsprogrammet?",
+        "options": [
+          "Å lære flyktninger norsk mattradisjon",
+          "Å hjelpe nyankomne flyktninger inn i arbeid og samfunnsliv",
+          "Å gi flyktninger gratis bolig i fem år",
+          "Å evaluere flyktningers akademiske bakgrunn"
+        ],
+        "answer": 1
+      },
+      {
+        "question": "Når ble introduksjonsprogrammet innført?",
+        "options": [
+          "1994",
+          "1999",
+          "2004",
+          "2010"
+        ],
+        "answer": 2
+      },
+      {
+        "question": "Hvilke grupper er programmet rettet mot, ifølge teksten?"
+      }
+    ]
   },
   {
     "id": "lesing_integrering_02",
@@ -247,7 +297,32 @@
       "arbeidsmarked"
     ],
     "source": "Basert på SSB og UDI 2024–2025",
-    "text": "Etter at Russland invaderte Ukraina i februar 2022, har Norge tatt imot over 70 000 ukrainere på flukt. Det er den største flyktningstrømmen Norge har opplevd siden andre verdenskrig. De ukrainske flyktningene er en sammensatt gruppe: mange er høyt utdannede kvinner med barn, mens mennene stort sett er blitt igjen i Ukraina for å kjempe.\n\nDen midlertidige beskyttelsen som ukrainere har fått i Norge, skiller seg fra vanlig asylstatus på en viktig måte – den er ment å gjelde kun så lenge krigen pågår. Dette skaer en grunnleggende usikkerhet som gjør det vanskelig for mange ukrainere å planlegge livet sitt i Norge. Skal de lære norsk ordentlig? Skal barna begynne på norsk skole? Spørsmålene er mange, og svarene er usikre.\n\nTil tross for denne usikkerheten viser SSB-statistikk at om lag 41 prosent av ukrainere i arbeidsdyktig alder har kommet seg i jobb. Mange arbeider innen service, renhold og industri, men en del med høy utdanning har også fått jobb innen sitt fagfelt. Norskopplæringen har vært en utfordring fordi systemet ikke var dimensjonert for et så stort antall nyankomne på kort tid.\n\nKommunene, som hadde ansvaret for bosetting og opplæring, ble hardt presset. Likevel viser evalueringer at samarbeidet mellom offentlige myndigheter og frivillige organisasjoner har fungert bedre enn forventet. Mange ukrainere forteller at de er takknemlige for mottakelsen, men at de lengter hjem og håper krigen snart er over."
+    "text": "Etter at Russland invaderte Ukraina i februar 2022, har Norge tatt imot over 70 000 ukrainere på flukt. Det er den største flyktningstrømmen Norge har opplevd siden andre verdenskrig. De ukrainske flyktningene er en sammensatt gruppe: mange er høyt utdannede kvinner med barn, mens mennene stort sett er blitt igjen i Ukraina for å kjempe.\n\nDen midlertidige beskyttelsen som ukrainere har fått i Norge, skiller seg fra vanlig asylstatus på en viktig måte – den er ment å gjelde kun så lenge krigen pågår. Dette skaer en grunnleggende usikkerhet som gjør det vanskelig for mange ukrainere å planlegge livet sitt i Norge. Skal de lære norsk ordentlig? Skal barna begynne på norsk skole? Spørsmålene er mange, og svarene er usikre.\n\nTil tross for denne usikkerheten viser SSB-statistikk at om lag 41 prosent av ukrainere i arbeidsdyktig alder har kommet seg i jobb. Mange arbeider innen service, renhold og industri, men en del med høy utdanning har også fått jobb innen sitt fagfelt. Norskopplæringen har vært en utfordring fordi systemet ikke var dimensjonert for et så stort antall nyankomne på kort tid.\n\nKommunene, som hadde ansvaret for bosetting og opplæring, ble hardt presset. Likevel viser evalueringer at samarbeidet mellom offentlige myndigheter og frivillige organisasjoner har fungert bedre enn forventet. Mange ukrainere forteller at de er takknemlige for mottakelsen, men at de lengter hjem og håper krigen snart er over.",
+    "questions": [
+      {
+        "question": "Hva var spesielt med ukrainerne som kom til Norge fra 2022?",
+        "options": [
+          "De kom på arbeidssøkervisum",
+          "Det var den største flyktningstrømmen siden andre verdenskrig",
+          "De hadde rett til permanent opphold med en gang",
+          "De kom primært for å studere"
+        ],
+        "answer": 1
+      },
+      {
+        "question": "Hva skiller ukrainerne fra mange andre flyktninggrupper i Norge, ifølge teksten?",
+        "options": [
+          "De snakker norsk fra før",
+          "De har kollektiv beskyttelse i stedet for individuell asyl",
+          "De er ikke registrert i noe offentlig system",
+          "De bor kun i Oslo"
+        ],
+        "answer": 1
+      },
+      {
+        "question": "Hva vet du om situasjonen for ukrainske barn i norske skoler, basert på teksten?"
+      }
+    ]
   },
   {
     "id": "lesing_integrering_03",
@@ -268,7 +343,32 @@
       "navn"
     ],
     "source": "Basert på forskning.no og Fafo",
-    "text": "Forskning viser at innvandrere og personer med innvandrerbakgrunn møter systematisk diskriminering i det norske arbeidsmarkedet, selv om de har like gode eller bedre kvalifikasjoner enn etnisk norske søkere. Et kjent eksperiment, der forskere sendte identiske jobbsøknader med norske og utenlandsklingende navn, viste at søkerne med norsk navn fikk langt flere intervjukallinger enn de med for eksempel arabiske eller afrikanske navn.\n\nDenne formen for diskriminering, som kalles etnisk diskriminering, er forbudt etter norsk lov. Likestillings- og diskrimineringsloven forbyr direkte og indirekte diskriminering på grunnlag av etnisitet og nasjonal opprinnelse. Arbeidsgivere som diskriminerer, kan bli klaget inn for Diskrimineringsnemnda og i alvorlige tilfeller ilegges erstatningskrav.\n\nTil tross for lovgivningen er det vanskelig å bevise diskriminering i enkeltsaker. Arbeidsgivere oppgir sjelden direkte at de velger bort søkere på grunn av etnisk bakgrunn – de peker heller på «kulturell pasning» eller «kommunikasjonsevner». Disse begrunnelsene er vage nok til at diskriminering er nesten umulig å dokumentere juridisk.\n\nDet finnes heldigvis en rekke tiltak som er satt i gang for å motvirke dette problemet. Anonymiserte søknader, der navn og etnisk bakgrunn skjules i den første utvelgelsesfasen, er innført i noen offentlige virksomheter. Mangfoldsarbeid i bedrifter og bevisstgjøring om ubevisste fordommer er andre viktige verktøy. Men full likestilling i arbeidslivet er fremdeles et mål vi er langt fra å ha nådd."
+    "text": "Forskning viser at innvandrere og personer med innvandrerbakgrunn møter systematisk diskriminering i det norske arbeidsmarkedet, selv om de har like gode eller bedre kvalifikasjoner enn etnisk norske søkere. Et kjent eksperiment, der forskere sendte identiske jobbsøknader med norske og utenlandsklingende navn, viste at søkerne med norsk navn fikk langt flere intervjukallinger enn de med for eksempel arabiske eller afrikanske navn.\n\nDenne formen for diskriminering, som kalles etnisk diskriminering, er forbudt etter norsk lov. Likestillings- og diskrimineringsloven forbyr direkte og indirekte diskriminering på grunnlag av etnisitet og nasjonal opprinnelse. Arbeidsgivere som diskriminerer, kan bli klaget inn for Diskrimineringsnemnda og i alvorlige tilfeller ilegges erstatningskrav.\n\nTil tross for lovgivningen er det vanskelig å bevise diskriminering i enkeltsaker. Arbeidsgivere oppgir sjelden direkte at de velger bort søkere på grunn av etnisk bakgrunn – de peker heller på «kulturell pasning» eller «kommunikasjonsevner». Disse begrunnelsene er vage nok til at diskriminering er nesten umulig å dokumentere juridisk.\n\nDet finnes heldigvis en rekke tiltak som er satt i gang for å motvirke dette problemet. Anonymiserte søknader, der navn og etnisk bakgrunn skjules i den første utvelgelsesfasen, er innført i noen offentlige virksomheter. Mangfoldsarbeid i bedrifter og bevisstgjøring om ubevisste fordommer er andre viktige verktøy. Men full likestilling i arbeidslivet er fremdeles et mål vi er langt fra å ha nådd.",
+    "questions": [
+      {
+        "question": "Hva viser forskning om innvandrere i norsk arbeidsliv?",
+        "options": [
+          "De får tilbud om bedre jobber enn andre",
+          "De møter systematisk diskriminering selv med like gode kvalifikasjoner",
+          "De foretrekker å jobbe i offentlig sektor",
+          "De har høyere lønn enn etnisk norske arbeidstakere"
+        ],
+        "answer": 1
+      },
+      {
+        "question": "Hvilken metode nevner teksten som dokumenterer diskrimineringen?",
+        "options": [
+          "Intervjuer med sjefer i næringslivet",
+          "Anonyme spørreundersøkelser",
+          "Identiske jobbsøknader med ulike navn",
+          "Statistikk fra NAV"
+        ],
+        "answer": 2
+      },
+      {
+        "question": "Hva slags tiltak mener teksten kan motvirke diskrimineringen i arbeidslivet?"
+      }
+    ]
   },
   {
     "id": "lesing_integrering_04",
@@ -436,7 +536,32 @@
       "kompetanse"
     ],
     "source": "Basert på Utdanningsdirektoratet",
-    "text": "Den norske skolen slik vi kjenner den i dag, er et resultat av over hundre års politisk kamp for lik rett til utdanning. Da enhetsskolen ble innført på 1800-tallet, var målet at alle barn – uavhengig av sosial bakgrunn og geografisk tilhørighet – skulle ha tilgang til den samme grunnleggende opplæringen. Dette prinsippet om likhet er fremdeles kjernen i norsk utdanningspolitikk.\n\nI dag er grunnskolen tiårig og obligatorisk for alle barn mellom seks og seksten år. Etter grunnskolen har alle rett til tre år i videregående opplæring, enten i studieforberedende program som leder til universitetet, eller i yrkesfaglige programmer som kvalifiserer til fagbrev og et yrke. Denne kombinasjonen av allmenn og yrkesfaglig opplæring er en styrke i det norske systemet.\n\nLæreplanen, som bestemmer hva elevene skal lære og hvilke kompetanser de skal utvikle, revideres jevnlig for å holde tritt med samfunnsutviklingen. Den siste store revisjonen, Fagfornyelsen av 2020, la sterkere vekt på tverrfaglige temaer som demokrati, folkehelse og bærekraftig utvikling, i tillegg til faglig dybdelæring fremfor overflatisk pugglæring.\n\nTil tross for de gode intensjonene er det fremdeles store forskjeller i skoleprestasjoner mellom elever fra ulike sosioøkonomiske bakgrunner. Barn av foreldre med høy utdanning og inntekt klarer seg jevnt over bedre i skolen enn barn fra lavinntektsfamilier. Dette vedvarende mønsteret utfordrer idealene om likhet og lik mulighet som den norske skolen er bygget på."
+    "text": "Den norske skolen slik vi kjenner den i dag, er et resultat av over hundre års politisk kamp for lik rett til utdanning. Da enhetsskolen ble innført på 1800-tallet, var målet at alle barn – uavhengig av sosial bakgrunn og geografisk tilhørighet – skulle ha tilgang til den samme grunnleggende opplæringen. Dette prinsippet om likhet er fremdeles kjernen i norsk utdanningspolitikk.\n\nI dag er grunnskolen tiårig og obligatorisk for alle barn mellom seks og seksten år. Etter grunnskolen har alle rett til tre år i videregående opplæring, enten i studieforberedende program som leder til universitetet, eller i yrkesfaglige programmer som kvalifiserer til fagbrev og et yrke. Denne kombinasjonen av allmenn og yrkesfaglig opplæring er en styrke i det norske systemet.\n\nLæreplanen, som bestemmer hva elevene skal lære og hvilke kompetanser de skal utvikle, revideres jevnlig for å holde tritt med samfunnsutviklingen. Den siste store revisjonen, Fagfornyelsen av 2020, la sterkere vekt på tverrfaglige temaer som demokrati, folkehelse og bærekraftig utvikling, i tillegg til faglig dybdelæring fremfor overflatisk pugglæring.\n\nTil tross for de gode intensjonene er det fremdeles store forskjeller i skoleprestasjoner mellom elever fra ulike sosioøkonomiske bakgrunner. Barn av foreldre med høy utdanning og inntekt klarer seg jevnt over bedre i skolen enn barn fra lavinntektsfamilier. Dette vedvarende mønsteret utfordrer idealene om likhet og lik mulighet som den norske skolen er bygget på.",
+    "questions": [
+      {
+        "question": "Hva var det opprinnelige målet med enhetsskolen?",
+        "options": [
+          "Å forberede elever til universitetet",
+          "Å sikre lik rett til utdanning for alle barn",
+          "Å undervise kun i religion og matematikk",
+          "Å redusere statens utgifter til utdanning"
+        ],
+        "answer": 1
+      },
+      {
+        "question": "Hva er en sentral verdi i den norske skolen i dag, ifølge teksten?",
+        "options": [
+          "Konkurransepreget undervisning og karakterpress",
+          "Privatisering av utdanningssystemet",
+          "Fellesskap og tilpasset opplæring for alle",
+          "Fokus utelukkende på STEM-fag"
+        ],
+        "answer": 2
+      },
+      {
+        "question": "Hvordan har synet på elevenes rolle i skolen endret seg over tid, ifølge teksten?"
+      }
+    ]
   },
   {
     "id": "lesing_utdanning_02",

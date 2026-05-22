@@ -2285,6 +2285,118 @@ function renderEssayClaudeResult(r, container){
   box.appendChild(body);
   container.appendChild(box);
 }
+
+// ── GJENFORTELL AI FEEDBACK (feature 009) ────────────────────────────────
+async function checkGjenfortellWithClaude(text, summary, container){
+  container.innerHTML="";
+  const loading=el("div",{style:{color:"#888",fontSize:"13px",padding:"8px 0"}},"🤖 Analyserer sammendraget ditt…");
+  container.appendChild(loading);
+
+  if(window.location.protocol==="file:"){
+    container.innerHTML="";
+    const box=el("div",{style:{background:"#fffdf0",borderLeft:"4px solid #f0c040",borderRadius:"10px",padding:"14px 16px",fontSize:"13px",lineHeight:"1.7",color:"#555"}});
+    box.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"6px",color:"#b8860b"}},"⚠️ Kan ikke nå Claude API fra en lokal fil"));
+    box.appendChild(document.createTextNode("Kjør "));
+    box.appendChild(el("code",{style:{background:"#f0f0f0",padding:"2px 6px",borderRadius:"4px"}},"python3 start_server.py"));
+    box.appendChild(document.createTextNode(" og åpne appen via localhost."));
+    container.appendChild(box);
+    return;
+  }
+
+  const systemPrompt=`Du er en norsklærer som vurderer et sammendrag skrevet av en elev på B2-nivå. Eleven har lest en tekst og skrevet et sammendrag på 100–150 ord. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
+{
+  "level": "A1|A2|B1|B2|C1|C2",
+  "levelComment": "1-2 setninger som forklarer nivåvurderingen på norsk",
+  "comprehension": "1-2 setninger som vurderer hvor godt eleven forsto teksten, på norsk",
+  "vocabulary": "1-2 setninger om ordforrådsbruk, med spesiell oppmerksomhet på bruk av ord fra originalteksten, på norsk",
+  "grammarErrors": [{"text":"problematisk ord eller uttrykk fra sammendraget","issue":"kort forklaring på norsk","fix":"korrigert form"}],
+  "overall": "2-3 setningers helhetsvurdering på norsk"
+}
+Hold grammarErrors til de 3-5 viktigste feilene. Hvis det ikke er grammatikkfeil, bruk en tom array [].`;
+
+  const userMsg=`Originaltekst:\n${text.text}\n\nElevens sammendrag:\n${summary}\n\nVurder sammendraget med tanke på: tekstforståelse, bruk av ord fra originalteksten, grammatikk og språknivå.`;
+
+  try{
+    const res=await fetch("/api/proxy/claude",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Auth-Token":state.sessionToken},
+      body:JSON.stringify({
+        model:"claude-haiku-4-5-20251001",
+        max_tokens:700,
+        system:systemPrompt,
+        messages:[{role:"user",content:userMsg}],
+      }),
+    });
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      throw new Error(err.error?.message||`HTTP ${res.status}`);
+    }
+    const data=await res.json();
+    const rawText=data.content?.[0]?.text||"{}";
+    const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
+    const result=JSON.parse(jsonText);
+    renderGjenfortellResult(result,container);
+  }catch(err){
+    container.innerHTML="";
+    container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},"Klarte ikke å hente tilbakemelding. Prøv igjen."));
+  }
+}
+
+function renderGjenfortellResult(r, container){
+  container.innerHTML="";
+  const levelColors={A1:"#e05c5c",A2:"#e8901a",B1:"#f0c040",B2:"#2d9e6b",C1:"#4f6ef7",C2:"#7c4dff"};
+  const lv=r.level||"B1";
+  const lvColor=levelColors[lv]||"#2d9e6b";
+
+  const box=el("div",{class:"claude-result"});
+
+  // Header: level badge + levelComment
+  const hdr=el("div",{class:"claude-header",style:{background:lvColor+"18",borderBottom:"1px solid "+lvColor+"33",paddingBottom:"14px",gap:"12px",alignItems:"center",flexWrap:"wrap"}});
+  hdr.appendChild(el("span",{style:{background:lvColor,color:"#fff",borderRadius:"8px",padding:"5px 14px",fontSize:"17px",fontWeight:"800",letterSpacing:".5px",flexShrink:"0"}},lv));
+  hdr.appendChild(el("span",{style:{color:"#444",fontWeight:"600",fontSize:"14px",flex:"1"}},r.levelComment||""));
+  box.appendChild(hdr);
+
+  const body=el("div",{class:"claude-body",style:{display:"grid",gap:"12px"}});
+
+  // Comprehension
+  if(r.comprehension){
+    const sec=el("div",{style:{background:"#f0f7ff",borderRadius:"8px",padding:"10px 12px"}});
+    sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#4f6ef7",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"5px"}},"Tekstforståelse"));
+    sec.appendChild(el("div",{style:{fontSize:"13px",color:"#333",lineHeight:"1.6"}},r.comprehension));
+    body.appendChild(sec);
+  }
+
+  // Vocabulary
+  if(r.vocabulary){
+    const sec=el("div",{style:{background:"#fff8dc",borderRadius:"8px",padding:"10px 12px"}});
+    sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#b8860b",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"5px"}},"Ordforråd"));
+    sec.appendChild(el("div",{style:{fontSize:"13px",color:"#333",lineHeight:"1.6"}},r.vocabulary));
+    body.appendChild(sec);
+  }
+
+  // Grammar errors
+  if(r.grammarErrors&&r.grammarErrors.length){
+    const errSec=el("div",{});
+    errSec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#e05c5c",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"✗ Grammatikkfeil"));
+    r.grammarErrors.forEach(e=>{
+      const card=el("div",{class:"claude-error-card"});
+      if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
+      if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
+      if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
+      errSec.appendChild(card);
+    });
+    body.appendChild(errSec);
+  }
+
+  // Overall
+  if(r.overall){
+    body.appendChild(el("div",{class:"claude-overall",style:{background:"#f8f9fa",borderRadius:"8px",padding:"10px 12px"}},r.overall));
+  }
+
+  box.appendChild(body);
+  container.appendChild(box);
+}
+
 function updateWritePanel(){
   const used=detectUsed(state.essay,state.words);
   const wc=wcCount(state.essay);
@@ -2806,7 +2918,7 @@ function printMissedWords(mode, words){
 }
 
 // ── LESING TAB ───────────────────────────────────────────────────────
-const lesingState = { texts:null, topicFilter:"", grammarFilter:"", search:"", currentText:null };
+const lesingState = { texts:null, topicFilter:"", grammarFilter:"", search:"", currentText:null, answers:{}, summaryText:"", summaryVisible:false };
 
 async function loadLesingTexts(){
   if(lesingState.texts) return lesingState.texts;
@@ -2965,7 +3077,7 @@ function refreshLesingList(){
     if(!isLocked){
       card.addEventListener("click",()=>{
         recordTextOpened(text.id, text.topic);
-        lesingState.currentText=text;
+        lesingState.currentText=text; lesingState.summaryText=""; lesingState.summaryVisible=false;
         trackEvent("text_read",{textId:text.id,title:text.title,topic:text.topic,level:text.level||"B2"});
         renderContent();
       });
@@ -3027,7 +3139,7 @@ function buildLesingReader(text){
 
   // Back button
   const backBtn=el("button",{class:"btn-io",style:{marginBottom:"14px",display:"flex",alignItems:"center",gap:"6px"},
-    click(){lesingState.currentText=null; renderContent();}});
+    click(){lesingState.currentText=null; lesingState.summaryText=""; lesingState.summaryVisible=false; renderContent();}});
   backBtn.innerHTML="← Tilbake til tekstlisten";
   frag.appendChild(backBtn);
 
@@ -3068,6 +3180,90 @@ function buildLesingReader(text){
   if(text.source){
     card.appendChild(el("div",{style:{fontSize:"12px",color:"#bbb"}},`Kilde: ${text.source}`));
   }
+
+  // ── Comprehension questions (T004–T008) ──
+  if(text.questions && text.questions.length>0){
+    const qSection=el("div",{style:{marginTop:"24px"}});
+    qSection.appendChild(el("div",{style:{fontWeight:"700",fontSize:"13px",color:"#555",marginBottom:"14px",paddingTop:"16px",borderTop:"1px solid #eee"}},"Forståelsesspørsmål"));
+    const textAnswers=lesingState.answers[text.id]||{};
+    text.questions.forEach((q,qi)=>{
+      const qBlock=el("div",{style:{marginBottom:"18px"}});
+      qBlock.appendChild(el("div",{style:{fontSize:"14px",fontWeight:"600",color:"#222",marginBottom:"8px",lineHeight:"1.5"}},(qi+1)+". "+q.question));
+      if(q.options && q.options.length>0){
+        const answered=textAnswers[qi]!==undefined;
+        const correct=q.answer;
+        const optWrap=el("div",{style:{display:"flex",flexDirection:"column",gap:"6px"}});
+        q.options.forEach((opt,oi)=>{
+          const isSelected=textAnswers[qi]===oi;
+          const isCorrect=oi===correct;
+          let bg="#f8f9fa",color="#333",border="1px solid #e0e0e0",fw="400";
+          if(answered){
+            if(isCorrect){bg="#edfaf3";color="#1a6b4a";border="1px solid #b6e8ce";fw="700";}
+            else if(isSelected){bg="#fff5f5";color="#e05c5c";border="1px solid #f5b7b1";}
+          }
+          const btn=el("button",{style:{textAlign:"left",padding:"8px 12px",borderRadius:"8px",fontSize:"13px",fontWeight:fw,background:bg,color,border,cursor:answered?"default":"pointer",pointerEvents:answered?"none":"auto",width:"100%"}});
+          btn.textContent=opt;
+          if(!answered){
+            btn.addEventListener("click",()=>{
+              if(!lesingState.answers[text.id]) lesingState.answers[text.id]={};
+              lesingState.answers[text.id][qi]=oi;
+              renderContent();
+            });
+          }
+          optWrap.appendChild(btn);
+        });
+        qBlock.appendChild(optWrap);
+      }
+      qSection.appendChild(qBlock);
+    });
+    card.appendChild(qSection);
+  }
+
+  // ── Gjenfortell area (T009–T012, T013–T017) ──
+  const gjArea=el("div",{style:{marginTop:"20px"}});
+  const gjBtn=el("button",{class:"btn-io",style:{marginBottom:"10px"}});
+  gjBtn.textContent="Gjenfortell teksten";
+  gjBtn.addEventListener("click",()=>{
+    if(!lesingState.summaryVisible || lesingState.summaryText===""){
+      lesingState.summaryVisible=!lesingState.summaryVisible;
+      renderContent();
+    }
+  });
+  gjArea.appendChild(gjBtn);
+
+  if(lesingState.summaryVisible){
+    const ta=el("textarea",{style:{width:"100%",minHeight:"140px",padding:"10px 12px",borderRadius:"8px",border:"1px solid #d0d0d0",fontSize:"15px",lineHeight:"1.7",fontFamily:"Georgia,serif",resize:"vertical",boxSizing:"border-box",marginBottom:"8px",display:"block"}});
+    ta.placeholder="Skriv et sammendrag av teksten her…";
+    ta.value=lesingState.summaryText;
+
+    const wcLabel=el("div",{style:{fontSize:"12px",marginBottom:"10px",color:"#999"}});
+    function updateWc(){
+      const words=lesingState.summaryText.trim()?lesingState.summaryText.trim().split(/\s+/).filter(Boolean).length:0;
+      let color="#999",hint="";
+      if(words>=100&&words<=150){color="#1a6b4a";}
+      else if(words>150){color="#e07b39";hint=" — Over maksimumsgrensen (150 ord)";}
+      else if(words>0){hint=" — Målet er 100–150 ord";}
+      wcLabel.textContent=words+" ord"+hint;
+      wcLabel.style.color=color;
+    }
+    updateWc();
+    ta.addEventListener("input",e=>{lesingState.summaryText=e.target.value;updateWc();});
+
+    const feedbackContainer=el("div",{});
+
+    const checkBtn=el("button",{class:"btn-io",style:{marginBottom:"12px"}});
+    checkBtn.textContent="Sjekk med AI";
+    checkBtn.addEventListener("click",async()=>{
+      if(!lesingState.summaryText.trim()){toast("Skriv et sammendrag først");return;}
+      await checkGjenfortellWithClaude(text,lesingState.summaryText,feedbackContainer);
+    });
+
+    gjArea.appendChild(ta);
+    gjArea.appendChild(wcLabel);
+    gjArea.appendChild(checkBtn);
+    gjArea.appendChild(feedbackContainer);
+  }
+  card.appendChild(gjArea);
 
   layout.appendChild(card);
 
@@ -3187,11 +3383,11 @@ function buildLesingReader(text){
     if(filtered.length>1){
       const navRow=el("div",{style:{display:"flex",justifyContent:"space-between",maxWidth:"720px",margin:"14px auto 0"}});
       if(idx>0){
-        const prevBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx-1];trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();}},"← "+filtered[idx-1].title.substring(0,30));
+        const prevBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx-1];lesingState.summaryText="";lesingState.summaryVisible=false;trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();}},"← "+filtered[idx-1].title.substring(0,30));
         navRow.appendChild(prevBtn);
       } else { navRow.appendChild(el("span",{})); }
       if(idx<filtered.length-1){
-        const nextBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx+1];trackEvent("text_read",{textId:filtered[idx+1].id,title:filtered[idx+1].title,topic:filtered[idx+1].topic,level:filtered[idx+1].level||"B2"});renderContent();}},(filtered[idx+1].title.substring(0,30))+" →");
+        const nextBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx+1];lesingState.summaryText="";lesingState.summaryVisible=false;trackEvent("text_read",{textId:filtered[idx+1].id,title:filtered[idx+1].title,topic:filtered[idx+1].topic,level:filtered[idx+1].level||"B2"});renderContent();}},(filtered[idx+1].title.substring(0,30))+" →");
         navRow.appendChild(nextBtn);
       }
       frag.appendChild(navRow);
@@ -3529,7 +3725,7 @@ function getPlanText(topicKey, slotIdx){
 
 // Open a lesing text from the plan
 function openPlanText(text){
-  lesingState.currentText = text;
+  lesingState.currentText = text; lesingState.summaryText=""; lesingState.summaryVisible=false;
   trackEvent("text_read",{textId:text.id,title:text.title,topic:text.topic,level:text.level||"B2"});
   setTab("lesing");
 }
@@ -4839,7 +5035,7 @@ function buildLaererPlan(){
             borderRadius:"6px",marginBottom:"4px",cursor:"pointer",
             background:done?"#f0fdf4":"#fff",border:"1px solid "+(done?"#86efac":"#e8ecf0")},
           click:async()=>{
-            lesingState.currentText=text; state.tab="lesing"; renderContent();
+            lesingState.currentText=text; lesingState.summaryText=""; lesingState.summaryVisible=false; state.tab="lesing"; renderContent();
           }
         });
         row.appendChild(el("span",{style:{fontSize:"16px"}},done?"✅":"⬜"));
