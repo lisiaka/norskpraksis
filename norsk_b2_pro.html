@@ -2336,6 +2336,17 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hvis det ikke er grammatikkfeil
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
     renderGjenfortellResult(result,container);
+    // Persist summary + feedback to backend
+    const feedback=JSON.stringify(result);
+    api(`/api/reading-summaries/${encodeURIComponent(text.id)}`,{
+      method:"PUT",
+      body:JSON.stringify({summary_text:summary,claude_feedback:feedback}),
+    }).then(async r=>{
+      if(r?.ok){
+        const saved=await r.json();
+        lesingState.savedSummaries[text.id]=saved;
+      }
+    }).catch(()=>{});
   }catch(err){
     container.innerHTML="";
     container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},"Klarte ikke å hente tilbakemelding. Prøv igjen."));
@@ -2918,7 +2929,14 @@ function printMissedWords(mode, words){
 }
 
 // ── LESING TAB ───────────────────────────────────────────────────────
-const lesingState = { texts:null, topicFilter:"", grammarFilter:"", search:"", currentText:null, answers:{}, summaryText:"", summaryVisible:false };
+const lesingState = { texts:null, topicFilter:"", grammarFilter:"", search:"", currentText:null, answers:{}, summaryText:"", summaryVisible:false, savedSummaries:{} };
+
+function setLesingText(text){
+  lesingState.currentText=text;
+  const saved=lesingState.savedSummaries[text.id];
+  lesingState.summaryText=saved?saved.summary_text:"";
+  lesingState.summaryVisible=!!(saved&&saved.summary_text);
+}
 
 async function loadLesingTexts(){
   if(lesingState.texts) return lesingState.texts;
@@ -3077,7 +3095,7 @@ function refreshLesingList(){
     if(!isLocked){
       card.addEventListener("click",()=>{
         recordTextOpened(text.id, text.topic);
-        lesingState.currentText=text; lesingState.summaryText=""; lesingState.summaryVisible=false;
+        setLesingText(text);
         trackEvent("text_read",{textId:text.id,title:text.title,topic:text.topic,level:text.level||"B2"});
         renderContent();
       });
@@ -3248,8 +3266,24 @@ function buildLesingReader(text){
     }
     updateWc();
     ta.addEventListener("input",e=>{lesingState.summaryText=e.target.value;updateWc();});
+    ta.addEventListener("blur",()=>{
+      if(!lesingState.summaryText.trim()) return;
+      const textId=lesingState.currentText?.id; if(!textId) return;
+      api(`/api/reading-summaries/${encodeURIComponent(textId)}`,{
+        method:"PUT",
+        body:JSON.stringify({summary_text:lesingState.summaryText}),
+      }).then(async r=>{
+        if(r?.ok){const saved=await r.json();lesingState.savedSummaries[textId]=saved;}
+      }).catch(()=>{});
+    });
 
     const feedbackContainer=el("div",{});
+
+    // Restore previous AI feedback if available
+    const prevSaved=lesingState.savedSummaries[text.id];
+    if(prevSaved?.claude_feedback){
+      try{renderGjenfortellResult(JSON.parse(prevSaved.claude_feedback),feedbackContainer);}catch{}
+    }
 
     const checkBtn=el("button",{class:"btn-io",style:{marginBottom:"12px"}});
     checkBtn.textContent="Sjekk med AI";
@@ -3383,11 +3417,11 @@ function buildLesingReader(text){
     if(filtered.length>1){
       const navRow=el("div",{style:{display:"flex",justifyContent:"space-between",maxWidth:"720px",margin:"14px auto 0"}});
       if(idx>0){
-        const prevBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx-1];lesingState.summaryText="";lesingState.summaryVisible=false;trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();}},"← "+filtered[idx-1].title.substring(0,30));
+        const prevBtn=el("button",{class:"btn-io",click(){setLesingText(filtered[idx-1]);trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();}},"← "+filtered[idx-1].title.substring(0,30));
         navRow.appendChild(prevBtn);
       } else { navRow.appendChild(el("span",{})); }
       if(idx<filtered.length-1){
-        const nextBtn=el("button",{class:"btn-io",click(){lesingState.currentText=filtered[idx+1];lesingState.summaryText="";lesingState.summaryVisible=false;trackEvent("text_read",{textId:filtered[idx+1].id,title:filtered[idx+1].title,topic:filtered[idx+1].topic,level:filtered[idx+1].level||"B2"});renderContent();}},(filtered[idx+1].title.substring(0,30))+" →");
+        const nextBtn=el("button",{class:"btn-io",click(){setLesingText(filtered[idx+1]);trackEvent("text_read",{textId:filtered[idx+1].id,title:filtered[idx+1].title,topic:filtered[idx+1].topic,level:filtered[idx+1].level||"B2"});renderContent();}},(filtered[idx+1].title.substring(0,30))+" →");
         navRow.appendChild(nextBtn);
       }
       frag.appendChild(navRow);
@@ -3725,7 +3759,7 @@ function getPlanText(topicKey, slotIdx){
 
 // Open a lesing text from the plan
 function openPlanText(text){
-  lesingState.currentText = text; lesingState.summaryText=""; lesingState.summaryVisible=false;
+  setLesingText(text);
   trackEvent("text_read",{textId:text.id,title:text.title,topic:text.topic,level:text.level||"B2"});
   setTab("lesing");
 }
@@ -4398,9 +4432,10 @@ async function onLoginSuccess(token, user){
   loadSubscription(user.id).then(()=>{ if(isActiveSubscriber()) state.freeAccess={openedTexts:[],topicsUsed:[]}; });
 
   // Load all user data in parallel
-  const [wordsR, sentsR] = await Promise.all([
+  const [wordsR, sentsR, summariesR] = await Promise.all([
     api("/api/words").catch(()=>null),
     api("/api/sentences").catch(()=>null),
+    api("/api/reading-summaries").catch(()=>null),
   ]);
   if(wordsR?.ok){
     const ws2=await wordsR.json();
@@ -4413,6 +4448,10 @@ async function onLoginSuccess(token, user){
     if(s && typeof s==="object") state.sentences=s;
   } else {
     try{ state.sentences=JSON.parse(localStorage.getItem(skSents(user.id))||"{}"); }catch{}
+  }
+  if(summariesR?.ok){
+    const sm=await summariesR.json();
+    if(sm && typeof sm==="object") lesingState.savedSummaries=sm;
   }
   saveStorage();
 
@@ -5035,7 +5074,7 @@ function buildLaererPlan(){
             borderRadius:"6px",marginBottom:"4px",cursor:"pointer",
             background:done?"#f0fdf4":"#fff",border:"1px solid "+(done?"#86efac":"#e8ecf0")},
           click:async()=>{
-            lesingState.currentText=text; lesingState.summaryText=""; lesingState.summaryVisible=false; state.tab="lesing"; renderContent();
+            setLesingText(text); state.tab="lesing"; renderContent();
           }
         });
         row.appendChild(el("span",{style:{fontSize:"16px"}},done?"✅":"⬜"));
