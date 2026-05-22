@@ -4340,7 +4340,7 @@ function buildSubscriptionSection(container){
     }
     container.appendChild(info);
 
-    if(sub.status==="active"||sub.status==="grace"){
+    if((sub.status==="active"||sub.status==="grace") && state.userRole !== "teacher"){
       container.appendChild(el("button",{class:"btn-sec",style:{fontSize:"13px"},
         async click(){
           if(!confirm("Er du sikker på at du vil avslutte abonnementet?\nDu beholder tilgang til fornyelsesdatoen.")) return;
