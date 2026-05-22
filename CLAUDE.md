@@ -37,20 +37,24 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - `b2_user_id` / `b2_user_name` / `b2_user_email` — user identity
 - `b2_free_access_{userId}` — free tier text tracking `{ openedTexts[], topicsUsed[] }`
 - `state.subscription` — loaded from `/api/subscription/{userId}` after login
+- `state.topicFilter` — active topic chip in Ordbank (`""` = all)
+- `state.practicedFilter` — `""` (all) or `"not_practiced"` (hides words with a sentence or correct flashcard answer)
+- `state.sentences` — `{ wordId: sentenceText }` — written sentences keyed by word id
 
 **UI rendering** uses a custom `el(tag, props, ...children)` helper. Re-renders by calling `renderContent()`.
 
 **Tabs / features:**
-- `ordbank` — vocabulary bank (add, search, filter, import/export)
+- `ordbank` — vocabulary bank (add, search, filter by topic + "ikke øvd ennå", import/export)
 - `lesing` — reading texts with subscription access control + paywall overlay
-- `setninger` — sentence practice
-- `flashcards` — quiz modes
+- `setninger` — sentence practice; "Lagre og neste" navigates to next word without a sentence
+- `flashcards` — quiz modes (choice + write); filter by topic / time / learning status
 - `setningsbygging` — word-sort game
 - `oppgaver` — essay prompts
-- `skriv` — essay editor with Claude grammar feedback
+- `skriv` — essay editor with Claude grammar feedback (output in Norwegian)
 - `plan` — study plan (unlocks texts in Lesing tab)
 - `statistikk` — learning statistics
 - `innstillinger` — profile, subscription management (upgrade/cancel)
+- `laerer` — teacher dashboard (roster, per-student progress, essays with formatted AI feedback)
 
 **Subscription access logic:**
 - `isActiveSubscriber()` — returns true if `state.subscription.status` is active/grace/cancelled-but-not-expired
@@ -85,10 +89,29 @@ curl -X POST http://localhost:8788/api/test/simulate-renewal \
 **External APIs used:**
 - FastAPI backend (`http://localhost:8000`) — auth + user data
 - MyMemory (`api.mymemory.translated.net`) — translation lookups
-- Claude API — grammar feedback (proxied via Cloudflare function)
+- Claude API — grammar feedback in **Norwegian** (proxied via Cloudflare function at `/api/proxy/claude`)
 - Bokmålsordboka (`ordbokene.no`) — dictionary deep links
 - Vipps Recurring API v3 — Norwegian payment subscriptions
 - PayPal Subscriptions API v2 — international payment subscriptions
+
+## Topic system
+
+All topic-related fields use a fixed list of 12 canonical strings defined as `VALID_TOPIC_LIST`:
+`arbeid demokrati familie helse integrering internasjonalt miljø natur politikk språk teknologi utdanning`
+
+- `normalizeTopic(str)` — maps near-matches (e.g. `"klima"` → `"miljø"`, `"miljo"` → `"miljø"`) to canonical values; returns `""` for anything unrecognised
+- Topic fields in forms are `<select>` elements — never free text
+- `importWords()` normalises topics; unrecognised values become `""`
+- Filter chips in Ordbank, Flashcards, and Setninger iterate `VALID_TOPIC_LIST` (showing only topics with ≥1 word)
+- **Do not** add free-text topic inputs — enforce the dropdown everywhere
+
+The `TOPICS` object (essay/skriv tab, ASCII keys `miljo`/`sprak`) is a separate map for essay prompt lookup and is intentionally not changed. `ESSAY_TOPIC_TO_WORD_TOPICS` bridges it to word-bank topic strings.
+
+## AI feedback
+
+`checkWithClaude()` (sentence) and `checkEssayWithClaude()` (essay) both instruct Claude to respond in **Norwegian Bokmål**. JSON keys remain in English (the renderer depends on them); only the string-value fields change language. Do not revert to English prompts.
+
+`renderEssayClaudeResult(result, container)` renders formatted essay feedback — used both on the student side (Skriv tab) and in the teacher essay detail view (`buildLaererEssayDetail`). Always use this function to display essay AI feedback; never dump raw JSON as text.
 
 ## Key Files
 

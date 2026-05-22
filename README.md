@@ -1,106 +1,151 @@
-# Norsk B2 Treningsverktøy
+# Norsk B2 Treningsverktøy — Frontend
 
-A personal Norwegian B2 exam preparation tool. Single-file web app with a Python backend — no build step, no frameworks, no external JS dependencies.
+Single-file SPA for Norwegian B2 exam preparation. All HTML, CSS and JS live inline in `norsk_b2_pro.html` (~4,500 lines) — no framework, no bundler, no external JS dependencies.
 
-## Features
+**Live:** https://norsk-b2-pro.pages.dev/norsk_b2_pro
+
+Companion backend (FastAPI + PostgreSQL on Railway): `../backend/`
+
+## Users and roles
+
+Each account has a `role` chosen at registration — **`student`** or **`teacher`** — and can be switched later from the profile settings.
+
+- **Students** see the full learning UI (Ordbank, Lesing, Setninger, Flashcards, Setningsbygging, Velg oppgave, Skriv, Plan, Statistikk, Innstillinger).
+- **Teachers** land on a single tab — **👩‍🏫 Klassen min** — that is the teacher dashboard. They do not see the student tabs.
+
+A student can be assigned to at most one teacher (enforced by a unique constraint on the backend). Students self-assign by picking a teacher from a list of registered teachers; teachers can also add a student by e-mail.
+
+## Student features
 
 ### 📚 Ordbank — Vocabulary bank
-Add, search, filter and manage your personal word bank. Each word has a type (enkeltord / uttrykk / koblingsord), a topic tag, and a Norwegian–English translation. Import/export as JSON, CSV, or plain text.
+Add, search, filter and manage a personal word bank. Each word has a type (enkeltord / uttrykk / koblingsord), a topic tag, and a Norwegian–English translation (automatic via MyMemory). Import/export as JSON, CSV, or plain text.
+
+Topic tags are enforced to the same 12 canonical values used everywhere in the app (dropdown, not free text). Imported files with unrecognised topic strings have the topic cleared. The filter bar includes an **"Ikke øvd ennå"** chip that hides any word the student has already used in a sentence or answered correctly in flashcards — useful for focusing practice on gaps.
 
 ### 💬 Setninger — Sentence practice
-Write a sentence for every word in your bank. Filter by topic. Get instant feedback on whether you used the word, and optional Claude AI grammar checking.
+Write a sentence for every word in the bank. Filter by topic. Instant feedback on whether the word was used, plus optional Claude AI grammar checking in Norwegian (LanguageTool fallback when the AI is unavailable). The AI feedback is **persisted** alongside the sentence so the teacher can see it.
+
+"Lagre og neste" skips to the next word without a sentence (rather than incrementing the index sequentially). "Tilfeldig ord" also only picks from unwritten words.
 
 ### 🎮 Flashcards
-Two game modes: multiple-choice and write-the-word. Filter by topic, time added, or error-only (words you've previously got wrong). Optionally cap the session at 10, 20 or 30 words.
-
-### ✍️ Velg oppgave — Essay prompts
-48 essay prompts across 12 topics matching the reading texts: arbeid, demokrati, familie, helse, integrering, internasjonalt, miljø, natur, politikk, språk, teknologi, utdanning. Write your own custom prompt within any topic.
-
-### 📝 Skriv — Essay editor
-Write essays with word-bank integration — words you use get highlighted. Optional Claude AI feedback on grammar and style. Save essays to a per-user bank. Export as PDF or plain text.
-
-### 📖 Lesing — Reading texts
-120 B2-level Norwegian texts (10 per topic). Filter by topic or grammar focus (subordinate clauses, relative clauses, conjunctions, subjunctions). A side panel lets you look up words mid-reading and add them directly to your ordbank.
+Two game modes — multiple-choice and write-the-word. Filter by topic, time added, or error-only. Optionally cap the session at 10, 20 or 30 words. Per-session score bar with running ✓/✗ counts.
 
 ### 🧩 Setningsbygging — Word-sort game
-Sentences from the reading texts are broken into shuffled word tokens. Reassemble them in the correct order. Sentences are 8–14 words long. Up to 10 sentences per game. Filter by topic.
+Sentences from the reading texts are broken into shuffled word tokens. Reassemble them in the correct order. Sentences are 8–14 words long. Up to 10 sentences per round. Filter by topic.
+
+### ✍️ Velg oppgave — Essay prompts
+48 essay prompts across 12 topics. Pick from the list or write a custom prompt within any topic.
+
+### 📝 Skriv — Essay editor
+Write essays with word-bank integration — words from the bank get highlighted. Optional Claude AI feedback on grammar and style in **Norwegian**; the feedback (level + structured notes) is stored on the essay so the teacher can read it later. Save essays to a per-user bank. Export as PDF or plain text. If the student's teacher has reviewed the essay, the teacher's comment and Like badge appear on the essay card.
+
+### 📖 Lesing — Reading texts
+120 B2-level Norwegian texts (10 per topic). Filter by topic or by grammar focus (subordinate clauses, relative clauses, conjunctions, subjunctions). A side panel lets you look up words mid-reading and add them to the ordbank.
 
 ### 📅 Plan — Personal study plan
-Generate a week-by-week study schedule based on how many months you have and how many days per week you can practise. Each week gets:
-- **Reading**: 2 texts per day of practice, clickable directly into the Lesing tab
-- **Essays**: 1 essay (1–2 days/week), 2 essays (3–4 days/week), 3 essays (5 days/week)
-- **Words**: target of 5 new words per day; a word counts as fully mastered only when it is (1) in the ordbank, (2) answered correctly in flashcards, and (3) used in a written sentence
-
-Plans are stored per user on the server. Progress (texts read, essays written, words mastered) is reflected live.
+Generates a week-by-week schedule based on months until the exam and practice days per week. Each week gets reading targets, essay targets, and word-mastery targets (a word counts as fully mastered only when it is (1) in the ordbank, (2) answered correctly in flashcards, and (3) used in a written sentence). Plans are stored server-side and progress is reflected live.
 
 ### 📊 Statistikk — Statistics
-- Summary of texts read, games played, essays written and overall correct-answer rate
-- Bar chart of reading progress per topic (X/10 read, Y remaining)
-- SVG donut chart of word learning progress (flashcard correct / used in sentences / used in essays / not yet practiced)
-- Scrollable list of all words where mistakes exceed correct answers (net error words)
-- Print/export net-error words for offline review
-- One-click flashcard game using only the error-word list
+KPI summary of texts read, games played, essays written and overall correct-answer rate. Bar chart of reading progress per topic, donut chart of word learning progress (flashcard-correct / used in sentences / used in essays / not yet practiced), a list of net-error words, print/export of that list, and a one-click flashcard game using only the error words.
 
-## Multi-user support
+### ⚙️ Innstillinger
+Profile settings — change name, switch role (student ↔ teacher), delete account (GDPR-compliant — schedules deletion via `/api/me`).
 
-Each user has their own data isolated by a user ID entered at login:
-- `stats/words_<id>.json` — word bank
-- `stats/sentences_<id>.json` — written sentences
-- `stats/essays_<id>.json` — saved essays
-- `stats/stats_<id>.json` — activity log (all tracked events)
-- `stats/plan_<id>.json` — study plan
+## Teacher view — 👩‍🏫 Klassen min
 
-## Getting started
+Teachers see a single dashboard tab that contains:
 
-**Requirements:** Python 3.8+, a modern browser, and (optionally) an [Anthropic API key](https://console.anthropic.com/) for Claude grammar feedback.
+- **Klasselisten** — all assigned students. Teachers can add a student by e-mail and remove a student from the class.
+- **Elevprofil** — for each student:
+  - Progress KPIs: study plans created, distinct texts read, words in bank, distinct words practiced, flashcard sessions completed, essays submitted, sentences written.
+  - **Tekster** — every text the student has opened, with last-read timestamp and times-read count.
+  - **Ordbank** — words grouped by topic, with a "practiced" flag (appeared in a flashcard session) so it's obvious which ones the student is actively learning.
+  - **Plan** — the student's current study plan with live read/written progress.
+  - **Setninger** — every sentence the student has written, linked to the source word.
+  - **Essays** — full essays with the AI grammar/structure feedback rendered as a formatted card (level badge, grammar errors, strengths/improvements), plus a per-essay **comment + Like** widget. Reviews are stored server-side and surface back on the student's own essay card.
 
-```bash
-# Clone the repo
-git clone <repo-url>
-cd <repo-dir>
+## Authentication
 
-# Start the server
-python3 start_server.py
-```
-
-The server opens `http://localhost:8080/norsk_b2_pro.html` automatically.
-
-On Windows, double-click `start_server.bat` instead.
-
-**Claude API key** (optional): paste your key in the Ordbank tab settings panel. It is stored in `localStorage` and sent only to the local proxy at `/proxy/claude` — never directly from the browser to Anthropic.
+E-mail + password registration. Login returns a **JWT** (default 30-day expiry) signed by the backend with `JWT_SECRET_KEY`. The token contains the user's role; the frontend stores it in `localStorage` and sends it as `Authorization: Bearer <token>` on every API call. Password hashing is bcrypt (server-side). The role is included in the JWT so the SPA can render the correct tabs without an extra round-trip.
 
 ## Architecture
 
+| Layer | Tech |
+|---|---|
+| Frontend | Single `norsk_b2_pro.html` — vanilla JS + a tiny `el(tag, props, ...children)` helper |
+| Hosting | Cloudflare Pages (`wrangler pages deploy`) |
+| Backend | FastAPI (`../backend/`) deployed to **Railway** via Docker |
+| Database | PostgreSQL (asyncpg + SQLAlchemy 2.0) |
+| Auth | JWT (PyJWT) + bcrypt |
+| AI | Claude (Haiku 4.5) — backend proxies `/api/proxy/claude` |
+
+**State** lives in a single `state` object. Notably:
+
+- `state.token` — JWT, sent as `Authorization: Bearer ...` on every API call
+- `state.userId`, `state.userEmail`, `state.userName`
+- `state.userRole` — `"student"` or `"teacher"`, drives which tabs render
+- `state.words`, `state.sentences`, `state.essays`, `state.plan` — local cache, kept in sync with the API
+
+**API base URL** is read from `window.API_BASE` (or defaults to a hard-coded production URL). All paths under `/api/*` go to the Railway backend; the rest is served statically from Cloudflare Pages.
+
+**External APIs used directly from the browser:**
+
+- **MyMemory** (`api.mymemory.translated.net`) — free translation for word lookups
+- **LanguageTool** (`api.languagetool.org`) — grammar-check fallback
+- **Bokmålsordboka** (`ordbokene.no`) — dictionary deep links
+
+## Local development
+
+```bash
+# Static-serve the frontend (no API)
+python3 start_server.py    # → http://localhost:8080/norsk_b2_pro.html
+
+# Or via wrangler for a Pages-like environment
+npm install
+npx wrangler pages dev .
+```
+
+For a fully working app locally, run the backend too (see `../backend/README.md`) and point the frontend's `API_BASE` to `http://localhost:8000`.
+
+## Deploy
+
+```bash
+npm run deploy    # wrangler pages deploy . --project-name norsk-b2-pro
+```
+
+Backend deploys automatically from `../backend/` on a push to `main` (Railway watches the repo).
+
+## Key files
+
 | File | Purpose |
 |------|---------|
-| `norsk_b2_pro.html` | Entire application — all HTML, CSS and JS inline (~3500 lines) |
-| `start_server.py` | Dev server + Claude API proxy + per-user JSON storage |
-| `start_server.bat` | Windows launcher |
-| `lesing-tekster.json` | 120 reading texts with topic and grammar-focus metadata |
-| `ordbank-2-med-emner.json` | Sample word bank with topic tags (for import testing) |
-| `stats/` | Per-user data files (created automatically) |
-
-The server does two things:
-1. Serves static files from the project directory
-2. Proxies Claude API calls at `/proxy/claude` (avoids browser CORS restrictions)
-
-The app is a single-page application with no framework. UI is built with an `el(tag, props, ...children)` helper that creates DOM nodes imperatively. State is a plain object; the full UI re-renders on changes via `renderContent()`.
+| `norsk_b2_pro.html` | The entire frontend |
+| `functions/` | Legacy Cloudflare Functions — no longer used; backend lives in `../backend/` |
+| `wrangler.toml` | Cloudflare Pages project config |
+| `lesing-tekster.json` | 120 reading texts with topic, grammar-focus, key-words, source |
+| `gin3-ordliste.json`, `herpaberget-ordliste.json` | Source ordlister for vocabulary import |
+| `ordbank-2-med-emner.json` | Sample word bank with topic tags |
+| `start_server.py` | Local-only Python dev server (static files + optional Claude proxy) |
+| `tests/` | Playwright end-to-end tests |
+| `Multiuser_design.md` | Original design notes; superseded by `specs/` in the repo root |
 
 ## Topics
 
-All features — reading texts, essay prompts, vocabulary tags, flashcards, sentence practice and study plan — share the same 12 topics:
+All features — reading texts, essay prompts, vocabulary tags, flashcards, sentence practice and study plan — share the same 12 canonical topics. The list is defined as `VALID_TOPIC_LIST` in `norsk_b2_pro.html` and enforced everywhere: topic fields are dropdowns (not free text), imported words with unrecognised topics are stored with an empty topic, and filter chips are generated from this list (showing only topics with at least one word).
 
-| Topic | Norwegian |
-|-------|-----------|
-| arbeid | Work |
-| demokrati | Democracy |
-| familie | Family |
-| helse | Health |
-| integrering | Integration & culture |
-| internasjonalt | International affairs |
-| miljø | Environment & climate |
-| natur | Nature |
-| politikk | Politics |
-| språk | Language |
-| teknologi | Technology |
-| utdanning | Education |
+| Value | Display |
+|-------|---------|
+| arbeid | Arbeid — Work |
+| demokrati | Demokrati — Democracy |
+| familie | Familie — Family |
+| helse | Helse — Health |
+| integrering | Integrering — Integration & culture |
+| internasjonalt | Internasjonalt — International affairs |
+| miljø | Miljø og klima — Environment & climate |
+| natur | Natur — Nature |
+| politikk | Politikk — Politics |
+| språk | Språk — Language |
+| teknologi | Teknologi — Technology |
+| utdanning | Utdanning — Education |
+
+**Note on essay tab keys:** the `TOPICS` object used internally by the essay/skriv tab uses ASCII keys (`miljo`, `sprak`) for prompt lookups. This is a separate internal map. The `ESSAY_TOPIC_TO_WORD_TOPICS` bridge maps those keys to the word-bank topic strings above. Do not change either mapping — they are already consistent.
