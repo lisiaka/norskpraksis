@@ -1008,10 +1008,13 @@ function renderTabs(){
 
   if(state.userRole==="teacher"){
     c.appendChild(el("div",{class:"nav-section-label"},"Lærer"));
-    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"?" active":""),click(){setTab("laerer");}}, "👩‍\u200d🏫 Klassen min"));
+    const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts"].includes(teacherState.view);
+    c.appendChild(el("button",{class:"tab-btn"+(isRoster?" active":""),click(){teacherState.view="roster";setTab("laerer");}}, "👩‍\u200d🏫 Klassen min"));
     c.appendChild(el("div",{class:"nav-section-label"},"Mine banker"));
     c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="bank-texts"?" active":""),click(){teacherState.view="bank-texts";setTab("laerer");}}, "📖 Tekstbank"));
     c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="bank-prompts"?" active":""),click(){teacherState.view="bank-prompts";setTab("laerer");}}, "✍\ufe0f Oppgavebank"));
+    c.appendChild(el("div",{class:"nav-section-label"},"Ordbank"));
+    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="ordbank"?" active":""),click(){setTab("ordbank");}}, `📚 Ordbank${state.words.length?" ("+state.words.length+")":""}`));
     c.appendChild(el("div",{class:"nav-section-label"},"Konto"));
     c.appendChild(el("button",{class:"tab-btn"+(state.tab==="innstillinger"?" active":""),click(){setTab("innstillinger");}}, "⚙️ Innstillinger"));
     return;
@@ -6336,80 +6339,159 @@ function buildLaererBankTexts(){
   const frag = document.createDocumentFragment();
   frag.appendChild(el("h2",{style:{marginBottom:"16px"}},"📖 Tekstbank"));
 
-  // Add new text form
-  const addCard = el("div",{class:"card",style:{marginBottom:"20px",padding:"16px"}});
-  addCard.appendChild(el("h3",{style:{margin:"0 0 12px"}},"Legg til ny tekst"));
-  const titleIn = el("input",{type:"text",placeholder:"Tittel",style:{width:"100%",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
-  const topicSel = el("select",{style:{width:"100%",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
-  topicSel.appendChild(el("option",{value:""},"Velg tema (valgfritt)"));
-  VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
-  const bodyIn = el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"120px",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
-  const addErr = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"6px",display:"none"}});
-  const addBtn = el("button",{class:"btn-primary",style:{width:"100%"},
-    click: async ()=>{
-      const title=(titleIn.value||"").trim();
-      const body=(bodyIn.value||"").trim();
-      if(!title){addErr.textContent="Tittel er påkrevd";addErr.style.display="";return;}
-      if(!body){addErr.textContent="Tekst er påkrevd";addErr.style.display="";return;}
-      addErr.style.display="none";
-      addBtn.disabled=true; addBtn.textContent="Lagrer…";
-      const r=await api("/api/teacher/bank/texts",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({title,topic:topicSel.value,body})}).catch(()=>null);
-      if(r?.ok){
-        teacherState.bankTexts=null;
-        titleIn.value=""; topicSel.value=""; bodyIn.value="";
-        addBtn.disabled=false; addBtn.textContent="Lagre tekst";
-        laererSetView("bank-texts");
-      } else {
-        const d=await r?.json().catch(()=>({detail:"Ukjent feil"}));
-        addErr.textContent=d?.detail||"Kunne ikke lagre";addErr.style.display="";
-        addBtn.disabled=false; addBtn.textContent="Lagre tekst";
-      }
-    }
-  },"Lagre tekst");
-  addCard.appendChild(titleIn);
-  addCard.appendChild(topicSel);
-  addCard.appendChild(bodyIn);
-  addCard.appendChild(addErr);
-  addCard.appendChild(addBtn);
-  frag.appendChild(addCard);
+  // Source tabs: system texts | mine
+  let bankTab = "system"; // "system" | "mine" | "ny"
+  const tabBar = el("div",{style:{display:"flex",gap:"0",marginBottom:"20px",borderRadius:"10px",overflow:"hidden",border:"1.5px solid #dde"}});
+  const tabContent = el("div",{});
+  frag.appendChild(tabBar);
+  frag.appendChild(tabContent);
 
-  const listWrap = el("div",{});
-  frag.appendChild(listWrap);
+  function tabBtn(key, label){
+    return el("button",{"data-btab":key,style:{
+      flex:"1",border:"none",padding:"9px 6px",fontSize:"13px",cursor:"pointer",
+      background:key===bankTab?"#1a6b4a":"#f8f8f8",
+      color:key===bankTab?"#fff":"#444",
+      fontWeight:key===bankTab?"700":"400",
+    },click:()=>{ bankTab=key; renderTabBtns(); renderBankTab(); }},label);
+  }
+  function renderTabBtns(){
+    tabBar.querySelectorAll("[data-btab]").forEach(b=>{
+      const a=b.dataset.btab===bankTab;
+      b.style.background=a?"#1a6b4a":"#f8f8f8";
+      b.style.color=a?"#fff":"#444";
+      b.style.fontWeight=a?"700":"400";
+    });
+  }
+  tabBar.appendChild(tabBtn("system","📚 Systemtekster"));
+  tabBar.appendChild(tabBtn("mine","Mine tekster"));
+  tabBar.appendChild(tabBtn("ny","+ Ny tekst"));
 
-  async function loadTexts(){
-    if(!teacherState.bankTexts){
-      const r=await api("/api/teacher/bank/texts").catch(()=>null);
-      teacherState.bankTexts=r?.ok ? await r.json() : [];
-    }
-    listWrap.innerHTML="";
-    if(!teacherState.bankTexts.length){
-      listWrap.appendChild(el("p",{style:{color:"#888"}},"Ingen tekster lagret ennå."));
-      return;
-    }
-    teacherState.bankTexts.forEach(txt=>{
-      const card=el("div",{class:"card",style:{marginBottom:"12px",padding:"14px 16px"}});
-      const hdr=el("div",{style:{display:"flex",alignItems:"flex-start",gap:"10px",marginBottom:"6px"}});
-      const info=el("div",{style:{flex:"1"}});
-      info.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px"}},$esc(txt.title)));
-      if(txt.topic) info.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginTop:"2px"}},$esc(txt.topic)));
+  let expandedTextId = null; // for preview
+
+  function renderTextCard(txt, isCustom){
+    const card=el("div",{class:"card",style:{marginBottom:"10px",padding:"0",overflow:"hidden"}});
+    const hdr=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px",cursor:"pointer",userSelect:"none"},
+      click:()=>{ expandedTextId = expandedTextId===txt.id ? null : txt.id; renderBankTab(); }
+    });
+    const chevron=el("span",{style:{fontSize:"12px",color:"#888",marginRight:"2px"}}, expandedTextId===txt.id?"▼":"▶");
+    const info=el("div",{style:{flex:"1"}});
+    info.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px"}},$esc(txt.title||txt.id)));
+    const meta=[];
+    if(txt.topic) meta.push(txt.topic);
+    if(txt.level) meta.push(txt.level);
+    if(meta.length) info.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginTop:"2px"}},$esc(meta.join(" · "))));
+    hdr.appendChild(chevron); hdr.appendChild(info);
+    if(isCustom){
       const delBtn=el("button",{class:"btn-danger",style:{fontSize:"12px",padding:"4px 10px",flexShrink:"0"},
-        click: async ()=>{
+        click: async (e)=>{
+          e.stopPropagation();
           if(!confirm(`Slette "${txt.title}"?`)) return;
           const r=await api(`/api/teacher/bank/texts/${encodeURIComponent(txt.id)}`,{method:"DELETE"}).catch(()=>null);
-          if(r?.ok){teacherState.bankTexts=null;laererSetView("bank-texts");}
+          if(r?.ok){teacherState.bankTexts=null;expandedTextId=null;renderBankTab();}
           else toast("Kunne ikke slette teksten");
         }
       },"Slett");
-      hdr.appendChild(info);hdr.appendChild(delBtn);
-      card.appendChild(hdr);
-      const preview=el("div",{style:{fontSize:"13px",color:"#555",lineHeight:"1.5",maxHeight:"60px",overflow:"hidden"}});
-      preview.textContent=(txt.body||"").substring(0,200)+(txt.body.length>200?"…":"");
-      card.appendChild(preview);
-      listWrap.appendChild(card);
-    });
+      hdr.appendChild(delBtn);
+    }
+    card.appendChild(hdr);
+    if(expandedTextId===txt.id){
+      const body=el("div",{style:{padding:"0 14px 14px",borderTop:"1px solid #eee",fontSize:"13px",color:"#333",lineHeight:"1.7",whiteSpace:"pre-wrap"}});
+      body.textContent=txt.body||txt.content||"";
+      card.appendChild(body);
+    }
+    return card;
   }
-  loadTexts();
+
+  async function renderBankTab(){
+    tabContent.innerHTML="";
+    renderTabBtns();
+
+    if(bankTab==="system"){
+      // System texts from the app's text bank, with topic filter
+      const texts = await loadLesingTexts().catch(()=>null) || [];
+      const topicFilter=el("select",{style:{width:"100%",marginBottom:"12px",padding:"7px 10px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
+      topicFilter.appendChild(el("option",{value:""},"Alle temaer"));
+      const topics=[...new Set(texts.map(t=>t.topic||"").filter(Boolean))].sort();
+      topics.forEach(t=>topicFilter.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+      tabContent.appendChild(topicFilter);
+      const listWrap=el("div",{});
+      tabContent.appendChild(listWrap);
+
+      function renderSystemList(){
+        listWrap.innerHTML="";
+        const topic=topicFilter.value;
+        const filtered=topic?texts.filter(t=>(t.topic||"")===topic):texts;
+        if(!filtered.length){ listWrap.appendChild(el("p",{style:{color:"#888"}},"Ingen tekster.")); return; }
+        filtered.forEach(t=>listWrap.appendChild(renderTextCard(t, false)));
+      }
+      topicFilter.addEventListener("change",renderSystemList);
+      renderSystemList();
+
+    } else if(bankTab==="mine"){
+      if(!teacherState.bankTexts){
+        const r=await api("/api/teacher/bank/texts").catch(()=>null);
+        teacherState.bankTexts=r?.ok?await r.json():[];
+      }
+      if(!teacherState.bankTexts.length){
+        tabContent.appendChild(el("p",{style:{color:"#888"}},"Ingen egne tekster ennå. Bruk «+ Ny tekst» for å legge til."));
+        return;
+      }
+      const topicFilter=el("select",{style:{width:"100%",marginBottom:"12px",padding:"7px 10px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
+      topicFilter.appendChild(el("option",{value:""},"Alle temaer"));
+      const topics=[...new Set(teacherState.bankTexts.map(t=>t.topic||"").filter(Boolean))].sort();
+      topics.forEach(t=>topicFilter.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+      tabContent.appendChild(topicFilter);
+      const listWrap=el("div",{});
+      tabContent.appendChild(listWrap);
+
+      function renderMineList(){
+        listWrap.innerHTML="";
+        const topic=topicFilter.value;
+        const filtered=topic?teacherState.bankTexts.filter(t=>(t.topic||"")===topic):teacherState.bankTexts;
+        if(!filtered.length){ listWrap.appendChild(el("p",{style:{color:"#888"}},"Ingen tekster for dette temaet.")); return; }
+        filtered.forEach(t=>listWrap.appendChild(renderTextCard(t, true)));
+      }
+      topicFilter.addEventListener("change",renderMineList);
+      renderMineList();
+
+    } else {
+      // New text form
+      const addCard=el("div",{class:"card",style:{padding:"16px"}});
+      const titleIn=el("input",{type:"text",placeholder:"Tittel",style:{width:"100%",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
+      const topicSel=el("select",{style:{width:"100%",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
+      topicSel.appendChild(el("option",{value:""},"Velg tema (valgfritt)"));
+      VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+      const bodyIn=el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"150px",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
+      const addErr=el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"6px",display:"none"}});
+      const addBtn=el("button",{class:"btn-primary",style:{width:"100%"},
+        click: async ()=>{
+          const title=(titleIn.value||"").trim();
+          const body=(bodyIn.value||"").trim();
+          if(!title){addErr.textContent="Tittel er påkrevd";addErr.style.display="";return;}
+          if(!body){addErr.textContent="Tekst er påkrevd";addErr.style.display="";return;}
+          addErr.style.display="none";
+          addBtn.disabled=true; addBtn.textContent="Lagrer…";
+          const r=await api("/api/teacher/bank/texts",{method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({title,topic:topicSel.value,body})}).catch(()=>null);
+          if(r?.ok){
+            teacherState.bankTexts=null;
+            titleIn.value=""; topicSel.value=""; bodyIn.value="";
+            addBtn.disabled=false; addBtn.textContent="Lagre tekst";
+            bankTab="mine"; renderBankTab();
+          } else {
+            const d=await r?.json().catch(()=>({detail:"Ukjent feil"}));
+            addErr.textContent=d?.detail||"Kunne ikke lagre";addErr.style.display="";
+            addBtn.disabled=false; addBtn.textContent="Lagre tekst";
+          }
+        }
+      },"Lagre tekst");
+      addCard.appendChild(titleIn); addCard.appendChild(topicSel); addCard.appendChild(bodyIn);
+      addCard.appendChild(addErr); addCard.appendChild(addBtn);
+      tabContent.appendChild(addCard);
+    }
+  }
+
+  renderBankTab();
   return frag;
 }
 
