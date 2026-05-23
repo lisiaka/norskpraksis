@@ -5689,8 +5689,11 @@ function buildMineOppgaver(){
           itemWrap.appendChild(promptDiv);
           const writeBtn = el("button",{class:"btn-primary",style:{fontSize:"13px",padding:"7px 16px"},
             click: ()=>{
+              const raw=item.content.topic||"";
+              // TOPICS uses ASCII keys (miljo, sprak); convert canonical strings if needed
+              const topicKey=TOPICS[raw]?raw:raw.replace(/ø/g,"o").replace(/å/g,"a").replace(/æ/g,"ae");
+              state.currentTopic=TOPICS[topicKey]?topicKey:Object.keys(TOPICS)[0];
               state.currentPrompt={title:item.content.prompt_title||"Skriveoppgave",text:item.content.prompt_text||""};
-              state.currentTopic=null;
               state.essay="";
               setTab("skriv");
             }
