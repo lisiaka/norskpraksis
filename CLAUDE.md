@@ -50,13 +50,34 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - `setninger` — sentence practice; "Lagre og neste" navigates to next word without a sentence
 - `flashcards` — quiz modes (choice + write); filter by topic / time / learning status
 - `setningsbygging` — word-sort game
-- `oppgaver` — essay prompts
-- `skriv` — essay editor with Claude grammar feedback (output in Norwegian)
-- `mineoppgaver` — teacher-assigned tasks (Mine oppgaver); students mark items done
-- `plan` — study plan (unlocks texts in Lesing tab)
+- `oppgaver` — essay prompts (48 system prompts across 12 topics)
+- `skriv` — essay editor with Claude grammar feedback (output in Norwegian); `state.currentPrompt = {title, text}` and `state.currentTopic` (TOPICS ASCII key) must be set before navigating here
+- `mineoppgaver` — teacher-assigned tasks; "Les teksten →" opens Lesing reader, "Skriv stilen →" opens Skriv with prompt (converts topic to TOPICS ASCII key), "Legg til i ordbank →" imports words + auto-marks done
+- `plan` — personal study plan stored server-side
 - `statistikk` — learning statistics
 - `innstillinger` — profile, subscription management (upgrade/cancel)
-- `laerer` — teacher dashboard (roster, per-student progress, essays with formatted AI feedback, reading summaries/Gjenfortellinger with AI feedback; bank views for teacher's saved texts and prompts)
+- `laerer` — teacher dashboard; view is controlled by `teacherState.view` (see below)
+
+**teacherState** — controls which sub-view the teacher sees within the `laerer` tab:
+- `view` — `"roster"` | `"progress"` | `"essays"` | `"essay-detail"` | `"texts"` | `"words"` | `"sentences"` | `"plan"` | `"summaries"` | `"assignments"` | `"bank-texts"` | `"bank-prompts"`
+- `students` — cached student list (`null` = not loaded yet)
+- `selectedStudent` — current student object for detail views
+- `bankTexts` / `bankPrompts` — cached teacher bank arrays (`null` = not loaded)
+- Call `laererSetView(view)` to change view and re-render
+
+**Teacher sidebar nav** — always visible when `state.tab === "laerer"`:
+- "👩‍🏫 Klassen min" → `teacherState.view = "roster"`
+- "📖 Tekstbank" → `teacherState.view = "bank-texts"`
+- "✍️ Oppgavebank" → `teacherState.view = "bank-prompts"`
+- "📚 Ordbank..." → `setTab("ordbank")` (teacher's own ordbank)
+
+**Bank views** (`buildLaererBankTexts`, `buildLaererBankPrompts`):
+- Two-column layout: left = tabbed content, right = sticky assignment panel
+- Each card has a checkbox; checked items accumulate in `selectedItems[]`
+- Assignment panel shows selected items, student checkboxes (+ "alle elever" toggle), optional label, and a "Gi oppgave" button → `POST /api/teacher/assignments`
+- Tekstbank tabs: Systemtekster (from `lesing-tekster.json`) | Mine tekster | + Ny tekst
+- Oppgavebank tabs: Systemoppgaver (from `PROMPTS` object, all 48 prompts) | Mine oppgaver | + Ny oppgave
+- Text cards use `.text` field for system texts (NOT `.body` or `.content`) — `txt.body||txt.content||txt.text`
 
 **Subscription access logic:**
 - `isActiveSubscriber()` — returns true if `state.subscription.status` is active/grace/cancelled-but-not-expired

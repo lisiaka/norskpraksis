@@ -44,6 +44,15 @@ Write essays with word-bank integration — words from the bank get highlighted.
 
 Each text has 3 comprehension questions (2 multiple-choice + 1 open-ended). After reading, a **Gjenfortell** section lets the student write a summary in their own words and get instant Claude AI feedback (level, comprehension, vocabulary, grammar). Summaries are saved to the backend and visible to the teacher. Text cards in the list show a **📝 Sammendrag** badge for texts the student has summarised.
 
+### 📋 Mine oppgaver — Assigned tasks
+Tasks assigned by the teacher appear here as cards, grouped by assignment. Each item shows its type and content, and has an action button that navigates directly to the right interface:
+
+- **📖 Lesetekst** → "Les teksten →" opens the text in the Lesing reader with comprehension questions and Gjenfortell.
+- **✍️ Skriveoppgave** → "Skriv stilen →" opens the Skriv editor with the assigned prompt pre-loaded.
+- **📚 Ordliste** → "Legg til i ordbank →" imports all words into the student's ordbank and marks the item as done automatically.
+
+Reading and essay items have a separate "✓ Marker som gjort" button for explicit completion.
+
 ### 📅 Plan — Personal study plan
 Generates a week-by-week schedule based on months until the exam and practice days per week. Each week gets reading targets, essay targets, and word-mastery targets (a word counts as fully mastered only when it is (1) in the ordbank, (2) answered correctly in flashcards, and (3) used in a written sentence). Plans are stored server-side and progress is reflected live.
 
@@ -53,19 +62,41 @@ KPI summary of texts read, games played, essays written and overall correct-answ
 ### ⚙️ Innstillinger
 Profile settings — change name, switch role (student ↔ teacher), delete account (GDPR-compliant — schedules deletion via `/api/me`).
 
-## Teacher view — 👩‍🏫 Klassen min
+## Teacher view
 
-Teachers see a single dashboard tab that contains:
+Teachers see a sidebar with three navigation items: **👩‍🏫 Klassen min**, **📖 Tekstbank**, and **✍️ Oppgavebank**. The teacher's own Ordbank is accessible via the standard tab bar.
 
-- **Klasselisten** — all assigned students. Teachers can add a student by e-mail and remove a student from the class.
-- **Elevprofil** — for each student:
-  - Progress KPIs: study plans created, distinct texts read, words in bank, distinct words practiced, flashcard sessions completed, essays submitted, sentences written.
+### 👩‍🏫 Klassen min — Class dashboard
+
+- **Klasselisten** — all assigned students. Add a student by e-mail or remove from the class.
+- **Gi oppgave** — assign tasks to one or all students in a single operation (word list, reading texts, essay prompt).
+- **Elevprofil** — click any student to open their detail view:
+  - Progress KPIs: study plans created, distinct texts read, words in bank, distinct words practiced, flashcard sessions, essays submitted, sentences written.
+  - **Mine oppgaver** — teacher view of all assigned tasks for this student, with done/not-done status per item.
   - **Tekster** — every text the student has opened, with last-read timestamp and times-read count.
-  - **Ordbank** — words grouped by topic, with a "practiced" flag (appeared in a flashcard session) so it's obvious which ones the student is actively learning.
+  - **Ordbank** — words grouped by topic, with a "practiced" flag.
   - **Plan** — the student's current study plan with live read/written progress.
   - **Setninger** — every sentence the student has written, linked to the source word.
-  - **Essays** — full essays with the AI grammar/structure feedback rendered as a formatted card (level badge, grammar errors, strengths/improvements), plus a per-essay **comment + Like** widget. Reviews are stored server-side and surface back on the student's own essay card.
-  - **Gjenfortellinger** — all reading summaries the student has written, with Claude AI feedback. Texts with a summary are flagged with a 📝 badge in the "Tekster lest" list.
+  - **Essays** — full essays with the AI feedback rendered as a formatted card (level badge, grammar errors, strengths/improvements), plus a per-essay **comment + Like** widget. Teacher reviews surface back on the student's essay card.
+  - **Gjenfortellinger** — all reading summaries the student has written, with Claude AI feedback.
+
+### 📖 Tekstbank — Text bank
+
+Three tabs:
+- **Systemtekster** — all 120 app texts, filterable by topic. Click any card to expand and read the full text. Check the box to add it to the assignment panel.
+- **Mine tekster** — custom texts saved by the teacher. Filterable by topic, expandable, deletable. Check to assign.
+- **+ Ny tekst** — form to write and save a new text to the teacher's personal bank.
+
+A sticky right-side panel lets the teacher select one or more items, pick students (individually or all), add an optional label, and click **Gi oppgave** to create the assignment instantly without navigating back to the class view.
+
+### ✍️ Oppgavebank — Essay prompt bank
+
+Same three-tab structure:
+- **Systemoppgaver** — all 48 built-in essay prompts, grouped by topic with expandable text preview. Check to assign.
+- **Mine oppgaver** — custom prompts saved by the teacher. Expandable, deletable. Check to assign.
+- **+ Ny oppgave** — form to write and save a new prompt to the teacher's bank.
+
+Same right-side assignment panel as Tekstbank.
 
 ## Authentication
 
