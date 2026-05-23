@@ -6034,7 +6034,7 @@ function buildGiOppgaver(students){
             const row=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",borderBottom:"1px solid #f0f0f0",cursor:"pointer",background:alreadyAdded?"#e8f5ee":"#fff"},
               click:()=>{
                 if(alreadyAdded){ selectedTexts.splice(selectedTexts.findIndex(st=>st.content.text_id===t.id),1); }
-                else { selectedTexts.push({item_type:"reading_text",content:{source:"bank",text_id:t.id,title:t.title||"",topic:t.topic||"",body:t.body||t.content||""}}); }
+                else { selectedTexts.push({item_type:"reading_text",content:{source:"bank",text_id:t.id,title:t.title||"",topic:t.topic||"",body:t.body||t.content||t.text||""}}); }
                 updateSelectedTextsDisplay(); renderTextList();
               }
             });
@@ -6446,7 +6446,7 @@ function buildLaererBankTexts(){
     let expanded = false;
 
     const bodyDiv=el("div",{style:{display:"none",padding:"0 14px 14px",borderTop:"1px solid #eee",fontSize:"13px",color:"#333",lineHeight:"1.7",whiteSpace:"pre-wrap"}});
-    bodyDiv.textContent=txt.body||txt.content||"";
+    bodyDiv.textContent=txt.body||txt.content||txt.text||"";
 
     const chevron=el("span",{style:{fontSize:"12px",color:"#888",marginRight:"2px",minWidth:"12px"}},"▶");
     const hdr=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px",cursor:"pointer",userSelect:"none"},
