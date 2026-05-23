@@ -1007,9 +1007,11 @@ function renderTabs(){
   c.appendChild(el("div",{class:"sidebar-brand"},"🇳🇴 B2 Norsk"));
 
   if(state.userRole==="teacher"){
-    // Teachers only see the teacher dashboard
     c.appendChild(el("div",{class:"nav-section-label"},"Lærer"));
-    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"?" active":""),click(){setTab("laerer");}}, "👩‍🏫 Klassen min"));
+    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"?" active":""),click(){setTab("laerer");}}, "👩‍\u200d🏫 Klassen min"));
+    c.appendChild(el("div",{class:"nav-section-label"},"Mine banker"));
+    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="bank-texts"?" active":""),click(){teacherState.view="bank-texts";setTab("laerer");}}, "📖 Tekstbank"));
+    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="bank-prompts"?" active":""),click(){teacherState.view="bank-prompts";setTab("laerer");}}, "✍\ufe0f Oppgavebank"));
     c.appendChild(el("div",{class:"nav-section-label"},"Konto"));
     c.appendChild(el("button",{class:"tab-btn"+(state.tab==="innstillinger"?" active":""),click(){setTab("innstillinger");}}, "⚙️ Innstillinger"));
     return;
@@ -1031,7 +1033,8 @@ function renderTabs(){
       {key:"skriv",       label:"📝 Skriv"},
     ]},
     {label:"Oversikt",tabs:[
-      {key:"plan",        label:"📋 Mine oppgaver"},
+      {key:"mineoppgaver", label:"📋 Mine oppgaver"},
+      {key:"plan",        label:"📅 Studieplan"},
       {key:"statistik",   label:"📊 Statistikk"},
       {key:"innstillinger", label:"⚙️ Innstillinger"},
     ]},
@@ -1041,7 +1044,7 @@ function renderTabs(){
     sec.tabs.forEach(t=>c.appendChild(el("button",{class:"tab-btn"+(state.tab===t.key?" active":""),click(){setTab(t.key);}},t.label)));
   });
 }
-function setTab(tab){ state.tab=tab; if(tab==="statistik"||tab==="plan") statsCache=null; renderTabs(); renderContent(); }
+function setTab(tab){ state.tab=tab; if(tab==="statistik"||tab==="plan"||tab==="mineoppgaver") statsCache=null; renderTabs(); renderContent(); }
 
 function renderContent(){
   const c=$("content"); c.innerHTML="";
@@ -1052,7 +1055,8 @@ function renderContent(){
   if(state.tab==="skriv")       c.appendChild(buildSkriv());
   if(state.tab==="lesing")      c.appendChild(buildLesing());
   if(state.tab==="ordstilling") c.appendChild(buildOrdstilling());
-  if(state.tab==="plan")        c.appendChild(buildMineOppgaver());
+  if(state.tab==="mineoppgaver") c.appendChild(buildMineOppgaver());
+  if(state.tab==="plan")        c.appendChild(buildPlan());
   if(state.tab==="statistik")     c.appendChild(buildStatistik());
   if(state.tab==="innstillinger") c.appendChild(buildInnstillinger());
   if(state.tab==="laerer")        c.appendChild(buildLaerer());
@@ -4631,7 +4635,7 @@ function switchUser(){
     state.sessionToken = savedToken;
     api("/api/me").then(r=>{
       if(r.ok) return r.json().then(user=>{
-        onLoginSuccess(savedToken, {id:savedId, name:localStorage.getItem("b2_user_name")||"", email:localStorage.getItem("b2_user_email")||user.email});
+        onLoginSuccess(savedToken, {id:savedId, name:localStorage.getItem("b2_user_name")||"", email:localStorage.getItem("b2_user_email")||user.email, role:user.role});
       });
       else loginScreen.style.display="flex";
     }).catch(()=>{ loginScreen.style.display="flex"; });
@@ -4845,7 +4849,7 @@ function buildInnstillinger(){
 // ── LÆRER DASHBOARD ───────────────────────────────────────────────────────
 
 const teacherState = {
-  view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences" | "summaries"
+  view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences" | "summaries" | "assignments" | "bank-texts" | "bank-prompts"
   students: null,        // cached list from API
   selectedStudent: null, // { id, name, email, assigned_at }
   studentProgress: null, // progress response from API
@@ -4856,6 +4860,9 @@ const teacherState = {
   studentSentences: null,// list of sentences from API
   studentPlan: null,     // plan + progress from API
   studentSummaries: null,// list of reading summaries from API
+  studentAssignments: null, // list of assignments from teacher view
+  bankTexts: null,       // cached teacher text bank
+  bankPrompts: null,     // cached teacher prompt bank
 };
 
 function buildLaerer(){
@@ -4871,6 +4878,9 @@ function buildLaerer(){
   else if(teacherState.view === "sentences")  wrap.appendChild(buildLaererSentences());
   else if(teacherState.view === "plan")       wrap.appendChild(buildLaererPlan());
   else if(teacherState.view === "summaries")  wrap.appendChild(buildLaererSummaries());
+  else if(teacherState.view === "assignments") wrap.appendChild(buildLaererAssignments());
+  else if(teacherState.view === "bank-texts")  wrap.appendChild(buildLaererBankTexts());
+  else if(teacherState.view === "bank-prompts") wrap.appendChild(buildLaererBankPrompts());
 
   frag.appendChild(wrap);
   return frag;
@@ -4950,6 +4960,7 @@ function buildLaererRoster(){
         teacherState.studentSentences=null;
         teacherState.studentPlan=null;
         teacherState.studentSummaries=null;
+        teacherState.studentAssignments=null;
         laererSetView("progress");
       }});
       info.appendChild(el("div",{style:{fontWeight:"600"}},$esc(s.name)));
@@ -4997,6 +5008,7 @@ function buildLaererProgress(){
 
     const grid = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:"12px",marginBottom:"24px"}});
     [
+      ["📋","Mine oppgaver",null,()=>{teacherState.studentAssignments=null;laererSetView("assignments");}],
       ["📅","Studieplan",null,()=>{teacherState.studentPlan=null;laererSetView("plan");}],
       ["📖","Tekster lest",p.texts_read,()=>{teacherState.studentTexts=null;laererSetView("texts");}],
       ["🔤","Ord i ordbank",p.words_in_bank,()=>{teacherState.studentWords=null;laererSetView("words");}],
@@ -5865,95 +5877,346 @@ function buildGiOppgaver(students){
       modeContent.appendChild(wSec);
     }
 
-    // Text section
+    // ── Text section (topic-filtered, multi-select, includes teacher bank) ──
     const txtSec = el("div",{style:{marginBottom:"14px",padding:"12px",background:"#f9fafb",borderRadius:"8px",border:"1px solid #eee"}});
-    txtSec.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"8px"}},"📖 Lesetekst (valgfritt):"));
+    txtSec.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"8px"}},"📖 Lesetekster (valgfritt, kan velge flere):"));
 
-    let txtCustom = false;
-    const txtToggle = el("div",{style:{display:"flex",gap:"8px",marginBottom:"8px"}});
-    const txtBankBtn = el("button",{style:{fontSize:"12px",padding:"4px 10px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"6px",cursor:"pointer"},
-      click:()=>{txtCustom=false;txtBankBtn.style.background="#1a6b4a";txtBankBtn.style.color="#fff";txtCustomBtn.style.background="#f0f0f0";txtCustomBtn.style.color="#333";txtBankWrap.style.display="";txtCustomArea.style.display="none";}
-    },"Fra tekstbank");
-    const txtCustomBtn = el("button",{style:{fontSize:"12px",padding:"4px 10px",background:"#f0f0f0",color:"#333",border:"none",borderRadius:"6px",cursor:"pointer"},
-      click:()=>{txtCustom=true;txtCustomBtn.style.background="#1a6b4a";txtCustomBtn.style.color="#fff";txtBankBtn.style.background="#f0f0f0";txtBankBtn.style.color="#333";txtBankWrap.style.display="none";txtCustomArea.style.display="";}
-    },"Egendefinert tekst");
-    txtToggle.appendChild(txtBankBtn); txtToggle.appendChild(txtCustomBtn);
-    txtSec.appendChild(txtToggle);
+    // Source tabs: bank | mine | custom
+    let txtSource = "bank"; // "bank" | "mine" | "custom"
+    const txtSrcWrap = el("div",{style:{display:"flex",gap:"6px",marginBottom:"8px",flexWrap:"wrap"}});
+    function makeSrcBtn(key, label){
+      return el("button",{"data-txtsrc":key,style:{fontSize:"11px",padding:"3px 10px",border:"1px solid #ccc",borderRadius:"6px",cursor:"pointer",
+        background:key===txtSource?"#1a6b4a":"#f0f0f0",color:key===txtSource?"#fff":"#333"},
+        click:()=>{ txtSource=key; renderTxtSourceBtns(); renderTxtPicker(); }
+      },label);
+    }
+    txtSrcWrap.appendChild(makeSrcBtn("bank","Fra tekstbank"));
+    txtSrcWrap.appendChild(makeSrcBtn("mine","Egne tekster"));
+    txtSrcWrap.appendChild(makeSrcBtn("custom","Skriv ny tekst"));
+    txtSec.appendChild(txtSrcWrap);
 
-    const txtBankWrap = el("div",{});
-    const txtSel = el("select",{style:{width:"100%",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
-    txtSel.appendChild(el("option",{value:""},"Ingen lesetekst"));
-    // Populate lazily
-    loadLesingTexts().then(texts=>{
-      if(texts) texts.forEach(t=>txtSel.appendChild(el("option",{value:t.id,"data-text":JSON.stringify({id:t.id,title:t.title,topic:t.topic||"",body:t.body||t.content||""})},t.title||(t.id))));
-    });
-    txtBankWrap.appendChild(txtSel);
-    txtSec.appendChild(txtBankWrap);
+    function renderTxtSourceBtns(){
+      txtSrcWrap.querySelectorAll("[data-txtsrc]").forEach(b=>{
+        const active=b.dataset.txtsrc===txtSource;
+        b.style.background=active?"#1a6b4a":"#f0f0f0";
+        b.style.color=active?"#fff":"#333";
+      });
+    }
 
-    const txtCustomArea = el("textarea",{placeholder:"Skriv inn teksten her…",
-      style:{display:"none",width:"100%",minHeight:"100px",padding:"8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
-    txtSec.appendChild(txtCustomArea);
+    const txtPickerWrap = el("div",{});
+    txtSec.appendChild(txtPickerWrap);
 
-    items._getText = () => {
-      if(txtCustom){
-        const body=(txtCustomArea.value||"").trim();
-        if(!body) return null;
-        return {item_type:"reading_text",content:{source:"custom",title:"Egendefinert tekst",topic:"",body}};
+    // Selected texts: array of {item_type, content}
+    const selectedTexts = [];
+    const selectedTextsDisplay = el("div",{style:{marginTop:"8px"}});
+    txtSec.appendChild(selectedTextsDisplay);
+
+    function updateSelectedTextsDisplay(){
+      selectedTextsDisplay.innerHTML="";
+      if(!selectedTexts.length) return;
+      selectedTexts.forEach((t,i)=>{
+        const row=el("div",{style:{display:"flex",alignItems:"center",gap:"6px",background:"#e8f5ee",borderRadius:"6px",padding:"4px 8px",marginBottom:"4px",fontSize:"12px"}});
+        row.appendChild(el("span",{style:{flex:"1"}},$esc(t.content.title||"Tekst "+(i+1))));
+        row.appendChild(el("button",{style:{background:"none",border:"none",cursor:"pointer",color:"#c0392b",fontSize:"14px",padding:"0 2px"},
+          click:()=>{ selectedTexts.splice(i,1); updateSelectedTextsDisplay(); }
+        },"×"));
+        selectedTextsDisplay.appendChild(row);
+      });
+    }
+
+    let allLesingTexts = null;
+    let teacherBankTextsCache = null;
+
+    async function renderTxtPicker(){
+      txtPickerWrap.innerHTML="";
+
+      if(txtSource==="bank"){
+        // Topic filter + text list from app text bank
+        if(!allLesingTexts) allLesingTexts = await loadLesingTexts().catch(()=>null);
+        const texts = allLesingTexts || [];
+        const topicFilter = el("select",{style:{width:"100%",marginBottom:"8px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+        topicFilter.appendChild(el("option",{value:""},"Alle temaer"));
+        const topicsInBank = [...new Set(texts.map(t=>t.topic||"").filter(Boolean))].sort();
+        topicsInBank.forEach(t=>topicFilter.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+        txtPickerWrap.appendChild(topicFilter);
+
+        const listWrap = el("div",{style:{maxHeight:"200px",overflowY:"auto",border:"1px solid #eee",borderRadius:"6px"}});
+        txtPickerWrap.appendChild(listWrap);
+
+        function renderTextList(){
+          listWrap.innerHTML="";
+          const topic = topicFilter.value;
+          const filtered = topic ? texts.filter(t=>(t.topic||"")=== topic) : texts;
+          if(!filtered.length){
+            listWrap.appendChild(el("div",{style:{padding:"10px",color:"#888",fontSize:"13px"}},"Ingen tekster for dette temaet."));
+            return;
+          }
+          filtered.forEach(t=>{
+            const alreadyAdded = selectedTexts.some(st=>st.content.text_id===t.id);
+            const row=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",borderBottom:"1px solid #f0f0f0",cursor:"pointer",background:alreadyAdded?"#e8f5ee":"#fff"},
+              click:()=>{
+                if(alreadyAdded){ selectedTexts.splice(selectedTexts.findIndex(st=>st.content.text_id===t.id),1); }
+                else { selectedTexts.push({item_type:"reading_text",content:{source:"bank",text_id:t.id,title:t.title||"",topic:t.topic||"",body:t.body||t.content||""}}); }
+                updateSelectedTextsDisplay(); renderTextList();
+              }
+            });
+            row.appendChild(el("span",{style:{fontSize:"18px"}},$esc(alreadyAdded?"✓":"")));
+            const info=el("div",{style:{flex:"1"}});
+            info.appendChild(el("div",{style:{fontSize:"13px",fontWeight:"600"}},$esc(t.title||t.id)));
+            if(t.topic) info.appendChild(el("div",{style:{fontSize:"11px",color:"#888"}},$esc(t.topic)));
+            row.appendChild(info);
+            listWrap.appendChild(row);
+          });
+        }
+        topicFilter.addEventListener("change",renderTextList);
+        renderTextList();
+
+      } else if(txtSource==="mine"){
+        // Teacher's own bank texts
+        if(!teacherBankTextsCache){
+          const r=await api("/api/teacher/bank/texts").catch(()=>null);
+          teacherBankTextsCache = r?.ok ? await r.json() : [];
+        }
+        const myTexts = teacherBankTextsCache;
+        if(!myTexts.length){
+          const msg=el("div",{style:{fontSize:"13px",color:"#888",padding:"8px 0"}});
+          msg.innerHTML='Ingen egne tekster ennå. <a href="#" style="color:#1a6b4a">Gå til tekstbank</a> for å lagre tekster.';
+          msg.querySelector("a").addEventListener("click",(e)=>{e.preventDefault();teacherState.view="bank-texts";renderContent();});
+          txtPickerWrap.appendChild(msg);
+          return;
+        }
+        const topicFilter=el("select",{style:{width:"100%",marginBottom:"8px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+        topicFilter.appendChild(el("option",{value:""},"Alle temaer"));
+        const topics=[...new Set(myTexts.map(t=>t.topic||"").filter(Boolean))].sort();
+        topics.forEach(t=>topicFilter.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+        txtPickerWrap.appendChild(topicFilter);
+
+        const listWrap=el("div",{style:{maxHeight:"180px",overflowY:"auto",border:"1px solid #eee",borderRadius:"6px"}});
+        txtPickerWrap.appendChild(listWrap);
+
+        function renderMineList(){
+          listWrap.innerHTML="";
+          const topic=topicFilter.value;
+          const filtered=topic?myTexts.filter(t=>(t.topic||"")===topic):myTexts;
+          filtered.forEach(t=>{
+            const alreadyAdded=selectedTexts.some(st=>st.content.bank_text_id===t.id);
+            const row=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",borderBottom:"1px solid #f0f0f0",cursor:"pointer",background:alreadyAdded?"#e8f5ee":"#fff"},
+              click:()=>{
+                if(alreadyAdded){ selectedTexts.splice(selectedTexts.findIndex(st=>st.content.bank_text_id===t.id),1); }
+                else { selectedTexts.push({item_type:"reading_text",content:{source:"teacher_bank",bank_text_id:t.id,title:t.title,topic:t.topic||"",body:t.body}}); }
+                updateSelectedTextsDisplay(); renderMineList();
+              }
+            });
+            row.appendChild(el("span",{style:{fontSize:"18px"}},$esc(alreadyAdded?"✓":"")));
+            const info=el("div",{style:{flex:"1"}});
+            info.appendChild(el("div",{style:{fontSize:"13px",fontWeight:"600"}},$esc(t.title)));
+            if(t.topic) info.appendChild(el("div",{style:{fontSize:"11px",color:"#888"}},$esc(t.topic)));
+            row.appendChild(info);
+            listWrap.appendChild(row);
+          });
+          if(!filtered.length) listWrap.appendChild(el("div",{style:{padding:"10px",color:"#888",fontSize:"13px"}},"Ingen tekster for dette temaet."));
+        }
+        topicFilter.addEventListener("change",renderMineList);
+        renderMineList();
+
+      } else {
+        // Custom text entry with option to save to bank
+        const titleIn=el("input",{type:"text",placeholder:"Tittel (påkrevd)",style:{width:"100%",padding:"5px 8px",marginBottom:"6px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box"}});
+        const topicSel=el("select",{style:{width:"100%",marginBottom:"6px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+        topicSel.appendChild(el("option",{value:""},"Velg tema (valgfritt)"));
+        VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+        const bodyIn=el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"80px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"12px",boxSizing:"border-box",resize:"vertical",marginBottom:"6px"}});
+        const saveBankRow=el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"6px"}});
+        const saveBankCb=el("input",{type:"checkbox",id:"txt-save-bank"}); saveBankCb.checked=true;
+        saveBankRow.appendChild(saveBankCb);
+        saveBankRow.appendChild(el("label",{for:"txt-save-bank",style:{fontSize:"12px",cursor:"pointer"}},"Lagre i min tekstbank for gjenbruk"));
+        const addTxtBtn=el("button",{style:{fontSize:"12px",padding:"5px 12px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"6px",cursor:"pointer"},
+          click: async ()=>{
+            const title=(titleIn.value||"").trim();
+            const body=(bodyIn.value||"").trim();
+            if(!title||!body){ toast("Fyll inn tittel og tekst"); return; }
+            const item={item_type:"reading_text",content:{source:"custom",title,topic:topicSel.value,body}};
+            // Optionally save to bank
+            if(saveBankCb.checked){
+              const r=await api("/api/teacher/bank/texts",{method:"POST",headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({title,topic:topicSel.value,body})}).catch(()=>null);
+              if(r?.ok){ teacherBankTextsCache=null; teacherState.bankTexts=null; }
+            }
+            selectedTexts.push(item);
+            updateSelectedTextsDisplay();
+            titleIn.value=""; topicSel.value=""; bodyIn.value="";
+            toast("Tekst lagt til i oppgaven");
+          }
+        },"Legg til tekst →");
+        txtPickerWrap.appendChild(titleIn);
+        txtPickerWrap.appendChild(topicSel);
+        txtPickerWrap.appendChild(bodyIn);
+        txtPickerWrap.appendChild(saveBankRow);
+        txtPickerWrap.appendChild(addTxtBtn);
       }
-      const opt = txtSel.options[txtSel.selectedIndex];
-      if(!opt?.value) return null;
-      const t = JSON.parse(opt.dataset.text||"{}");
-      return {item_type:"reading_text",content:{source:"bank",text_id:t.id,title:t.title||"",topic:t.topic||"",body:t.body||""}};
-    };
+    }
+
+    items._getTexts = () => [...selectedTexts];
+    renderTxtPicker();
     modeContent.appendChild(txtSec);
 
-    // Essay section
+    // ── Essay section (bank + teacher bank + custom with save) ────────────
     const essaySec = el("div",{style:{marginBottom:"14px",padding:"12px",background:"#f9fafb",borderRadius:"8px",border:"1px solid #eee"}});
     essaySec.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"8px"}},"✍️ Skriveoppgave (valgfritt):"));
 
-    let essayCustom = false;
-    const essayToggle = el("div",{style:{display:"flex",gap:"8px",marginBottom:"8px"}});
-    const essayBankBtn = el("button",{style:{fontSize:"12px",padding:"4px 10px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"6px",cursor:"pointer"},
-      click:()=>{essayCustom=false;essayBankBtn.style.background="#1a6b4a";essayBankBtn.style.color="#fff";essayCustomBtn.style.background="#f0f0f0";essayCustomBtn.style.color="#333";essayBankWrap.style.display="";essayCustomArea.style.display="none";}
-    },"Fra oppgavebank");
-    const essayCustomBtn = el("button",{style:{fontSize:"12px",padding:"4px 10px",background:"#f0f0f0",color:"#333",border:"none",borderRadius:"6px",cursor:"pointer"},
-      click:()=>{essayCustom=true;essayCustomBtn.style.background="#1a6b4a";essayCustomBtn.style.color="#fff";essayBankBtn.style.background="#f0f0f0";essayBankBtn.style.color="#333";essayBankWrap.style.display="none";essayCustomArea.style.display="";}
-    },"Egendefinert oppgave");
-    essayToggle.appendChild(essayBankBtn); essayToggle.appendChild(essayCustomBtn);
-    essaySec.appendChild(essayToggle);
+    let essaySource = "bank"; // "bank" | "mine" | "custom"
+    const essaySrcWrap = el("div",{style:{display:"flex",gap:"6px",marginBottom:"8px",flexWrap:"wrap"}});
+    function makeEssaySrcBtn(key, label){
+      return el("button",{"data-essaysrc":key,style:{fontSize:"11px",padding:"3px 10px",border:"1px solid #ccc",borderRadius:"6px",cursor:"pointer",
+        background:key===essaySource?"#1a6b4a":"#f0f0f0",color:key===essaySource?"#fff":"#333"},
+        click:()=>{ essaySource=key; renderEssaySrcBtns(); renderEssayPicker(); }
+      },label);
+    }
+    essaySrcWrap.appendChild(makeEssaySrcBtn("bank","Fra oppgavebank"));
+    essaySrcWrap.appendChild(makeEssaySrcBtn("mine","Egne oppgaver"));
+    essaySrcWrap.appendChild(makeEssaySrcBtn("custom","Skriv ny oppgave"));
+    essaySec.appendChild(essaySrcWrap);
 
-    const essayBankWrap = el("div",{});
-    const essayTopicSel = el("select",{style:{width:"100%",marginBottom:"6px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
-    essayTopicSel.appendChild(el("option",{value:""},"Velg tema…"));
-    Object.entries(TOPICS).forEach(([key,meta])=>essayTopicSel.appendChild(el("option",{value:key},$esc(meta.name))));
-    const essayPromptSel = el("select",{style:{width:"100%",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
-    essayPromptSel.appendChild(el("option",{value:""},"Velg oppgave…"));
-    essayTopicSel.addEventListener("change",()=>{
-      essayPromptSel.innerHTML="";
-      essayPromptSel.appendChild(el("option",{value:""},"Velg oppgave…"));
-      const topic=essayTopicSel.value;
-      if(topic&&PROMPTS[topic]) PROMPTS[topic].forEach((p,i)=>essayPromptSel.appendChild(el("option",{value:String(i)},p.title||p.text.substring(0,60)+"…")));
-    });
-    essayBankWrap.appendChild(essayTopicSel);
-    essayBankWrap.appendChild(essayPromptSel);
-    essaySec.appendChild(essayBankWrap);
+    function renderEssaySrcBtns(){
+      essaySrcWrap.querySelectorAll("[data-essaysrc]").forEach(b=>{
+        const active=b.dataset.essaysrc===essaySource;
+        b.style.background=active?"#1a6b4a":"#f0f0f0";
+        b.style.color=active?"#fff":"#333";
+      });
+    }
 
-    const essayCustomArea = el("textarea",{placeholder:"Skriv inn oppgaveteksten her…",
-      style:{display:"none",width:"100%",minHeight:"80px",padding:"8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
-    essaySec.appendChild(essayCustomArea);
+    const essayPickerWrap = el("div",{});
+    essaySec.appendChild(essayPickerWrap);
 
-    items._getEssay = () => {
-      if(essayCustom){
-        const pt=(essayCustomArea.value||"").trim();
-        if(!pt) return null;
-        return {item_type:"essay_prompt",content:{source:"custom",topic:"",prompt_text:pt}};
+    let selectedEssay = null; // single essay item
+    const essaySelectedDisplay = el("div",{style:{marginTop:"8px"}});
+    essaySec.appendChild(essaySelectedDisplay);
+
+    function updateEssayDisplay(){
+      essaySelectedDisplay.innerHTML="";
+      if(!selectedEssay) return;
+      const row=el("div",{style:{display:"flex",alignItems:"center",gap:"6px",background:"#e8f5ee",borderRadius:"6px",padding:"4px 8px",fontSize:"12px"}});
+      row.appendChild(el("span",{style:{flex:"1"}},$esc(selectedEssay.content.prompt_title||selectedEssay.content.prompt_text.substring(0,60)+"…")));
+      row.appendChild(el("button",{style:{background:"none",border:"none",cursor:"pointer",color:"#c0392b",fontSize:"14px"},
+        click:()=>{ selectedEssay=null; updateEssayDisplay(); }
+      },"×"));
+      essaySelectedDisplay.appendChild(row);
+    }
+
+    let teacherBankPromptsCache = null;
+
+    function renderEssayPicker(){
+      essayPickerWrap.innerHTML="";
+
+      if(essaySource==="bank"){
+        const topicSel=el("select",{style:{width:"100%",marginBottom:"6px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+        topicSel.appendChild(el("option",{value:""},"Velg tema…"));
+        Object.entries(TOPICS).forEach(([key,meta])=>topicSel.appendChild(el("option",{value:key},$esc(meta.name))));
+        const promptSel=el("select",{style:{width:"100%",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+        promptSel.appendChild(el("option",{value:""},"Velg oppgave…"));
+        topicSel.addEventListener("change",()=>{
+          promptSel.innerHTML="";
+          promptSel.appendChild(el("option",{value:""},"Velg oppgave…"));
+          const t=topicSel.value;
+          if(t&&PROMPTS[t]) PROMPTS[t].forEach((p,i)=>promptSel.appendChild(el("option",{value:String(i)},p.title||p.text.substring(0,60)+"…")));
+        });
+        promptSel.addEventListener("change",()=>{
+          const topicKey=topicSel.value;
+          const idx=parseInt(promptSel.value);
+          if(!topicKey||isNaN(idx)||!PROMPTS[topicKey]?.[idx]) return;
+          const p=PROMPTS[topicKey][idx];
+          selectedEssay={item_type:"essay_prompt",content:{source:"bank",topic:topicKey,prompt_text:p.text,prompt_title:p.title}};
+          updateEssayDisplay();
+        });
+        essayPickerWrap.appendChild(topicSel);
+        essayPickerWrap.appendChild(promptSel);
+
+      } else if(essaySource==="mine"){
+        // Load teacher bank prompts
+        const loadAndRender = async () => {
+          if(!teacherBankPromptsCache){
+            const r=await api("/api/teacher/bank/prompts").catch(()=>null);
+            teacherBankPromptsCache=r?.ok?await r.json():[];
+          }
+          essayPickerWrap.innerHTML="";
+          if(!teacherBankPromptsCache.length){
+            const msg=el("div",{style:{fontSize:"13px",color:"#888",padding:"8px 0"}});
+            msg.innerHTML='Ingen egne oppgaver ennå. <a href="#" style="color:#1a6b4a">Gå til oppgavebank</a> for å lagre oppgaver.';
+            msg.querySelector("a").addEventListener("click",(e)=>{e.preventDefault();teacherState.view="bank-prompts";renderContent();});
+            essayPickerWrap.appendChild(msg);
+            return;
+          }
+          const topicFilter=el("select",{style:{width:"100%",marginBottom:"6px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+          topicFilter.appendChild(el("option",{value:""},"Alle temaer"));
+          const topics=[...new Set(teacherBankPromptsCache.map(p=>p.topic||"").filter(Boolean))].sort();
+          topics.forEach(t=>topicFilter.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+          essayPickerWrap.appendChild(topicFilter);
+
+          const listWrap=el("div",{style:{maxHeight:"160px",overflowY:"auto",border:"1px solid #eee",borderRadius:"6px"}});
+          essayPickerWrap.appendChild(listWrap);
+
+          function renderMyPrompts(){
+            listWrap.innerHTML="";
+            const topic=topicFilter.value;
+            const filtered=topic?teacherBankPromptsCache.filter(p=>(p.topic||"")===topic):teacherBankPromptsCache;
+            filtered.forEach(p=>{
+              const active=selectedEssay?.content?.bank_prompt_id===p.id;
+              const row=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",borderBottom:"1px solid #f0f0f0",cursor:"pointer",background:active?"#e8f5ee":"#fff"},
+                click:()=>{
+                  selectedEssay={item_type:"essay_prompt",content:{source:"teacher_bank",bank_prompt_id:p.id,topic:p.topic||"",prompt_text:p.prompt_text,prompt_title:p.title}};
+                  updateEssayDisplay(); renderMyPrompts();
+                }
+              });
+              row.appendChild(el("span",{style:{fontSize:"16px"}},$esc(active?"✓":"")));
+              const info=el("div",{style:{flex:"1"}});
+              info.appendChild(el("div",{style:{fontSize:"13px",fontWeight:"600"}},$esc(p.title)));
+              row.appendChild(info);
+              listWrap.appendChild(row);
+            });
+            if(!filtered.length) listWrap.appendChild(el("div",{style:{padding:"10px",color:"#888",fontSize:"13px"}},"Ingen oppgaver for dette temaet."));
+          }
+          topicFilter.addEventListener("change",renderMyPrompts);
+          renderMyPrompts();
+        };
+        loadAndRender();
+
+      } else {
+        // Custom prompt
+        const titleIn=el("input",{type:"text",placeholder:"Tittel / navn på oppgaven",style:{width:"100%",padding:"5px 8px",marginBottom:"6px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box"}});
+        const topicSel=el("select",{style:{width:"100%",marginBottom:"6px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+        topicSel.appendChild(el("option",{value:""},"Velg tema (valgfritt)"));
+        VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+        const promptIn=el("textarea",{placeholder:"Skriv inn oppgaveteksten her…",style:{width:"100%",minHeight:"80px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"12px",boxSizing:"border-box",resize:"vertical",marginBottom:"6px"}});
+        const saveBankRow=el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"6px"}});
+        const saveBankCb=el("input",{type:"checkbox",id:"essay-save-bank"}); saveBankCb.checked=true;
+        saveBankRow.appendChild(saveBankCb);
+        saveBankRow.appendChild(el("label",{for:"essay-save-bank",style:{fontSize:"12px",cursor:"pointer"}},"Lagre i min oppgavebank for gjenbruk"));
+        const addEssayBtn=el("button",{style:{fontSize:"12px",padding:"5px 12px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"6px",cursor:"pointer"},
+          click: async ()=>{
+            const title=(titleIn.value||"").trim();
+            const prompt_text=(promptIn.value||"").trim();
+            if(!title||!prompt_text){ toast("Fyll inn tittel og oppgavetekst"); return; }
+            if(saveBankCb.checked){
+              const r=await api("/api/teacher/bank/prompts",{method:"POST",headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({title,topic:topicSel.value,prompt_text})}).catch(()=>null);
+              if(r?.ok){ teacherBankPromptsCache=null; teacherState.bankPrompts=null; }
+            }
+            selectedEssay={item_type:"essay_prompt",content:{source:"custom",topic:topicSel.value,prompt_text,prompt_title:title}};
+            updateEssayDisplay();
+            titleIn.value=""; topicSel.value=""; promptIn.value="";
+            toast("Oppgave lagt til");
+          }
+        },"Bruk denne oppgaven →");
+        essayPickerWrap.appendChild(titleIn);
+        essayPickerWrap.appendChild(topicSel);
+        essayPickerWrap.appendChild(promptIn);
+        essayPickerWrap.appendChild(saveBankRow);
+        essayPickerWrap.appendChild(addEssayBtn);
       }
-      const topicKey=essayTopicSel.value;
-      const idx=parseInt(essayPromptSel.value);
-      if(!topicKey||isNaN(idx)||!PROMPTS[topicKey]?.[idx]) return null;
-      const p=PROMPTS[topicKey][idx];
-      return {item_type:"essay_prompt",content:{source:"bank",topic:topicKey,prompt_text:p.text,prompt_title:p.title}};
-    };
+    }
+
+    items._getEssay = () => selectedEssay;
+    renderEssayPicker();
     modeContent.appendChild(essaySec);
 
     const errDiv2 = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
@@ -5963,14 +6226,10 @@ function buildGiOppgaver(students){
       click: async ()=>{
         const itemsArr = [];
         if(includeWords && items._getWordList) { const w=items._getWordList(); if(w) itemsArr.push(w); }
-        const t=items._getText(); if(t) itemsArr.push(t);
+        const texts=items._getTexts(); texts.forEach(t=>itemsArr.push(t));
         const e=items._getEssay(); if(e) itemsArr.push(e);
 
         if(!itemsArr.length){errDiv2.textContent="Legg til minst én oppgavetype";errDiv2.style.display="";return;}
-
-        // Validate custom fields not empty
-        if(txtCustom&&!(txtCustomArea.value||"").trim()){errDiv2.textContent="Lesetekstfeltet er tomt";errDiv2.style.display="";return;}
-        if(essayCustom&&!(essayCustomArea.value||"").trim()){errDiv2.textContent="Oppgavefeltet er tomt";errDiv2.style.display="";return;}
 
         errDiv2.style.display="none";
         assignBtn2.disabled=true; assignBtn2.textContent="Sender…";
@@ -6007,6 +6266,233 @@ function buildGiOppgaver(students){
   }
   renderMode();
   return wrap;
+}
+
+// ── TEACHER: Student assignments progress view ─────────────────────────────
+
+function buildLaererAssignments(){
+  const frag = document.createDocumentFragment();
+  const s = teacherState.selectedStudent;
+  frag.appendChild(el("button",{class:"btn-secondary",style:{marginBottom:"16px"},
+    click:()=>laererSetView("progress")},"← Tilbake"));
+  frag.appendChild(el("h2",{style:{marginBottom:"16px"}},`Oppgaver: ${$esc(s?.name||"")}`));
+  const wrap = el("div",{});
+  frag.appendChild(wrap);
+
+  async function load(){
+    if(!teacherState.studentAssignments){
+      const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}/assignments`).catch(()=>null);
+      if(r?.ok) teacherState.studentAssignments=await r.json();
+      else teacherState.studentAssignments=[];
+    }
+    wrap.innerHTML="";
+    const asgns = teacherState.studentAssignments;
+    if(!asgns.length){
+      wrap.appendChild(el("p",{style:{color:"#888"}},"Ingen oppgaver tildelt ennå."));
+      return;
+    }
+    asgns.forEach(asgn=>{
+      const card = el("div",{class:"card",style:{marginBottom:"16px"}});
+      const hdr = el("div",{style:{display:"flex",alignItems:"baseline",gap:"10px",marginBottom:"10px",flexWrap:"wrap"}});
+      hdr.appendChild(el("span",{style:{fontWeight:"700",fontSize:"15px"}},$esc(asgn.label||"Oppgave")));
+      hdr.appendChild(el("span",{style:{fontSize:"12px",color:"#888"}},new Date(asgn.assigned_at).toLocaleDateString("nb-NO")));
+      const done = asgn.items.filter(i=>i.done).length;
+      const total = asgn.items.length;
+      const pct = total ? Math.round(done/total*100) : 0;
+      const badge = el("span",{style:{
+        marginLeft:"auto",background:pct===100?"#d4edda":"#fff3cd",
+        color:pct===100?"#155724":"#856404",
+        borderRadius:"20px",padding:"2px 10px",fontSize:"12px",fontWeight:"700"
+      }},`${done}/${total} gjort`);
+      hdr.appendChild(badge);
+      card.appendChild(hdr);
+      asgn.items.forEach(item=>{
+        const row = el("div",{style:{
+          display:"flex",alignItems:"center",gap:"10px",borderTop:"1px solid #eee",
+          paddingTop:"8px",marginTop:"4px",opacity:item.done?"0.5":"1"
+        }});
+        const typeLabel = item.item_type==="word_list"?"📚 Ordliste"
+          :item.item_type==="reading_text"?"📖 Lesetekst":"✍️ Skriveoppgave";
+        row.appendChild(el("span",{style:{fontSize:"13px",color:"#1a6b4a",fontWeight:"600",minWidth:"100px"}},typeLabel));
+        const title = item.content.title||item.content.prompt_title
+          ||(item.content.words?`${(item.content.words||[]).length} ord`:"");
+        row.appendChild(el("span",{style:{fontSize:"13px",flex:"1",color:"#333"}},$esc(title)));
+        row.appendChild(el("span",{style:{
+          fontSize:"12px",fontWeight:"700",
+          color:item.done?"#155724":"#888"
+        }},item.done?"✓ Gjort":"Ikke gjort"));
+        card.appendChild(row);
+      });
+      wrap.appendChild(card);
+    });
+  }
+  load();
+  return frag;
+}
+
+// ── TEACHER: Text bank view ────────────────────────────────────────────────
+
+function buildLaererBankTexts(){
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("h2",{style:{marginBottom:"16px"}},"📖 Tekstbank"));
+
+  // Add new text form
+  const addCard = el("div",{class:"card",style:{marginBottom:"20px",padding:"16px"}});
+  addCard.appendChild(el("h3",{style:{margin:"0 0 12px"}},"Legg til ny tekst"));
+  const titleIn = el("input",{type:"text",placeholder:"Tittel",style:{width:"100%",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
+  const topicSel = el("select",{style:{width:"100%",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
+  topicSel.appendChild(el("option",{value:""},"Velg tema (valgfritt)"));
+  VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+  const bodyIn = el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"120px",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
+  const addErr = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"6px",display:"none"}});
+  const addBtn = el("button",{class:"btn-primary",style:{width:"100%"},
+    click: async ()=>{
+      const title=(titleIn.value||"").trim();
+      const body=(bodyIn.value||"").trim();
+      if(!title){addErr.textContent="Tittel er påkrevd";addErr.style.display="";return;}
+      if(!body){addErr.textContent="Tekst er påkrevd";addErr.style.display="";return;}
+      addErr.style.display="none";
+      addBtn.disabled=true; addBtn.textContent="Lagrer…";
+      const r=await api("/api/teacher/bank/texts",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({title,topic:topicSel.value,body})}).catch(()=>null);
+      if(r?.ok){
+        teacherState.bankTexts=null;
+        titleIn.value=""; topicSel.value=""; bodyIn.value="";
+        addBtn.disabled=false; addBtn.textContent="Lagre tekst";
+        laererSetView("bank-texts");
+      } else {
+        const d=await r?.json().catch(()=>({detail:"Ukjent feil"}));
+        addErr.textContent=d?.detail||"Kunne ikke lagre";addErr.style.display="";
+        addBtn.disabled=false; addBtn.textContent="Lagre tekst";
+      }
+    }
+  },"Lagre tekst");
+  addCard.appendChild(titleIn);
+  addCard.appendChild(topicSel);
+  addCard.appendChild(bodyIn);
+  addCard.appendChild(addErr);
+  addCard.appendChild(addBtn);
+  frag.appendChild(addCard);
+
+  const listWrap = el("div",{});
+  frag.appendChild(listWrap);
+
+  async function loadTexts(){
+    if(!teacherState.bankTexts){
+      const r=await api("/api/teacher/bank/texts").catch(()=>null);
+      teacherState.bankTexts=r?.ok ? await r.json() : [];
+    }
+    listWrap.innerHTML="";
+    if(!teacherState.bankTexts.length){
+      listWrap.appendChild(el("p",{style:{color:"#888"}},"Ingen tekster lagret ennå."));
+      return;
+    }
+    teacherState.bankTexts.forEach(txt=>{
+      const card=el("div",{class:"card",style:{marginBottom:"12px",padding:"14px 16px"}});
+      const hdr=el("div",{style:{display:"flex",alignItems:"flex-start",gap:"10px",marginBottom:"6px"}});
+      const info=el("div",{style:{flex:"1"}});
+      info.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px"}},$esc(txt.title)));
+      if(txt.topic) info.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginTop:"2px"}},$esc(txt.topic)));
+      const delBtn=el("button",{class:"btn-danger",style:{fontSize:"12px",padding:"4px 10px",flexShrink:"0"},
+        click: async ()=>{
+          if(!confirm(`Slette "${txt.title}"?`)) return;
+          const r=await api(`/api/teacher/bank/texts/${encodeURIComponent(txt.id)}`,{method:"DELETE"}).catch(()=>null);
+          if(r?.ok){teacherState.bankTexts=null;laererSetView("bank-texts");}
+          else toast("Kunne ikke slette teksten");
+        }
+      },"Slett");
+      hdr.appendChild(info);hdr.appendChild(delBtn);
+      card.appendChild(hdr);
+      const preview=el("div",{style:{fontSize:"13px",color:"#555",lineHeight:"1.5",maxHeight:"60px",overflow:"hidden"}});
+      preview.textContent=(txt.body||"").substring(0,200)+(txt.body.length>200?"…":"");
+      card.appendChild(preview);
+      listWrap.appendChild(card);
+    });
+  }
+  loadTexts();
+  return frag;
+}
+
+// ── TEACHER: Prompt bank view ──────────────────────────────────────────────
+
+function buildLaererBankPrompts(){
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("h2",{style:{marginBottom:"16px"}},"✍️ Oppgavebank"));
+
+  const addCard = el("div",{class:"card",style:{marginBottom:"20px",padding:"16px"}});
+  addCard.appendChild(el("h3",{style:{margin:"0 0 12px"}},"Legg til ny skriveoppgave"));
+  const titleIn = el("input",{type:"text",placeholder:"Tittel / navn på oppgaven",style:{width:"100%",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
+  const topicSel = el("select",{style:{width:"100%",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
+  topicSel.appendChild(el("option",{value:""},"Velg tema (valgfritt)"));
+  VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+  const promptIn = el("textarea",{placeholder:"Oppgaveteksten…",style:{width:"100%",minHeight:"80px",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
+  const addErr = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"6px",display:"none"}});
+  const addBtn = el("button",{class:"btn-primary",style:{width:"100%"},
+    click: async ()=>{
+      const title=(titleIn.value||"").trim();
+      const prompt_text=(promptIn.value||"").trim();
+      if(!title){addErr.textContent="Tittel er påkrevd";addErr.style.display="";return;}
+      if(!prompt_text){addErr.textContent="Oppgavetekst er påkrevd";addErr.style.display="";return;}
+      addErr.style.display="none";
+      addBtn.disabled=true; addBtn.textContent="Lagrer…";
+      const r=await api("/api/teacher/bank/prompts",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({title,topic:topicSel.value,prompt_text})}).catch(()=>null);
+      if(r?.ok){
+        teacherState.bankPrompts=null;
+        titleIn.value=""; topicSel.value=""; promptIn.value="";
+        addBtn.disabled=false; addBtn.textContent="Lagre oppgave";
+        laererSetView("bank-prompts");
+      } else {
+        const d=await r?.json().catch(()=>({detail:"Ukjent feil"}));
+        addErr.textContent=d?.detail||"Kunne ikke lagre";addErr.style.display="";
+        addBtn.disabled=false; addBtn.textContent="Lagre oppgave";
+      }
+    }
+  },"Lagre oppgave");
+  addCard.appendChild(titleIn);
+  addCard.appendChild(topicSel);
+  addCard.appendChild(promptIn);
+  addCard.appendChild(addErr);
+  addCard.appendChild(addBtn);
+  frag.appendChild(addCard);
+
+  const listWrap = el("div",{});
+  frag.appendChild(listWrap);
+
+  async function loadPrompts(){
+    if(!teacherState.bankPrompts){
+      const r=await api("/api/teacher/bank/prompts").catch(()=>null);
+      teacherState.bankPrompts=r?.ok ? await r.json() : [];
+    }
+    listWrap.innerHTML="";
+    if(!teacherState.bankPrompts.length){
+      listWrap.appendChild(el("p",{style:{color:"#888"}},"Ingen skriveoppgaver lagret ennå."));
+      return;
+    }
+    teacherState.bankPrompts.forEach(prompt=>{
+      const card=el("div",{class:"card",style:{marginBottom:"12px",padding:"14px 16px"}});
+      const hdr=el("div",{style:{display:"flex",alignItems:"flex-start",gap:"10px",marginBottom:"6px"}});
+      const info=el("div",{style:{flex:"1"}});
+      info.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px"}},$esc(prompt.title)));
+      if(prompt.topic) info.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginTop:"2px"}},$esc(prompt.topic)));
+      const delBtn=el("button",{class:"btn-danger",style:{fontSize:"12px",padding:"4px 10px",flexShrink:"0"},
+        click: async ()=>{
+          if(!confirm(`Slette "${prompt.title}"?`)) return;
+          const r=await api(`/api/teacher/bank/prompts/${encodeURIComponent(prompt.id)}`,{method:"DELETE"}).catch(()=>null);
+          if(r?.ok){teacherState.bankPrompts=null;laererSetView("bank-prompts");}
+          else toast("Kunne ikke slette oppgaven");
+        }
+      },"Slett");
+      hdr.appendChild(info);hdr.appendChild(delBtn);
+      card.appendChild(hdr);
+      const preview=el("div",{style:{fontSize:"13px",color:"#555",lineHeight:"1.5",maxHeight:"60px",overflow:"hidden"}});
+      preview.textContent=(prompt.prompt_text||"").substring(0,200)+(prompt.prompt_text.length>200?"…":"");
+      card.appendChild(preview);
+      listWrap.appendChild(card);
+    });
+  }
+  loadPrompts();
+  return frag;
 }
 </script>
 </body>

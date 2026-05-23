@@ -52,10 +52,11 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - `setningsbygging` — word-sort game
 - `oppgaver` — essay prompts
 - `skriv` — essay editor with Claude grammar feedback (output in Norwegian)
+- `mineoppgaver` — teacher-assigned tasks (Mine oppgaver); students mark items done
 - `plan` — study plan (unlocks texts in Lesing tab)
 - `statistikk` — learning statistics
 - `innstillinger` — profile, subscription management (upgrade/cancel)
-- `laerer` — teacher dashboard (roster, per-student progress, essays with formatted AI feedback, reading summaries/Gjenfortellinger with AI feedback)
+- `laerer` — teacher dashboard (roster, per-student progress, essays with formatted AI feedback, reading summaries/Gjenfortellinger with AI feedback; bank views for teacher's saved texts and prompts)
 
 **Subscription access logic:**
 - `isActiveSubscriber()` — returns true if `state.subscription.status` is active/grace/cancelled-but-not-expired
