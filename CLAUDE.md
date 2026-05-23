@@ -40,12 +40,13 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - `state.topicFilter` — active topic chip in Ordbank (`""` = all)
 - `state.practicedFilter` — `""` (all) or `"not_practiced"` (hides words with a sentence or correct flashcard answer)
 - `state.sentences` — `{ wordId: sentenceText }` — written sentences keyed by word id
+- `lesingState.savedSummaries` — `{ textId: readingSummaryObj }` — cached reading summaries keyed by text id (loaded from backend on login + on save)
 
 **UI rendering** uses a custom `el(tag, props, ...children)` helper. Re-renders by calling `renderContent()`.
 
 **Tabs / features:**
 - `ordbank` — vocabulary bank (add, search, filter by topic + "ikke øvd ennå", import/export)
-- `lesing` — reading texts with subscription access control + paywall overlay
+- `lesing` — reading texts with subscription access control + paywall overlay; each text has 3 comprehension questions (2 MCQ + 1 open-ended) and a Gjenfortell (reading summary) section with Claude AI feedback
 - `setninger` — sentence practice; "Lagre og neste" navigates to next word without a sentence
 - `flashcards` — quiz modes (choice + write); filter by topic / time / learning status
 - `setningsbygging` — word-sort game
@@ -54,7 +55,7 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - `plan` — study plan (unlocks texts in Lesing tab)
 - `statistikk` — learning statistics
 - `innstillinger` — profile, subscription management (upgrade/cancel)
-- `laerer` — teacher dashboard (roster, per-student progress, essays with formatted AI feedback)
+- `laerer` — teacher dashboard (roster, per-student progress, essays with formatted AI feedback, reading summaries/Gjenfortellinger with AI feedback)
 
 **Subscription access logic:**
 - `isActiveSubscriber()` — returns true if `state.subscription.status` is active/grace/cancelled-but-not-expired
@@ -112,6 +113,12 @@ The `TOPICS` object (essay/skriv tab, ASCII keys `miljo`/`sprak`) is a separate 
 `checkWithClaude()` (sentence) and `checkEssayWithClaude()` (essay) both instruct Claude to respond in **Norwegian Bokmål**. JSON keys remain in English (the renderer depends on them); only the string-value fields change language. Do not revert to English prompts.
 
 `renderEssayClaudeResult(result, container)` renders formatted essay feedback — used both on the student side (Skriv tab) and in the teacher essay detail view (`buildLaererEssayDetail`). Always use this function to display essay AI feedback; never dump raw JSON as text.
+
+`renderGjenfortellResult(result, container)` renders formatted reading-summary AI feedback (level badge, comprehension, vocabulary, grammar errors, overall). Used in the student Lesing tab and in the teacher `buildLaererSummaries()` view. Always use this function; never dump raw JSON.
+
+Reading summaries are persisted via `PUT /api/reading-summaries/{textId}`. AI feedback is checked with `checkGjenfortellWithClaude()` which calls `/api/proxy/claude` — this **requires wrangler pages dev**, not `python3 start_server.py`.
+
+Text cards in `lesing-tekster.json` have an optional `questions` array. Each question is either MCQ `{ question, options[], answer }` (answer is the correct option index) or open-ended `{ question }` (no options). All 120 texts have questions.
 
 ## Key Files
 

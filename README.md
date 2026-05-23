@@ -42,6 +42,8 @@ Write essays with word-bank integration — words from the bank get highlighted.
 ### 📖 Lesing — Reading texts
 120 B2-level Norwegian texts (10 per topic). Filter by topic or by grammar focus (subordinate clauses, relative clauses, conjunctions, subjunctions). A side panel lets you look up words mid-reading and add them to the ordbank.
 
+Each text has 3 comprehension questions (2 multiple-choice + 1 open-ended). After reading, a **Gjenfortell** section lets the student write a summary in their own words and get instant Claude AI feedback (level, comprehension, vocabulary, grammar). Summaries are saved to the backend and visible to the teacher. Text cards in the list show a **📝 Sammendrag** badge for texts the student has summarised.
+
 ### 📅 Plan — Personal study plan
 Generates a week-by-week schedule based on months until the exam and practice days per week. Each week gets reading targets, essay targets, and word-mastery targets (a word counts as fully mastered only when it is (1) in the ordbank, (2) answered correctly in flashcards, and (3) used in a written sentence). Plans are stored server-side and progress is reflected live.
 
@@ -63,6 +65,7 @@ Teachers see a single dashboard tab that contains:
   - **Plan** — the student's current study plan with live read/written progress.
   - **Setninger** — every sentence the student has written, linked to the source word.
   - **Essays** — full essays with the AI grammar/structure feedback rendered as a formatted card (level badge, grammar errors, strengths/improvements), plus a per-essay **comment + Like** widget. Reviews are stored server-side and surface back on the student's own essay card.
+  - **Gjenfortellinger** — all reading summaries the student has written, with Claude AI feedback. Texts with a summary are flagged with a 📝 badge in the "Tekster lest" list.
 
 ## Authentication
 
