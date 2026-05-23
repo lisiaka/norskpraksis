@@ -1031,7 +1031,7 @@ function renderTabs(){
       {key:"skriv",       label:"📝 Skriv"},
     ]},
     {label:"Oversikt",tabs:[
-      {key:"plan",        label:"📅 Plan"},
+      {key:"plan",        label:"📋 Mine oppgaver"},
       {key:"statistik",   label:"📊 Statistikk"},
       {key:"innstillinger", label:"⚙️ Innstillinger"},
     ]},
@@ -1052,7 +1052,7 @@ function renderContent(){
   if(state.tab==="skriv")       c.appendChild(buildSkriv());
   if(state.tab==="lesing")      c.appendChild(buildLesing());
   if(state.tab==="ordstilling") c.appendChild(buildOrdstilling());
-  if(state.tab==="plan")        c.appendChild(buildPlan());
+  if(state.tab==="plan")        c.appendChild(buildMineOppgaver());
   if(state.tab==="statistik")     c.appendChild(buildStatistik());
   if(state.tab==="innstillinger") c.appendChild(buildInnstillinger());
   if(state.tab==="laerer")        c.appendChild(buildLaerer());
@@ -4923,6 +4923,8 @@ function buildLaererRoster(){
   // Student list
   const listWrap = el("div",{});
   frag.appendChild(listWrap);
+  const giOppgaverWrap = el("div",{});
+  frag.appendChild(giOppgaverWrap);
 
   async function loadStudents(){
     if(teacherState.students===null){
@@ -4931,6 +4933,7 @@ function buildLaererRoster(){
       else teacherState.students=[];
     }
     listWrap.innerHTML="";
+    giOppgaverWrap.innerHTML="";
     if(!teacherState.students.length){
       listWrap.appendChild(el("p",{style:{color:"#888"}},"Ingen elever tilknyttet ennå."));
       return;
@@ -4964,6 +4967,7 @@ function buildLaererRoster(){
       row.appendChild(removeBtn);
       listWrap.appendChild(row);
     });
+    giOppgaverWrap.appendChild(buildGiOppgaver(teacherState.students));
   }
   loadStudents();
   return frag;
@@ -5540,6 +5544,470 @@ function buildLaererSummaries(){
 
 // Escape helper (used in teacher dashboard if not already defined globally)
 function $esc(str){ return String(str||""); }
+
+// ── MINE OPPGAVER TAB (student plan replacement) ───────────────────────────
+
+function buildMineOppgaver(){
+  const frag = document.createDocumentFragment();
+  const hdr = el("div",{class:"card",style:{marginBottom:"16px",padding:"16px 20px"}});
+  hdr.appendChild(el("h2",{style:{margin:0}},"📋 Mine oppgaver"));
+  frag.appendChild(hdr);
+
+  const wrap = el("div",{});
+  frag.appendChild(wrap);
+
+  async function load(){
+    wrap.innerHTML = "";
+    const r = await api("/api/assignments/mine").catch(()=>null);
+    if(!r?.ok){
+      wrap.appendChild(el("p",{style:{color:"#888"}},"Kunne ikke laste oppgaver."));
+      return;
+    }
+    const assignments = await r.json();
+    if(!assignments.length){
+      const empty = el("div",{class:"card",style:{textAlign:"center",padding:"40px 20px",color:"#aaa"}});
+      empty.appendChild(el("div",{style:{fontSize:"48px",marginBottom:"12px"}},"📭"));
+      empty.appendChild(el("p",{style:{margin:0,fontSize:"15px"}},"Ingen oppgaver ennå."));
+      wrap.appendChild(empty);
+      return;
+    }
+    assignments.forEach(asgn => {
+      const card = el("div",{class:"card",style:{marginBottom:"16px"}});
+      // Assignment header
+      const asgnHdr = el("div",{style:{display:"flex",alignItems:"baseline",gap:"10px",marginBottom:"12px",flexWrap:"wrap"}});
+      asgnHdr.appendChild(el("span",{style:{fontWeight:"700",fontSize:"16px"}},
+        $esc(asgn.label || "Oppgave")));
+      asgnHdr.appendChild(el("span",{style:{fontSize:"12px",color:"#888"}},
+        "Fra: "+$esc(asgn.teacher_name)+" · "+new Date(asgn.assigned_at).toLocaleDateString("nb-NO")));
+      card.appendChild(asgnHdr);
+
+      asgn.items.forEach(item => {
+        const itemWrap = el("div",{style:{
+          borderTop:"1px solid #eee",paddingTop:"12px",marginTop:"4px",
+          opacity: item.done ? "0.5" : "1",
+        }});
+
+        // Type badge
+        const typeLabel = item.item_type==="word_list" ? "📚 Ordliste"
+          : item.item_type==="reading_text" ? "📖 Lesetekst"
+          : "✍️ Skriveoppgave";
+        const doneBadge = item.done
+          ? el("span",{style:{background:"#d4edda",color:"#155724",borderRadius:"20px",padding:"2px 10px",fontSize:"12px",fontWeight:"700"}},"✓ Gjort")
+          : null;
+        const badgeRow = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}});
+        badgeRow.appendChild(el("span",{style:{fontWeight:"700",fontSize:"13px",color:"#1a6b4a"}},typeLabel));
+        if(doneBadge) badgeRow.appendChild(doneBadge);
+        itemWrap.appendChild(badgeRow);
+
+        // Content display
+        if(item.item_type==="word_list"){
+          const words = item.content.words || [];
+          const tbl = el("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:"13px",marginBottom:"8px"}});
+          const head = el("tr",{style:{background:"#f5f5f5"}});
+          head.appendChild(el("th",{style:{padding:"4px 8px",textAlign:"left",fontWeight:"600"}},"Ord"));
+          if(item.content.include_translation)
+            head.appendChild(el("th",{style:{padding:"4px 8px",textAlign:"left",fontWeight:"600"}},"Oversettelse"));
+          head.appendChild(el("th",{style:{padding:"4px 8px",textAlign:"left",fontWeight:"600"}},"Tema"));
+          tbl.appendChild(head);
+          words.forEach(w => {
+            const row = el("tr",{});
+            row.appendChild(el("td",{style:{padding:"4px 8px",borderBottom:"1px solid #f0f0f0"}},$esc(w.word)));
+            if(item.content.include_translation)
+              row.appendChild(el("td",{style:{padding:"4px 8px",borderBottom:"1px solid #f0f0f0",color:"#666"}},$esc(w.meaning)));
+            row.appendChild(el("td",{style:{padding:"4px 8px",borderBottom:"1px solid #f0f0f0",color:"#888",fontSize:"12px"}},$esc(w.topic)));
+            tbl.appendChild(row);
+          });
+          itemWrap.appendChild(tbl);
+        } else if(item.item_type==="reading_text"){
+          itemWrap.appendChild(el("div",{style:{fontWeight:"600",marginBottom:"4px"}},$esc(item.content.title||"")));
+          const bodyDiv = el("div",{style:{
+            maxHeight:"120px",overflow:"hidden",fontSize:"13px",color:"#444",
+            lineHeight:"1.6",position:"relative",marginBottom:"8px",
+          }});
+          bodyDiv.textContent = item.content.body || "";
+          itemWrap.appendChild(bodyDiv);
+        } else {
+          const promptDiv = el("div",{style:{
+            background:"#f9f9f9",border:"1.5px solid #eee",borderRadius:"8px",
+            padding:"10px 14px",fontSize:"13px",color:"#333",lineHeight:"1.6",marginBottom:"8px",
+          }});
+          promptDiv.textContent = item.content.prompt_text || "";
+          itemWrap.appendChild(promptDiv);
+        }
+
+        // Mark done button
+        if(!item.done){
+          const doneBtn = el("button",{
+            class:"btn-secondary",
+            style:{fontSize:"12px",padding:"5px 14px"},
+            click: async ()=>{
+              doneBtn.disabled=true; doneBtn.textContent="Lagrer…";
+              const r2 = await api(`/api/assignments/items/${encodeURIComponent(item.item_id)}/done`,{
+                method:"PATCH",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({done:true})
+              }).catch(()=>null);
+              if(r2?.ok){ load(); }
+              else { doneBtn.disabled=false; doneBtn.textContent="Marker som gjort"; toast("Kunne ikke lagre"); }
+            }
+          },"✓ Marker som gjort");
+          itemWrap.appendChild(doneBtn);
+        }
+
+        card.appendChild(itemWrap);
+      });
+      wrap.appendChild(card);
+    });
+  }
+  load();
+  return frag;
+}
+
+// ── GI OPPGAVER panel (teacher roster) ────────────────────────────────────
+
+function buildGiOppgaver(students){
+  const wrap = el("div",{class:"card",style:{marginTop:"24px"}});
+  wrap.appendChild(el("h3",{style:{margin:"0 0 16px"}},"📤 Gi oppgaver"));
+
+  // Mode selector
+  let mode = "ordliste";
+  const modeWrap = el("div",{style:{display:"flex",gap:"0",marginBottom:"20px",borderRadius:"10px",overflow:"hidden",border:"1.5px solid #dde"}});
+  const modeContent = el("div",{});
+
+  function modeBtn(key, label){
+    return el("button",{
+      "data-mode":key,
+      style:{
+        flex:"1",border:"none",padding:"8px 4px",fontSize:"13px",cursor:"pointer",
+        background: key===mode ? "#1a6b4a" : "#f8f8f8",
+        color: key===mode ? "#fff" : "#444",
+        fontWeight: key===mode ? "700" : "400",
+        transition:"background 0.15s",
+      },
+      click:()=>{ mode=key; updateModeBtns(); renderMode(); }
+    }, label);
+  }
+
+  function updateModeBtns(){
+    modeWrap.querySelectorAll("[data-mode]").forEach(b=>{
+      const active = b.dataset.mode===mode;
+      b.style.background = active?"#1a6b4a":"#f8f8f8";
+      b.style.color = active?"#fff":"#444";
+      b.style.fontWeight = active?"700":"400";
+    });
+  }
+
+  modeWrap.appendChild(modeBtn("ordliste","📚 Ordliste"));
+  modeWrap.appendChild(modeBtn("lese-skriv","📖 Lese- og skriveoppgave"));
+  modeWrap.appendChild(modeBtn("full","📋 Full plan"));
+  wrap.appendChild(modeWrap);
+
+  // Student multi-select
+  const studentSec = el("div",{style:{marginBottom:"16px"}});
+  studentSec.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"8px"}},"Velg elever:"));
+  let selectedIds = new Set();
+  const studentCbs = [];
+
+  const allRow = el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"6px"}});
+  const allCb = el("input",{type:"checkbox",id:"gi-all"});
+  allCb.addEventListener("change",()=>{
+    if(allCb.checked) students.forEach(s=>selectedIds.add(s.id));
+    else selectedIds.clear();
+    studentCbs.forEach(({cb})=>{ cb.checked=allCb.checked; });
+    updateAssignBtns();
+  });
+  allRow.appendChild(allCb);
+  allRow.appendChild(el("label",{for:"gi-all",style:{fontWeight:"600",fontSize:"13px",cursor:"pointer"}},"Alle elever"));
+  studentSec.appendChild(allRow);
+
+  students.forEach(s=>{
+    const id = "gi-s-"+s.id.replace(/[^a-z0-9]/gi,"-");
+    const cb = el("input",{type:"checkbox",id});
+    studentCbs.push({cb, sid:s.id});
+    cb.addEventListener("change",()=>{
+      if(cb.checked) selectedIds.add(s.id); else selectedIds.delete(s.id);
+      allCb.checked = students.every(st=>selectedIds.has(st.id));
+      updateAssignBtns();
+    });
+    const row = el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"}});
+    row.appendChild(cb);
+    row.appendChild(el("label",{for:id,style:{fontSize:"13px",cursor:"pointer"}},$esc(s.name)));
+    studentSec.appendChild(row);
+  });
+  wrap.appendChild(studentSec);
+
+  const assignBtns = []; // collected across mode renders so we can update disabled state
+  function updateAssignBtns(){ assignBtns.forEach(b=>{ b.disabled = selectedIds.size===0; }); }
+
+  wrap.appendChild(modeContent);
+
+  // ── ORDLISTE MODE ─────────────────────────────────────────────────────
+  function renderOrdliste(){
+    modeContent.innerHTML="";
+    assignBtns.length=0;
+
+    const topicSel = el("select",{style:{marginBottom:"10px",padding:"6px 10px",borderRadius:"8px",border:"1.5px solid #dde",fontSize:"14px",width:"100%"}});
+    topicSel.appendChild(el("option",{value:""},"Velg tema…"));
+    VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+    modeContent.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"6px"}},"Tema:"));
+    modeContent.appendChild(topicSel);
+
+    const transRow = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px"}});
+    const transCb = el("input",{type:"checkbox",id:"gi-trans"}); transCb.checked=true;
+    transRow.appendChild(transCb);
+    transRow.appendChild(el("label",{for:"gi-trans",style:{fontSize:"13px",cursor:"pointer"}},"Inkluder oversettelse"));
+    modeContent.appendChild(transRow);
+
+    modeContent.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"6px"}},"Ord:"));
+    const wordsWrap = el("div",{style:{marginBottom:"10px"}});
+    modeContent.appendChild(wordsWrap);
+    const wordRows = [];
+
+    function addWordRow(){
+      const row = el("div",{style:{display:"flex",gap:"6px",marginBottom:"6px",alignItems:"center"}});
+      const wordIn = el("input",{type:"text",placeholder:"Ord",style:{flex:"1",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+      const meanIn = el("input",{type:"text",placeholder:"Oversettelse",style:{flex:"1",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+      const rm = el("button",{style:{background:"none",border:"none",cursor:"pointer",color:"#c0392b",fontSize:"16px",padding:"0 4px"},
+        click:()=>{ const i=wordRows.indexOf(pair); if(i>-1){wordRows.splice(i,1);row.remove();} }
+      },"×");
+      row.appendChild(wordIn); row.appendChild(meanIn); row.appendChild(rm);
+      wordsWrap.appendChild(row);
+      const pair={wordIn,meanIn}; wordRows.push(pair);
+    }
+    addWordRow();
+    modeContent.appendChild(el("button",{style:{fontSize:"12px",padding:"4px 12px",marginBottom:"12px",background:"none",border:"1px solid #ccc",borderRadius:"6px",cursor:"pointer"},
+      click:addWordRow},"+ Legg til ord"));
+
+    const errDiv = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
+    modeContent.appendChild(errDiv);
+
+    const btn = el("button",{class:"btn-primary",style:{width:"100%"},disabled:selectedIds.size===0,
+      click: async ()=>{
+        const topic=topicSel.value;
+        if(!topic){errDiv.textContent="Velg et tema";errDiv.style.display="";return;}
+        const words=wordRows.map(r=>({word:r.wordIn.value.trim(),meaning:transCb.checked?r.meanIn.value.trim():"",category:"substantiv",topic})).filter(w=>w.word);
+        if(!words.length){errDiv.textContent="Legg til minst ett ord";errDiv.style.display="";return;}
+        errDiv.style.display="none";
+        btn.disabled=true; btn.textContent="Sender…";
+        const r=await api("/api/teacher/students/words/bulk",{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({student_ids:[...selectedIds],all_students:false,include_translation:transCb.checked,words})
+        }).catch(()=>null);
+        if(r?.ok){
+          const d=await r.json();
+          toast(`Ord sendt til ${d.student_count} elev${d.student_count===1?"":"er"} (${d.inserted} nye)`);
+          renderOrdliste();
+        } else {
+          const d=await r?.json().catch(()=>({detail:"Ukjent feil"}));
+          errDiv.textContent=d?.detail||"Noe gikk galt"; errDiv.style.display="";
+          btn.disabled=selectedIds.size===0; btn.textContent="Send til ordbank";
+        }
+      }
+    },"Send til ordbank");
+    assignBtns.push(btn);
+    modeContent.appendChild(btn);
+  }
+
+  // ── LESE- OG SKRIVEOPPGAVE MODE ───────────────────────────────────────
+  function renderLeseSkrivMode(){ renderAssignForm(false); }
+
+  // ── FULL PLAN MODE ────────────────────────────────────────────────────
+  function renderFullPlanMode(){ renderAssignForm(true); }
+
+  // ── SHARED ASSIGNMENT FORM (text + essay [+ optional word list]) ───────
+  function renderAssignForm(includeWords){
+    modeContent.innerHTML="";
+    assignBtns.length=0;
+    const items = {}; // {word_list, reading_text, essay_prompt} — populated by form
+
+    // Word list section (full plan only)
+    let wordListData = null;
+    if(includeWords){
+      const wSec = el("div",{style:{marginBottom:"14px",padding:"12px",background:"#f9fafb",borderRadius:"8px",border:"1px solid #eee"}});
+      wSec.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"8px"}},"📚 Ordliste (valgfritt):"));
+
+      const wTopicSel = el("select",{style:{marginBottom:"8px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px",width:"100%"}});
+      wTopicSel.appendChild(el("option",{value:""},"Ingen ordliste"));
+      VALID_TOPIC_LIST.forEach(t=>wTopicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
+      wSec.appendChild(wTopicSel);
+
+      const wTransRow = el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"8px"}});
+      const wTransCb = el("input",{type:"checkbox",id:"gi-fp-trans"}); wTransCb.checked=true;
+      wTransRow.appendChild(wTransCb);
+      wTransRow.appendChild(el("label",{for:"gi-fp-trans",style:{fontSize:"12px",cursor:"pointer"}},"Inkluder oversettelse"));
+      wSec.appendChild(wTransRow);
+
+      const wWordsWrap = el("div",{style:{marginBottom:"6px"}});
+      wSec.appendChild(wWordsWrap);
+      const wWordRows = [];
+      function addWRow(){
+        const row=el("div",{style:{display:"flex",gap:"6px",marginBottom:"4px",alignItems:"center"}});
+        const wi=el("input",{type:"text",placeholder:"Ord",style:{flex:"1",padding:"4px 7px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"12px"}});
+        const mi=el("input",{type:"text",placeholder:"Oversettelse",style:{flex:"1",padding:"4px 7px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"12px"}});
+        const rm=el("button",{style:{background:"none",border:"none",cursor:"pointer",color:"#c0392b",fontSize:"14px",padding:"0 3px"},
+          click:()=>{const i=wWordRows.indexOf(p);if(i>-1){wWordRows.splice(i,1);row.remove();}}
+        },"×");
+        row.appendChild(wi);row.appendChild(mi);row.appendChild(rm);wWordsWrap.appendChild(row);
+        const p={wi,mi};wWordRows.push(p);
+      }
+      addWRow();
+      wSec.appendChild(el("button",{style:{fontSize:"11px",padding:"3px 10px",background:"none",border:"1px solid #ccc",borderRadius:"5px",cursor:"pointer"},
+        click:addWRow},"+ Legg til ord"));
+
+      // Collect word list data before submit
+      items._getWordList = () => {
+        const topic = wTopicSel.value;
+        if(!topic) return null;
+        const words = wWordRows.map(r=>({word:r.wi.value.trim(),meaning:wTransCb.checked?r.mi.value.trim():"",category:"substantiv",topic})).filter(w=>w.word);
+        if(!words.length) return null;
+        return {item_type:"word_list",content:{topic,include_translation:wTransCb.checked,words}};
+      };
+      modeContent.appendChild(wSec);
+    }
+
+    // Text section
+    const txtSec = el("div",{style:{marginBottom:"14px",padding:"12px",background:"#f9fafb",borderRadius:"8px",border:"1px solid #eee"}});
+    txtSec.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"8px"}},"📖 Lesetekst (valgfritt):"));
+
+    let txtCustom = false;
+    const txtToggle = el("div",{style:{display:"flex",gap:"8px",marginBottom:"8px"}});
+    const txtBankBtn = el("button",{style:{fontSize:"12px",padding:"4px 10px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"6px",cursor:"pointer"},
+      click:()=>{txtCustom=false;txtBankBtn.style.background="#1a6b4a";txtBankBtn.style.color="#fff";txtCustomBtn.style.background="#f0f0f0";txtCustomBtn.style.color="#333";txtBankWrap.style.display="";txtCustomArea.style.display="none";}
+    },"Fra tekstbank");
+    const txtCustomBtn = el("button",{style:{fontSize:"12px",padding:"4px 10px",background:"#f0f0f0",color:"#333",border:"none",borderRadius:"6px",cursor:"pointer"},
+      click:()=>{txtCustom=true;txtCustomBtn.style.background="#1a6b4a";txtCustomBtn.style.color="#fff";txtBankBtn.style.background="#f0f0f0";txtBankBtn.style.color="#333";txtBankWrap.style.display="none";txtCustomArea.style.display="";}
+    },"Egendefinert tekst");
+    txtToggle.appendChild(txtBankBtn); txtToggle.appendChild(txtCustomBtn);
+    txtSec.appendChild(txtToggle);
+
+    const txtBankWrap = el("div",{});
+    const txtSel = el("select",{style:{width:"100%",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+    txtSel.appendChild(el("option",{value:""},"Ingen lesetekst"));
+    // Populate lazily
+    loadLesingTexts().then(texts=>{
+      if(texts) texts.forEach(t=>txtSel.appendChild(el("option",{value:t.id,"data-text":JSON.stringify({id:t.id,title:t.title,topic:t.topic||"",body:t.body||t.content||""})},t.title||(t.id))));
+    });
+    txtBankWrap.appendChild(txtSel);
+    txtSec.appendChild(txtBankWrap);
+
+    const txtCustomArea = el("textarea",{placeholder:"Skriv inn teksten her…",
+      style:{display:"none",width:"100%",minHeight:"100px",padding:"8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
+    txtSec.appendChild(txtCustomArea);
+
+    items._getText = () => {
+      if(txtCustom){
+        const body=(txtCustomArea.value||"").trim();
+        if(!body) return null;
+        return {item_type:"reading_text",content:{source:"custom",title:"Egendefinert tekst",topic:"",body}};
+      }
+      const opt = txtSel.options[txtSel.selectedIndex];
+      if(!opt?.value) return null;
+      const t = JSON.parse(opt.dataset.text||"{}");
+      return {item_type:"reading_text",content:{source:"bank",text_id:t.id,title:t.title||"",topic:t.topic||"",body:t.body||""}};
+    };
+    modeContent.appendChild(txtSec);
+
+    // Essay section
+    const essaySec = el("div",{style:{marginBottom:"14px",padding:"12px",background:"#f9fafb",borderRadius:"8px",border:"1px solid #eee"}});
+    essaySec.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"8px"}},"✍️ Skriveoppgave (valgfritt):"));
+
+    let essayCustom = false;
+    const essayToggle = el("div",{style:{display:"flex",gap:"8px",marginBottom:"8px"}});
+    const essayBankBtn = el("button",{style:{fontSize:"12px",padding:"4px 10px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"6px",cursor:"pointer"},
+      click:()=>{essayCustom=false;essayBankBtn.style.background="#1a6b4a";essayBankBtn.style.color="#fff";essayCustomBtn.style.background="#f0f0f0";essayCustomBtn.style.color="#333";essayBankWrap.style.display="";essayCustomArea.style.display="none";}
+    },"Fra oppgavebank");
+    const essayCustomBtn = el("button",{style:{fontSize:"12px",padding:"4px 10px",background:"#f0f0f0",color:"#333",border:"none",borderRadius:"6px",cursor:"pointer"},
+      click:()=>{essayCustom=true;essayCustomBtn.style.background="#1a6b4a";essayCustomBtn.style.color="#fff";essayBankBtn.style.background="#f0f0f0";essayBankBtn.style.color="#333";essayBankWrap.style.display="none";essayCustomArea.style.display="";}
+    },"Egendefinert oppgave");
+    essayToggle.appendChild(essayBankBtn); essayToggle.appendChild(essayCustomBtn);
+    essaySec.appendChild(essayToggle);
+
+    const essayBankWrap = el("div",{});
+    const essayTopicSel = el("select",{style:{width:"100%",marginBottom:"6px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+    essayTopicSel.appendChild(el("option",{value:""},"Velg tema…"));
+    Object.entries(TOPICS).forEach(([key,meta])=>essayTopicSel.appendChild(el("option",{value:key},$esc(meta.name))));
+    const essayPromptSel = el("select",{style:{width:"100%",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
+    essayPromptSel.appendChild(el("option",{value:""},"Velg oppgave…"));
+    essayTopicSel.addEventListener("change",()=>{
+      essayPromptSel.innerHTML="";
+      essayPromptSel.appendChild(el("option",{value:""},"Velg oppgave…"));
+      const topic=essayTopicSel.value;
+      if(topic&&PROMPTS[topic]) PROMPTS[topic].forEach((p,i)=>essayPromptSel.appendChild(el("option",{value:String(i)},p.title||p.text.substring(0,60)+"…")));
+    });
+    essayBankWrap.appendChild(essayTopicSel);
+    essayBankWrap.appendChild(essayPromptSel);
+    essaySec.appendChild(essayBankWrap);
+
+    const essayCustomArea = el("textarea",{placeholder:"Skriv inn oppgaveteksten her…",
+      style:{display:"none",width:"100%",minHeight:"80px",padding:"8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
+    essaySec.appendChild(essayCustomArea);
+
+    items._getEssay = () => {
+      if(essayCustom){
+        const pt=(essayCustomArea.value||"").trim();
+        if(!pt) return null;
+        return {item_type:"essay_prompt",content:{source:"custom",topic:"",prompt_text:pt}};
+      }
+      const topicKey=essayTopicSel.value;
+      const idx=parseInt(essayPromptSel.value);
+      if(!topicKey||isNaN(idx)||!PROMPTS[topicKey]?.[idx]) return null;
+      const p=PROMPTS[topicKey][idx];
+      return {item_type:"essay_prompt",content:{source:"bank",topic:topicKey,prompt_text:p.text,prompt_title:p.title}};
+    };
+    modeContent.appendChild(essaySec);
+
+    const errDiv2 = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
+    modeContent.appendChild(errDiv2);
+
+    const assignBtn2 = el("button",{class:"btn-primary",style:{width:"100%"},disabled:selectedIds.size===0,
+      click: async ()=>{
+        const itemsArr = [];
+        if(includeWords && items._getWordList) { const w=items._getWordList(); if(w) itemsArr.push(w); }
+        const t=items._getText(); if(t) itemsArr.push(t);
+        const e=items._getEssay(); if(e) itemsArr.push(e);
+
+        if(!itemsArr.length){errDiv2.textContent="Legg til minst én oppgavetype";errDiv2.style.display="";return;}
+
+        // Validate custom fields not empty
+        if(txtCustom&&!(txtCustomArea.value||"").trim()){errDiv2.textContent="Lesetekstfeltet er tomt";errDiv2.style.display="";return;}
+        if(essayCustom&&!(essayCustomArea.value||"").trim()){errDiv2.textContent="Oppgavefeltet er tomt";errDiv2.style.display="";return;}
+
+        errDiv2.style.display="none";
+        assignBtn2.disabled=true; assignBtn2.textContent="Sender…";
+
+        const body={student_ids:[...selectedIds],all_students:false,items:itemsArr};
+        const r=await api("/api/teacher/assignments",{
+          method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)
+        }).catch(()=>null);
+
+        if(r?.ok){
+          const d=await r.json();
+          toast(`Oppgave sendt til ${d.student_count} elev${d.student_count===1?"":"er"}`);
+          renderMode();
+        } else if(r?.status===409){
+          const d=await r.json().catch(()=>({detail:"Duplikat"}));
+          errDiv2.textContent=d.detail||"Denne oppgaven er allerede tildelt disse elevene";
+          errDiv2.style.display="";
+          assignBtn2.disabled=selectedIds.size===0; assignBtn2.textContent="Gi oppgave";
+        } else {
+          const d=await r?.json().catch(()=>({detail:"Ukjent feil"}));
+          errDiv2.textContent=d?.detail||"Noe gikk galt"; errDiv2.style.display="";
+          assignBtn2.disabled=selectedIds.size===0; assignBtn2.textContent="Gi oppgave";
+        }
+      }
+    },"Gi oppgave");
+    assignBtns.push(assignBtn2);
+    modeContent.appendChild(assignBtn2);
+  }
+
+  function renderMode(){
+    if(mode==="ordliste") renderOrdliste();
+    else if(mode==="lese-skriv") renderLeseSkrivMode();
+    else renderFullPlanMode();
+  }
+  renderMode();
+  return wrap;
+}
 </script>
 </body>
 </html>
