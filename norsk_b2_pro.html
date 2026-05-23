@@ -5614,7 +5614,9 @@ function buildMineOppgaver(){
         if(doneBadge) badgeRow.appendChild(doneBadge);
         itemWrap.appendChild(badgeRow);
 
-        // Content display
+        // Content display + action buttons
+        const btnRow = el("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginTop:"8px"}});
+
         if(item.item_type==="word_list"){
           const words = item.content.words || [];
           const tbl = el("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:"13px",marginBottom:"8px"}});
@@ -5633,14 +5635,51 @@ function buildMineOppgaver(){
             tbl.appendChild(row);
           });
           itemWrap.appendChild(tbl);
+          if(!item.done){
+            const importBtn = el("button",{class:"btn-primary",style:{fontSize:"13px",padding:"7px 16px"},
+              click: async ()=>{
+                importBtn.disabled=true; importBtn.textContent="Legger til…";
+                let added=0;
+                for(const w of words){
+                  const rw=await api("/api/words",{method:"POST",headers:{"Content-Type":"application/json"},
+                    body:JSON.stringify({word:w.word,meaning:w.meaning,category:w.category||"substantiv",topic:w.topic||""})
+                  }).catch(()=>null);
+                  if(rw?.ok||rw?.status===409) added++;
+                }
+                await api(`/api/assignments/items/${encodeURIComponent(item.item_id)}/done`,{
+                  method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({done:true})
+                }).catch(()=>null);
+                toast(`${added} ord lagt til i ordbanken!`);
+                load();
+              }
+            },"📚 Legg til i ordbank →");
+            btnRow.appendChild(importBtn);
+          }
+
         } else if(item.item_type==="reading_text"){
           itemWrap.appendChild(el("div",{style:{fontWeight:"600",marginBottom:"4px"}},$esc(item.content.title||"")));
           const bodyDiv = el("div",{style:{
-            maxHeight:"120px",overflow:"hidden",fontSize:"13px",color:"#444",
+            maxHeight:"80px",overflow:"hidden",fontSize:"13px",color:"#666",
             lineHeight:"1.6",position:"relative",marginBottom:"8px",
           }});
-          bodyDiv.textContent = item.content.body || "";
+          bodyDiv.textContent = (item.content.body||"").substring(0,200)+(item.content.body?.length>200?"…":"");
           itemWrap.appendChild(bodyDiv);
+          const openBtn = el("button",{class:"btn-primary",style:{fontSize:"13px",padding:"7px 16px"},
+            click: async ()=>{
+              openBtn.disabled=true; openBtn.textContent="Laster…";
+              if(item.content.source==="bank"){
+                const texts=await loadLesingTexts().catch(()=>[]);
+                const found=texts.find(t=>t.id===item.content.text_id);
+                if(found){ setLesingText(found); setTab("lesing"); }
+                else{ openBtn.disabled=false; openBtn.textContent="📖 Les teksten →"; toast("Teksten ble ikke funnet"); }
+              } else {
+                setLesingText({id:`asgn-${item.item_id}`,title:item.content.title||"Tekst",topic:item.content.topic||"",text:item.content.body||""});
+                setTab("lesing");
+              }
+            }
+          },"📖 Les teksten →");
+          btnRow.appendChild(openBtn);
+
         } else {
           const promptDiv = el("div",{style:{
             background:"#f9f9f9",border:"1.5px solid #eee",borderRadius:"8px",
@@ -5648,13 +5687,22 @@ function buildMineOppgaver(){
           }});
           promptDiv.textContent = item.content.prompt_text || "";
           itemWrap.appendChild(promptDiv);
+          const writeBtn = el("button",{class:"btn-primary",style:{fontSize:"13px",padding:"7px 16px"},
+            click: ()=>{
+              state.currentPrompt={title:item.content.prompt_title||"Skriveoppgave",text:item.content.prompt_text||""};
+              state.currentTopic=null;
+              state.essay="";
+              setTab("skriv");
+            }
+          },"✍️ Skriv stilen →");
+          btnRow.appendChild(writeBtn);
         }
 
-        // Mark done button
-        if(!item.done){
+        // Mark done button (for reading + essay items)
+        if(!item.done && item.item_type!=="word_list"){
           const doneBtn = el("button",{
             class:"btn-secondary",
-            style:{fontSize:"12px",padding:"5px 14px"},
+            style:{fontSize:"13px",padding:"7px 14px"},
             click: async ()=>{
               doneBtn.disabled=true; doneBtn.textContent="Lagrer…";
               const r2 = await api(`/api/assignments/items/${encodeURIComponent(item.item_id)}/done`,{
@@ -5663,11 +5711,13 @@ function buildMineOppgaver(){
                 body:JSON.stringify({done:true})
               }).catch(()=>null);
               if(r2?.ok){ load(); }
-              else { doneBtn.disabled=false; doneBtn.textContent="Marker som gjort"; toast("Kunne ikke lagre"); }
+              else { doneBtn.disabled=false; doneBtn.textContent="✓ Marker som gjort"; toast("Kunne ikke lagre"); }
             }
           },"✓ Marker som gjort");
-          itemWrap.appendChild(doneBtn);
+          btnRow.appendChild(doneBtn);
         }
+
+        itemWrap.appendChild(btnRow);
 
         card.appendChild(itemWrap);
       });
