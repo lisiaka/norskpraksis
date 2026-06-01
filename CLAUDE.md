@@ -154,3 +154,8 @@ Text cards in `lesing-tekster.json` have an optional `questions` array. Each que
 | `functions/api/[[route]].ts` | Cloudflare Pages Function router |
 | `tests/abonnement.spec.ts` | Playwright E2E tests for subscription flows |
 | `ordbank-2-med-emner.json` | Sample word bank for import testing |
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->
