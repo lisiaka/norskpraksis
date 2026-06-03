@@ -157,7 +157,13 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleClaudeProxy(request: Request, env: Env): Promise<Response> {
-  if (!await validateToken(request, env)) return unauthorized();
+  const token = request.headers.get("X-Auth-Token") ?? "";
+  const hasKey = !!env.JWT_SECRET_KEY;
+  const hasToken = !!token;
+  const isJwt = token.includes(".");
+  if (!await validateToken(request, env)) {
+    return json(401, { error: "Unauthorized", debug: { hasKey, hasToken, isJwt } });
+  }
   const payload = await request.json<Record<string, unknown>>();
   delete payload["__api_key__"];
   const resp = await fetch(ANTHROPIC_API_URL, {
