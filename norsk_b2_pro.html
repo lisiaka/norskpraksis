@@ -672,7 +672,7 @@ state.userRole = localStorage.getItem("b2_user_role")||"student";
 
 // ── API HELPER ─────────────────────────────────────────────────────────
 const _host = window.location.hostname;
-const API_BASE = _host === "norsk-b2-pro.pages.dev"
+const API_BASE = (_host === "norsk-b2-pro.pages.dev" || _host === "norsk.innovate-learning.no")
   ? "https://norskb2-backend-production.up.railway.app"
   : "https://norskb2-backend-staging.up.railway.app";
 async function api(path, opts = {}){
@@ -2356,7 +2356,8 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hvis det ikke er grammatikkfeil
     }).catch(()=>{});
   }catch(err){
     container.innerHTML="";
-    container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},"Klarte ikke å hente tilbakemelding. Prøv igjen."));
+    const msg=err instanceof Error?err.message:"Ukjent feil";
+    container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},`Klarte ikke å hente tilbakemelding. Prøv igjen. (${msg})`));
   }
 }
 
