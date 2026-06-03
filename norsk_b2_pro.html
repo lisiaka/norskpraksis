@@ -7003,11 +7003,7 @@ function buildLaererBankPrompts(){
   screen.style.display = "block";
   screen.innerHTML = "<p style='color:#888'>Laster admin-oversikt…</p>";
 
-  const base = window.location.hostname === "norsk-b2-pro.pages.dev"
-    ? "https://norskb2-backend-production.up.railway.app"
-    : "https://norskb2-backend-staging.up.railway.app";
-
-  fetch(`${base}/api/admin/overview?secret=${encodeURIComponent(secret)}`)
+  fetch(`${API_BASE}/api/admin/overview?secret=${encodeURIComponent(secret)}`)
     .then(r => {
       if(r.status === 403) throw new Error("Feil hemmelig nøkkel.");
       if(!r.ok) throw new Error(`HTTP ${r.status}`);
