@@ -393,6 +393,8 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
   </div>
 </div>
 
+<div id="admin-screen" style="display:none;padding:24px;max-width:1200px;margin:0 auto;font-family:system-ui,sans-serif"></div>
+
 <div id="app" style="display:none">
   <div class="header" id="main-header">
     <h1>🇳🇴 B2 Prøve i Norsk — Treningsverktøy</h1>
@@ -6988,6 +6990,143 @@ function buildLaererBankPrompts(){
   renderAssignPanel();
   renderBankTab();
   return frag;
+}
+
+// ── ADMIN PAGE ────────────────────────────────────────────────────────────
+(function initAdmin(){
+  const hash = window.location.hash;
+  if(!hash.startsWith("#admin/")) return;
+  const secret = hash.slice(7);
+  if(!secret) return;
+
+  const screen = document.getElementById("admin-screen");
+  screen.style.display = "block";
+  screen.innerHTML = "<p style='color:#888'>Laster admin-oversikt…</p>";
+
+  const base = window.location.hostname === "norsk-b2-pro.pages.dev"
+    ? "https://norskb2-backend-production.up.railway.app"
+    : "https://norskb2-backend-staging.up.railway.app";
+
+  fetch(`${base}/api/admin/overview?secret=${encodeURIComponent(secret)}`)
+    .then(r => {
+      if(r.status === 403) throw new Error("Feil hemmelig nøkkel.");
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+    .then(data => renderAdminDashboard(screen, data))
+    .catch(err => {
+      screen.innerHTML = `<p style='color:#c0392b;font-weight:600'>Feil: ${err.message}</p>`;
+    });
+})();
+
+function renderAdminDashboard(container, data){
+  const users = data.users || [];
+  const generated = data.generated_at ? new Date(data.generated_at).toLocaleString("no") : "";
+
+  const students = users.filter(u => u.role === "student");
+  const teachers = users.filter(u => u.role === "teacher");
+
+  const h = (tag, attrs, ...children) => {
+    const el = document.createElement(tag);
+    Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+    children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return el;
+  };
+  const t = s => document.createTextNode(s);
+
+  container.innerHTML = "";
+
+  // Header
+  container.appendChild(h("h1",{style:"margin:0 0 4px;font-size:22px"},"Admin — Brukeroversikt"));
+  container.appendChild(h("p",{style:"color:#888;font-size:13px;margin:0 0 24px"},`Generert: ${generated} · ${users.length} brukere totalt`));
+
+  // Summary cards
+  const summary = h("div",{style:"display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px"});
+  [
+    ["👥 Brukere totalt", users.length],
+    ["🎓 Elever", students.length],
+    ["👩‍🏫 Lærere", teachers.length],
+    ["📚 Ord opprettet", users.reduce((s,u)=>s+u.words,0)],
+    ["✍️ Setninger", users.reduce((s,u)=>s+u.sentences,0)],
+    ["📝 Essays", users.reduce((s,u)=>s+u.essays,0)],
+  ].forEach(([label, val]) => {
+    const card = h("div",{style:"background:#f8f9fa;border-radius:10px;padding:14px 20px;min-width:120px;text-align:center"});
+    card.appendChild(h("div",{style:"font-size:22px;font-weight:700;color:#1a6b4a"},String(val)));
+    card.appendChild(h("div",{style:"font-size:12px;color:#888;margin-top:2px"},label));
+    summary.appendChild(card);
+  });
+  container.appendChild(summary);
+
+  // Teachers section
+  if(teachers.length){
+    container.appendChild(h("h2",{style:"font-size:16px;margin:0 0 10px"},"👩‍🏫 Lærere"));
+    const tTable = buildAdminTable(h,
+      ["Navn","E-post","Elever","Oppgaver gitt","Sist aktiv","Opprettet"],
+      teachers.map(u => [
+        u.name,
+        u.email,
+        u.students.length ? u.students.join(", ") : "—",
+        u.assignments_given || 0,
+        u.last_active ? new Date(u.last_active).toLocaleDateString("no") : "—",
+        new Date(u.created_at).toLocaleDateString("no"),
+      ])
+    );
+    container.appendChild(tTable);
+  }
+
+  // Students section
+  container.appendChild(h("h2",{style:"font-size:16px;margin:24px 0 10px"},"🎓 Elever"));
+  const sTable = buildAdminTable(h,
+    ["Navn","E-post","Lærer","Ord","Setninger","Essays","Sammendrag","Plan","Hendelser","Sist aktiv","Opprettet"],
+    students.map(u => [
+      u.name,
+      u.email,
+      u.teacher || "—",
+      u.words,
+      u.sentences,
+      u.essays,
+      u.summaries,
+      u.has_plan ? "✓" : "—",
+      u.events,
+      u.last_active ? new Date(u.last_active).toLocaleDateString("no") : "—",
+      new Date(u.created_at).toLocaleDateString("no"),
+    ])
+  );
+  container.appendChild(sTable);
+}
+
+function buildAdminTable(h, headers, rows){
+  const style = "border-collapse:collapse;width:100%;font-size:13px;margin-bottom:16px";
+  const thStyle = "background:#1a6b4a;color:#fff;padding:8px 12px;text-align:left;white-space:nowrap";
+  const tdStyle = "padding:7px 12px;border-bottom:1px solid #eee;vertical-align:top";
+  const trEvenStyle = "background:#f9f9f9";
+
+  const table = h("div",{style:"overflow-x:auto"});
+  const t = document.createElement("table");
+  t.setAttribute("style", style);
+
+  const thead = t.createTHead();
+  const hr = thead.insertRow();
+  headers.forEach(hdr => {
+    const th = document.createElement("th");
+    th.setAttribute("style", thStyle);
+    th.textContent = hdr;
+    hr.appendChild(th);
+  });
+
+  const tbody = t.createTBody();
+  rows.forEach((row, i) => {
+    const tr = tbody.insertRow();
+    if(i % 2 === 1) tr.setAttribute("style", trEvenStyle);
+    row.forEach(cell => {
+      const td = tr.insertCell();
+      td.setAttribute("style", tdStyle);
+      td.textContent = String(cell);
+    });
+  });
+
+  table.appendChild(t);
+  return table;
 }
 </script>
 </body>
