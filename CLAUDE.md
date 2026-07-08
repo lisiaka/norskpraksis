@@ -142,6 +142,17 @@ Reading summaries are persisted via `PUT /api/reading-summaries/{textId}`. AI fe
 
 Text cards in `lesing-tekster.json` have an optional `questions` array. Each question is either MCQ `{ question, options[], answer }` (answer is the correct option index) or open-ended `{ question }` (no options). All 120 texts have questions.
 
+### Teacher AI steering (feature 012)
+
+A teacher can set per-student "AI-fokus" instructions and rate individual AI feedback blocks; both are automatically woven into that student's future Claude calls.
+
+- `state.aiSteeringContext` — `{ instructions, recent_ratings } | null`, fetched once per session by `fetchAiSteeringContext()` (`GET /api/me/ai-context`) and cached — not re-fetched per feedback call.
+- `buildTeacherSteeringBlock()` — returns the `INSTRUKSJONER FRA LÆREREN...` / `NYLIGE VURDERINGER...` text block to append to a `systemPrompt`, or `""` if the student has no teacher/instructions. Called from all three of `checkWithClaude`, `checkEssayWithClaude`, `checkGjenfortellWithClaude` — always call `await fetchAiSteeringContext()` immediately before building `systemPrompt` in any new feedback function.
+- Teacher-facing UI lives in `buildLaererAiFokus()` (`teacherState.view === "ai-fokus"`, reached via a KPI card in `buildLaererProgress()`): textarea + save/clear (`PUT`/`DELETE /api/teacher/students/{id}/ai-instructions`), plus a "✨ Utform med Claude" refinement chat panel (`POST /api/teacher/students/{id}/ai-chat`, capped at 10 turns — the backend rejects turn 11 with a 429 `chat_limit_reached`).
+- `buildAiRatingWidget(sourceType, sourceId)` — shared 👍/👎 + comment widget, attached under AI feedback blocks in `buildLaererEssayDetail` and `buildLaererSummaries` (`POST /api/teacher/ai-ratings`). Distinct from the existing teacher→student comment/Like widget on the same essay card — this one is teacher→AI.
+- `teacherState.aiInstructions` / `aiChatMessages` / `aiChatTurnCount` / `aiRatings` — cached state for the above, scoped to `teacherState.selectedStudent`.
+- A student has at most one active teacher at a time (`UNIQUE(student_id)` on `teacher_student_links`), so there is no multi-teacher resolution logic anywhere in this feature.
+
 ## Key Files
 
 | File | Purpose |
@@ -156,6 +167,8 @@ Text cards in `lesing-tekster.json` have an optional `questions` array. Each que
 | `ordbank-2-med-emner.json` | Sample word bank for import testing |
 
 <!-- SPECKIT START -->
+Active plan: `specs/012-teacher-ai-steering/plan.md` (in the monorepo root, sibling to this submodule).
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+shell commands, and other important information, read that plan and its
+companion `research.md`, `data-model.md`, `contracts/api.md`, and `quickstart.md`.
 <!-- SPECKIT END -->

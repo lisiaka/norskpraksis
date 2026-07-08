@@ -577,6 +577,7 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
   loadedEssayReview: null, // teacher review for the currently loaded essay
   userRole: "student", // "student" | "teacher" — set from JWT after login
+  aiSteeringContext: null, // { instructions, recent_ratings } | null — fetched once per session, see fetchAiSteeringContext()
 }; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
@@ -681,6 +682,32 @@ async function api(path, opts = {}){
   const headers = {"Content-Type":"application/json", ...(opts.headers||{})};
   if(state.sessionToken) headers["Authorization"] = `Bearer ${state.sessionToken}`;
   return fetch(`${API_BASE}${path}`, {...opts, headers});
+}
+
+// ── AI STEERING (teacher AI-fokus instructions + feedback ratings) ─────────
+// Fetched once per session and injected into every Claude feedback call.
+// See specs/012-teacher-ai-steering/research.md for why this lives client-side.
+async function fetchAiSteeringContext(){
+  if(state.aiSteeringContext) return state.aiSteeringContext;
+  try{
+    const res = await api("/api/me/ai-context");
+    if(!res.ok){ state.aiSteeringContext = {instructions:null, recent_ratings:[]}; return state.aiSteeringContext; }
+    state.aiSteeringContext = await res.json();
+  }catch(e){
+    state.aiSteeringContext = {instructions:null, recent_ratings:[]};
+  }
+  return state.aiSteeringContext;
+}
+
+function buildTeacherSteeringBlock(){
+  const ctx = state.aiSteeringContext;
+  if(!ctx || !ctx.instructions) return "";
+  let block = `\n\nINSTRUKSJONER FRA LÆREREN (følg disse nøye):\n${ctx.instructions}`;
+  if(ctx.recent_ratings && ctx.recent_ratings.length){
+    const ratingsText = ctx.recent_ratings.map(r=>`- ${r.comment}`).join("\n");
+    block += `\n\nNYLIGE VURDERINGER FRA LÆREREN AV DINE TIDLIGERE TILBAKEMELDINGER:\n${ratingsText}`;
+  }
+  return block;
 }
 
 // Show a banner if served from file:// (Claude API won't work)
@@ -1632,6 +1659,7 @@ async function checkWithClaude(word, sentence, container){
     container.appendChild(box);
     return;
   }
+  await fetchAiSteeringContext();
   const systemPrompt=`Du er en norsklærer som vurderer setninger skrevet av en elev på B2-nivå. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "correct": boolean,
@@ -1640,7 +1668,7 @@ async function checkWithClaude(word, sentence, container){
   "errors": [{"text":"problematisk ord eller uttrykk","issue":"kort forklaring på norsk","fix":"korrigert form"}],
   "improved": "full forbedret setning på norsk, eller null om den allerede er korrekt og naturlig",
   "tip": "ett kort pedagogisk tips på norsk, eller null"
-}`;
+}${buildTeacherSteeringBlock()}`;
 
   const userMsg=`Jeg er en norsk-elev på B2-nivå og øver på ordet/uttrykket: "${word}"\n\nVennligst vurder denne setningen:\n"${sentence}"`;
 
@@ -2174,6 +2202,7 @@ async function checkEssayWithClaude(essay, container){
     return;
   }
 
+  await fetchAiSteeringContext();
   const systemPrompt=`Du er en norsklærer som vurderer et essay skrevet av en elev på B2-nivå. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "level": "A1|A2|B1|B2|C1|C2",
@@ -2183,7 +2212,7 @@ async function checkEssayWithClaude(essay, container){
   "improvements": ["forbedringsforslag 1 på norsk","forbedringsforslag 2 på norsk"],
   "overall": "2-3 setningers helhetsvurdering på norsk"
 }
-Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements til 2-4 elementer hver.`;
+Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements til 2-4 elementer hver.${buildTeacherSteeringBlock()}`;
 
   const userMsg=`Please evaluate this Norwegian essay written by a B2-level learner:\n\n${essay}`;
 
@@ -2312,6 +2341,7 @@ async function checkGjenfortellWithClaude(text, summary, container){
     return;
   }
 
+  await fetchAiSteeringContext();
   const systemPrompt=`Du er en norsklærer som vurderer et sammendrag skrevet av en elev på B2-nivå. Eleven har lest en tekst og skrevet et sammendrag på 100–150 ord. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "level": "A1|A2|B1|B2|C1|C2",
@@ -2321,7 +2351,7 @@ async function checkGjenfortellWithClaude(text, summary, container){
   "grammarErrors": [{"text":"problematisk ord eller uttrykk fra sammendraget","issue":"kort forklaring på norsk","fix":"korrigert form"}],
   "overall": "2-3 setningers helhetsvurdering på norsk"
 }
-Hold grammarErrors til de 3-5 viktigste feilene. Hvis det ikke er grammatikkfeil, bruk en tom array [].`;
+Hold grammarErrors til de 3-5 viktigste feilene. Hvis det ikke er grammatikkfeil, bruk en tom array [].${buildTeacherSteeringBlock()}`;
 
   const userMsg=`Originaltekst:\n${text.text}\n\nElevens sammendrag:\n${summary}\n\nVurder sammendraget med tanke på: tekstforståelse, bruk av ord fra originalteksten, grammatikk og språknivå.`;
 
@@ -4855,7 +4885,7 @@ function buildInnstillinger(){
 // ── LÆRER DASHBOARD ───────────────────────────────────────────────────────
 
 const teacherState = {
-  view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences" | "summaries" | "assignments" | "bank-texts" | "bank-prompts"
+  view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences" | "summaries" | "assignments" | "bank-texts" | "bank-prompts" | "ai-fokus"
   students: null,        // cached list from API
   selectedStudent: null, // { id, name, email, assigned_at }
   studentProgress: null, // progress response from API
@@ -4869,6 +4899,10 @@ const teacherState = {
   studentAssignments: null, // list of assignments from teacher view
   bankTexts: null,       // cached teacher text bank
   bankPrompts: null,     // cached teacher prompt bank
+  aiInstructions: null,  // { instructions, updated_at } | null — cached AI-fokus for selectedStudent
+  aiChatMessages: [],    // refinement chat history for the open session
+  aiChatTurnCount: 0,    // number of user turns sent this chat session
+  aiRatings: null,       // cached list of ai_feedback_ratings for selectedStudent
 };
 
 function buildLaerer(){
@@ -4887,6 +4921,7 @@ function buildLaerer(){
   else if(teacherState.view === "assignments") wrap.appendChild(buildLaererAssignments());
   else if(teacherState.view === "bank-texts")  wrap.appendChild(buildLaererBankTexts());
   else if(teacherState.view === "bank-prompts") wrap.appendChild(buildLaererBankPrompts());
+  else if(teacherState.view === "ai-fokus")    wrap.appendChild(buildLaererAiFokus());
 
   frag.appendChild(wrap);
   return frag;
@@ -5023,6 +5058,7 @@ function buildLaererProgress(){
       ["💬","Setninger",p.sentences_written,()=>{teacherState.studentSentences=null;laererSetView("sentences");}],
       ["✍️","Stiler levert",p.essays_submitted,p.essays_submitted>0?()=>{teacherState.studentEssays=null;laererSetView("essays");}:null],
       ["📝","Gjenfortellinger",(p.summaries_written||0),()=>{teacherState.studentSummaries=null;laererSetView("summaries");}],
+      ["🤖","AI-fokus",null,()=>{teacherState.aiInstructions=null;laererSetView("ai-fokus");}],
     ].forEach(([icon,label,val,onClick])=>{
       const card=el("div",{class:"card",style:{padding:"16px",textAlign:"center",cursor:onClick?"pointer":"default",border:onClick?"1px solid #cce0f5":""},
         ...(onClick?{click:onClick}:{})});
@@ -5036,6 +5072,245 @@ function buildLaererProgress(){
   }
   loadProgress();
   return frag;
+}
+
+// ── AI-fokus view (feature 012) ───────────────────────────────────────────
+function buildLaererAiFokus(){
+  const frag = document.createDocumentFragment();
+  const s = teacherState.selectedStudent;
+
+  const back = el("button",{class:"btn-secondary",style:{marginBottom:"16px"},
+    click:()=>laererSetView("progress")},"← Tilbake");
+  frag.appendChild(back);
+  frag.appendChild(el("h2",{style:{marginBottom:"4px"}},`🤖 AI-fokus: ${$esc(s?.name||"")}`));
+  frag.appendChild(el("p",{style:{color:"#888",fontSize:"13px",marginBottom:"16px"}},
+    "Instruksjoner du skriver her blir automatisk lagt til i alle Claude-tilbakemeldinger denne eleven får (stiler, setninger og gjenfortellinger)."));
+
+  const card = el("div",{class:"card",style:{padding:"16px"}});
+  frag.appendChild(card);
+
+  const textarea = el("textarea",{rows:"6", maxlength:"1500",
+    style:{width:"100%",padding:"8px",boxSizing:"border-box",border:"1px solid #ccc",
+      borderRadius:"6px",fontSize:"14px",resize:"vertical"},
+    placeholder:"F.eks: Denne eleven må jobbe mer med substantivbøying. Neste gang han gjør feil: forklar substantivformene med eksempler."});
+  card.appendChild(textarea);
+
+  const err = el("div",{style:{color:"#c0392b",fontSize:"13px",marginTop:"6px",display:"none"}});
+  const btnRow = el("div",{style:{display:"flex",gap:"10px",marginTop:"10px"}});
+
+  async function saveInstructions(value){
+    if(!value){ err.textContent="Instruksjoner kan ikke være tomme"; err.style.display=""; return false; }
+    err.style.display="none";
+    saveBtn.disabled=true; saveBtn.textContent="Lagrer…";
+    try{
+      const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}/ai-instructions`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({instructions:value}),
+      });
+      if(r.ok){
+        teacherState.aiInstructions = await r.json();
+        textarea.value = value;
+        toast("✓ AI-fokus lagret");
+        saveBtn.textContent="Lagret ✓";
+        saveBtn.disabled=false;
+        clearBtn.disabled=false;
+        return true;
+      }
+      const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
+      err.textContent = d.detail||"Kunne ikke lagre";
+      err.style.display="";
+    }catch(e){
+      err.textContent="Nettverksfeil";
+      err.style.display="";
+    }
+    saveBtn.textContent="Lagre";
+    saveBtn.disabled=false;
+    return false;
+  }
+
+  const saveBtn = el("button",{class:"btn-primary",style:{flex:"1"},
+    click: ()=>saveInstructions(textarea.value.trim())
+  },"Lagre");
+  btnRow.appendChild(saveBtn);
+
+  const clearBtn = el("button",{class:"btn-secondary",
+    disabled: !teacherState.aiInstructions?.instructions,
+    click: async ()=>{
+      clearBtn.disabled=true;
+      try{
+        const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}/ai-instructions`,{method:"DELETE"});
+        if(r.ok){
+          teacherState.aiInstructions = {instructions:null, updated_at:null};
+          textarea.value="";
+          toast("✓ AI-fokus fjernet");
+          clearBtn.disabled=true;
+        } else {
+          clearBtn.disabled=false;
+        }
+      }catch(e){
+        clearBtn.disabled=false;
+      }
+    }
+  },"Fjern");
+  btnRow.appendChild(clearBtn);
+
+  const chatToggleBtn = el("button",{class:"btn-secondary",style:{marginLeft:"auto"},
+    click: ()=>{
+      const willOpen = chatPanel.style.display==="none";
+      chatPanel.style.display = willOpen ? "" : "none";
+      if(willOpen) renderChatMessages();
+    }
+  },"✨ Utform med Claude");
+  btnRow.appendChild(chatToggleBtn);
+
+  card.appendChild(err);
+  card.appendChild(btnRow);
+
+  // ── Refinement chat panel ─────────────────────────────────────────────
+  const chatPanel = el("div",{style:{marginTop:"16px",paddingTop:"16px",borderTop:"1px solid #e0e0e0",display:"none"}});
+  card.appendChild(chatPanel);
+
+  const chatMessagesEl = el("div",{style:{maxHeight:"260px",overflowY:"auto",marginBottom:"10px"}});
+  const chatLimitMsg = el("div",{style:{color:"#c0392b",fontSize:"13px",margin:"6px 0",display:"none"}},
+    "Samtalen er full — lagre forslaget eller start på nytt.");
+  const chatInput = el("input",{type:"text",placeholder:"Beskriv hva du vil at AI-en skal fokusere på …",
+    style:{width:"100%",padding:"8px",boxSizing:"border-box",border:"1px solid #ccc",borderRadius:"6px",fontSize:"14px",marginBottom:"8px"}});
+  const chatBtnRow = el("div",{style:{display:"flex",gap:"8px"}});
+  const chatSendBtn = el("button",{class:"btn-primary",click:()=>sendChatMessage()},"Send");
+  const chatResetBtn = el("button",{class:"btn-secondary",style:{display:"none"},
+    click:()=>{
+      teacherState.aiChatMessages=[];
+      teacherState.aiChatTurnCount=0;
+      chatLimitMsg.style.display="none";
+      chatInput.disabled=false; chatSendBtn.disabled=false;
+      chatResetBtn.style.display="none";
+      renderChatMessages();
+    }
+  },"Start på nytt");
+  chatBtnRow.appendChild(chatSendBtn);
+  chatBtnRow.appendChild(chatResetBtn);
+
+  chatPanel.appendChild(chatMessagesEl);
+  chatPanel.appendChild(chatLimitMsg);
+  chatPanel.appendChild(chatInput);
+  chatPanel.appendChild(chatBtnRow);
+
+  function renderChatMessages(){
+    chatMessagesEl.innerHTML="";
+    teacherState.aiChatMessages.forEach(m=>{
+      const bubble = el("div",{style:{
+        margin:"6px 0", padding:"8px 10px", borderRadius:"8px", fontSize:"13px", lineHeight:"1.5",
+        whiteSpace:"pre-wrap",
+        background: m.role==="user" ? "#e8f4fd" : "#f8f9fa",
+        marginLeft: m.role==="user" ? "20%" : "0",
+        marginRight: m.role==="user" ? "0" : "20%",
+      }});
+      bubble.textContent = m.content;
+      chatMessagesEl.appendChild(bubble);
+      if(m.proposedInstructions){
+        const saveProposalBtn = el("button",{class:"btn-primary",style:{fontSize:"13px",marginTop:"4px"},
+          click: async ()=>{ await saveInstructions(m.proposedInstructions); }
+        },"Lagre som AI-fokus");
+        chatMessagesEl.appendChild(saveProposalBtn);
+      }
+    });
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }
+
+  async function sendChatMessage(){
+    const text = chatInput.value.trim();
+    if(!text) return;
+    teacherState.aiChatMessages.push({role:"user", content:text});
+    teacherState.aiChatTurnCount += 1;
+    chatInput.value="";
+    renderChatMessages();
+    chatSendBtn.disabled=true; chatInput.disabled=true;
+    try{
+      const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}/ai-chat`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          messages: teacherState.aiChatMessages.map(m=>({role:m.role, content:m.content})),
+          turn_count: teacherState.aiChatTurnCount,
+        }),
+      });
+      if(r.status===429){
+        chatLimitMsg.style.display="";
+        chatInput.disabled=true; chatSendBtn.disabled=true;
+        chatResetBtn.style.display="";
+        return;
+      }
+      if(r.ok){
+        const data = await r.json();
+        teacherState.aiChatMessages.push({role:"assistant", content:data.reply, proposedInstructions:data.proposed_instructions||null});
+        renderChatMessages();
+      }
+    }catch(e){
+      // leave the user's message visible; they can retry
+    }
+    chatInput.disabled=false; chatSendBtn.disabled=false;
+  }
+
+  async function loadInstructions(){
+    if(!teacherState.aiInstructions){
+      const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}/ai-instructions`).catch(()=>null);
+      teacherState.aiInstructions = r?.ok ? await r.json() : {instructions:null, updated_at:null};
+    }
+    textarea.value = teacherState.aiInstructions.instructions || "";
+    clearBtn.disabled = !teacherState.aiInstructions.instructions;
+  }
+  loadInstructions();
+
+  return frag;
+}
+
+// Rating widget attached under an AI feedback block (essay/retell/sentence).
+// Distinct from the teacher→student comment/Like widget — this one is teacher→AI.
+function buildAiRatingWidget(sourceType, sourceId){
+  const wrap = el("div",{style:{marginTop:"12px",paddingTop:"12px",borderTop:"1px solid #e0e0e0"}});
+  wrap.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"6px"}},"Vurder AI-tilbakemeldingen"));
+
+  const commentInput = el("input",{type:"text",placeholder:"Valgfri kommentar til AI-en …",
+    style:{width:"100%",padding:"6px 8px",boxSizing:"border-box",border:"1px solid #ccc",
+      borderRadius:"6px",fontSize:"13px",marginBottom:"8px"}});
+  wrap.appendChild(commentInput);
+
+  const btnRow = el("div",{style:{display:"flex",gap:"8px"}});
+  const submitRating = async (rating)=>{
+    const s = teacherState.selectedStudent;
+    upBtn.disabled = true; downBtn.disabled = true;
+    try{
+      const r = await api("/api/teacher/ai-ratings",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          student_id: s.id,
+          source_type: sourceType,
+          source_id: String(sourceId),
+          rating,
+          comment: commentInput.value.trim()||null,
+        }),
+      });
+      if(r.ok){
+        toast(rating==="up" ? "✓ Markert som bra" : "✓ Markert for justering");
+        commentInput.disabled = true;
+        upBtn.textContent = rating==="up" ? "✓ 👍" : "👍";
+        downBtn.textContent = rating==="down" ? "✓ 👎" : "👎";
+      } else {
+        upBtn.disabled = false; downBtn.disabled = false;
+      }
+    }catch(e){
+      upBtn.disabled = false; downBtn.disabled = false;
+    }
+  };
+  const upBtn = el("button",{class:"btn-secondary",style:{fontSize:"13px"}, click:()=>submitRating("up")},"👍");
+  const downBtn = el("button",{class:"btn-secondary",style:{fontSize:"13px"}, click:()=>submitRating("down")},"👎");
+  btnRow.appendChild(upBtn);
+  btnRow.appendChild(downBtn);
+  wrap.appendChild(btnRow);
+
+  return wrap;
 }
 
 // ── Study plan view ────────────────────────────────────────────────────────
@@ -5421,6 +5696,7 @@ function buildLaererEssayDetail(){
       aiText.textContent=essay.claude_feedback;
       aiCard.appendChild(aiText);
     }
+    aiCard.appendChild(buildAiRatingWidget("essay", essay.id));
     frag.appendChild(aiCard);
   }
 
@@ -5551,6 +5827,7 @@ function buildLaererSummaries(){
           raw.textContent=sm.claude_feedback;
           card.appendChild(raw);
         }
+        card.appendChild(buildAiRatingWidget("retell", sm.text_id));
       }
 
       wrap.appendChild(card);
