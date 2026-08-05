@@ -6539,7 +6539,8 @@ function buildGiOppgaver(students){
         const topicSel=el("select",{style:{width:"100%",marginBottom:"6px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
         topicSel.appendChild(el("option",{value:""},"Velg tema (valgfritt)"));
         VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
-        const bodyIn=el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"80px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"12px",boxSizing:"border-box",resize:"vertical",marginBottom:"6px"}});
+        const bodyIn=el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"80px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"12px",boxSizing:"border-box",resize:"vertical",marginBottom:"2px"}});
+        const bodyCount=attachWordCounter(bodyIn, CUSTOM_TEXT_MAX_WORDS);
         const saveBankRow=el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"6px"}});
         const saveBankCb=el("input",{type:"checkbox",id:"txt-save-bank"}); saveBankCb.checked=true;
         saveBankRow.appendChild(saveBankCb);
@@ -6549,6 +6550,7 @@ function buildGiOppgaver(students){
             const title=(titleIn.value||"").trim();
             const body=(bodyIn.value||"").trim();
             if(!title||!body){ toast("Fyll inn tittel og tekst"); return; }
+            if(bodyCount.isOver()){ toast(`Teksten er for lang (${countWords(body)} ord). Maks ${CUSTOM_TEXT_MAX_WORDS} ord.`); return; }
             const item={item_type:"reading_text",content:{source:"custom",title,topic:topicSel.value,body}};
             // Optionally save to bank
             if(saveBankCb.checked){
@@ -6565,6 +6567,7 @@ function buildGiOppgaver(students){
         txtPickerWrap.appendChild(titleIn);
         txtPickerWrap.appendChild(topicSel);
         txtPickerWrap.appendChild(bodyIn);
+        txtPickerWrap.appendChild(bodyCount);
         txtPickerWrap.appendChild(saveBankRow);
         txtPickerWrap.appendChild(addTxtBtn);
       }
@@ -6846,6 +6849,29 @@ function buildLaererAssignments(){
 
 // ── TEACHER: Text bank view ────────────────────────────────────────────────
 
+// Custom reading texts feed the Gjenfortell AI prompt, the comprehension questions
+// and Setningsbygging, all of which assume roughly the length of the built-in B2
+// texts (~250 words). Long texts also inflate the AI response past its token budget.
+const CUSTOM_TEXT_MAX_WORDS = 500;
+function countWords(s){ return (String(s||"").trim().match(/\S+/g)||[]).length; }
+
+// Live "x / 500 ord" counter bound to a textarea. Returns the counter element with
+// an isOver() method so the save handler can gate on it.
+function attachWordCounter(textarea, max){
+  const out = el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"8px",textAlign:"right"}});
+  const update = ()=>{
+    const n = countWords(textarea.value);
+    const over = n > max;
+    out.textContent = over ? `${n} / ${max} ord — for langt` : `${n} / ${max} ord`;
+    out.style.color = over ? "#c0392b" : (n > max*0.9 ? "#a06010" : "#888");
+    out.style.fontWeight = over ? "700" : "400";
+  };
+  textarea.addEventListener("input", update);
+  update();
+  out.isOver = ()=>countWords(textarea.value) > max;
+  return out;
+}
+
 // Shared selectable card for Tekstbank and Oppgavebank. The whole card is the hit
 // target — no checkbox, no expand chevron. The body is clamped to two lines and the
 // "Vis mer" link only appears when the text actually overflows, so most items need
@@ -7092,7 +7118,8 @@ function buildLaererBankTexts(){
       const topicSel=el("select",{style:{width:"100%",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"14px",boxSizing:"border-box"}});
       topicSel.appendChild(el("option",{value:""},"Velg tema (valgfritt)"));
       VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
-      const bodyIn=el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"150px",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
+      const bodyIn=el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"150px",padding:"7px 10px",marginBottom:"4px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
+      const bodyCount=attachWordCounter(bodyIn, CUSTOM_TEXT_MAX_WORDS);
       const addErr=el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"6px",display:"none"}});
       const addBtn=el("button",{class:"btn-cta",
         click:async ()=>{
@@ -7100,6 +7127,10 @@ function buildLaererBankTexts(){
           const body=(bodyIn.value||"").trim();
           if(!title){addErr.textContent="Tittel er påkrevd";addErr.style.display="";return;}
           if(!body){addErr.textContent="Tekst er påkrevd";addErr.style.display="";return;}
+          if(bodyCount.isOver()){
+            addErr.textContent=`Teksten er for lang (${countWords(body)} ord). Maks ${CUSTOM_TEXT_MAX_WORDS} ord — B2-tekstene i appen er rundt 250 ord.`;
+            addErr.style.display=""; return;
+          }
           addErr.style.display="none";
           addBtn.disabled=true; addBtn.textContent="Lagrer…";
           const r=await api("/api/teacher/bank/texts",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -7117,7 +7148,7 @@ function buildLaererBankTexts(){
         }
       },"Lagre tekst");
       addCard.appendChild(titleIn); addCard.appendChild(topicSel); addCard.appendChild(bodyIn);
-      addCard.appendChild(addErr); addCard.appendChild(addBtn);
+      addCard.appendChild(bodyCount); addCard.appendChild(addErr); addCard.appendChild(addBtn);
       tabContent.appendChild(addCard);
     }
   }
