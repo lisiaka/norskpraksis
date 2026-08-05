@@ -1678,7 +1678,7 @@ async function checkWithClaude(word, sentence, container){
       headers:{"Content-Type":"application/json","X-Auth-Token":state.sessionToken},
       body:JSON.stringify({
         model:"claude-haiku-4-5-20251001",
-        max_tokens:600,
+        max_tokens:1500,
         system:systemPrompt,
         messages:[{role:"user",content:userMsg}],
       }),
@@ -1690,6 +1690,8 @@ async function checkWithClaude(word, sentence, container){
     }
 
     const data=await res.json();
+    // Truncated responses produce invalid JSON — report it as a length problem, not a parse error
+    if(data.stop_reason==="max_tokens") throw new Error("Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere setning.");
     const rawText=data.content?.[0]?.text||"{}";
     // Strip any accidental markdown fences
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
@@ -1713,7 +1715,7 @@ async function generateFormsAndDistractors(wordId, word, meaning){
     const res=await fetch("/api/proxy/claude",{
       method:"POST",
       headers:{"Content-Type":"application/json","X-Auth-Token":state.sessionToken},
-      body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:300,messages:[{role:"user",content:prompt}]}),
+      body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:800,messages:[{role:"user",content:prompt}]}),
     });
     if(!res.ok) return;
     const data=await res.json();
@@ -2222,7 +2224,7 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements 
       headers:{"Content-Type":"application/json","X-Auth-Token":state.sessionToken},
       body:JSON.stringify({
         model:"claude-haiku-4-5-20251001",
-        max_tokens:900,
+        max_tokens:2500,
         system:systemPrompt,
         messages:[{role:"user",content:userMsg}],
       }),
@@ -2232,6 +2234,8 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements 
       throw new Error(err.error?.message||`HTTP ${res.status}`);
     }
     const data=await res.json();
+    // Truncated responses produce invalid JSON — report it as a length problem, not a parse error
+    if(data.stop_reason==="max_tokens") throw new Error("Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere tekst.");
     const rawText=data.content?.[0]?.text||"{}";
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
@@ -2361,7 +2365,7 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hvis det ikke er grammatikkfeil
       headers:{"Content-Type":"application/json","X-Auth-Token":state.sessionToken},
       body:JSON.stringify({
         model:"claude-haiku-4-5-20251001",
-        max_tokens:700,
+        max_tokens:2000,
         system:systemPrompt,
         messages:[{role:"user",content:userMsg}],
       }),
@@ -2371,6 +2375,8 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hvis det ikke er grammatikkfeil
       throw new Error(err.error?.message||`HTTP ${res.status}`);
     }
     const data=await res.json();
+    // Truncated responses produce invalid JSON — report it as a length problem, not a parse error
+    if(data.stop_reason==="max_tokens") throw new Error("Svaret ble avkuttet fordi det ble for langt. Prøv med et kortere sammendrag.");
     const rawText=data.content?.[0]?.text||"{}";
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
