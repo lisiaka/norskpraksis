@@ -103,6 +103,25 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .essay-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#999;}
 .action-row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
 .btn-sec{padding:9px 18px;background:#f5f7fa;border:1.5px solid #e0e4ec;border-radius:9px;font-size:13px;color:#555;font-weight:500;}
+/* Primary call-to-action — used for the bank save/assign actions, which were
+   previously easy to miss against the form fields above them. */
+.btn-cta{display:block;width:100%;padding:15px 24px;background:#1a6b4a;color:#fff;border:none;border-radius:11px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(26,107,74,.25);transition:background .15s,box-shadow .15s,transform .05s;}
+.btn-cta:hover:not(:disabled){background:#15583d;box-shadow:0 5px 16px rgba(26,107,74,.32);}
+.btn-cta:active:not(:disabled){transform:translateY(1px);}
+.btn-cta:disabled{background:#cfd8d3;color:#fff;box-shadow:none;cursor:not-allowed;}
+/* Selectable bank card — click anywhere to pick, no checkbox, body clamped to
+   two lines so the common case needs no expand click. */
+.pick-card{position:relative;border:2px solid #e8ecf0;border-radius:12px;background:#fff;margin-bottom:10px;padding:14px 16px;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s;}
+.pick-card:hover{border-color:#9fc7b4;box-shadow:0 2px 10px rgba(0,0,0,.06);}
+.pick-card.picked{border-color:#1a6b4a;background:#f2faf6;box-shadow:0 0 0 3px rgba(26,107,74,.12);}
+.pick-title{font-weight:700;font-size:15px;color:#222;padding-right:36px;line-height:1.4;}
+.pick-meta{font-size:12px;color:#8a94a0;margin-top:3px;}
+.pick-preview{font-size:13px;color:#555;line-height:1.6;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.pick-preview.open{display:block;overflow:visible;white-space:pre-wrap;}
+.pick-more{font-size:12px;color:#1a6b4a;font-weight:700;margin-top:6px;display:inline-block;cursor:pointer;}
+.pick-more:hover{text-decoration:underline;}
+.pick-check{position:absolute;top:13px;right:14px;width:24px;height:24px;border-radius:50%;border:2px solid #d8dee5;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:transparent;background:#fff;transition:background .15s,border-color .15s,color .15s;}
+.pick-card.picked .pick-check{background:#1a6b4a;border-color:#1a6b4a;color:#fff;}
 .sidebar{position:sticky;top:16px;}
 .sidebar .card{margin-bottom:12px;}
 .sidebar .card h3{font-size:14px;color:#1a6b4a;font-weight:700;margin-bottom:12px;}
@@ -682,6 +701,33 @@ async function api(path, opts = {}){
   const headers = {"Content-Type":"application/json", ...(opts.headers||{})};
   if(state.sessionToken) headers["Authorization"] = `Bearer ${state.sessionToken}`;
   return fetch(`${API_BASE}${path}`, {...opts, headers});
+}
+
+// A Claude response can arrive as several text blocks. Reading only content[0]
+// silently drops the rest, which shows up as a JSON parse error on a response
+// that was actually complete — always concatenate.
+function claudeText(data){
+  const t = (data?.content||[]).filter(b=>b&&b.type==="text").map(b=>b.text||"").join("");
+  return t || "{}";
+}
+
+// Snapshot of what Claude actually returned, captured before parsing so a failure
+// can be reported precisely.
+function claudeDiag(data, systemPrompt, userMsg){
+  return {stop:data.stop_reason, usage:data.usage,
+    blocks:(data.content||[]).map(b=>b.type).join(","),
+    raw:claudeText(data), sysLen:systemPrompt.length, userLen:userMsg.length};
+}
+
+// Collapsible technical panel shown after a Claude failure, so the exact stop_reason,
+// token counts and response tail can be reported without opening DevTools.
+function appendClaudeDiag(container, diag){
+  if(!diag) return;
+  const det=el("details",{style:{marginTop:"8px",fontSize:"12px",color:"#666"}});
+  det.appendChild(el("summary",{style:{cursor:"pointer"}},"Teknisk info (kopier denne ved feilrapport)"));
+  const info=`stop_reason: ${diag.stop}\nblokker: ${diag.blocks}\ntokens inn/ut: ${diag.usage?.input_tokens}/${diag.usage?.output_tokens}\nsystemprompt: ${diag.sysLen} tegn\nbrukermelding: ${diag.userLen} tegn\nsvarlengde: ${diag.raw.length} tegn\n\nSISTE 400 TEGN AV SVARET:\n${diag.raw.slice(-400)}`;
+  det.appendChild(el("pre",{style:{whiteSpace:"pre-wrap",wordBreak:"break-word",background:"#faf9f7",padding:"8px",borderRadius:"6px",marginTop:"6px"}},info));
+  container.appendChild(det);
 }
 
 // ── AI STEERING (teacher AI-fokus instructions + feedback ratings) ─────────
@@ -1672,6 +1718,7 @@ async function checkWithClaude(word, sentence, container){
 
   const userMsg=`Jeg er en norsk-elev på B2-nivå og øver på ordet/uttrykket: "${word}"\n\nVennligst vurder denne setningen:\n"${sentence}"`;
 
+  let diag=null;
   try{
     const res=await fetch("/api/proxy/claude",{
       method:"POST",
@@ -1690,9 +1737,10 @@ async function checkWithClaude(word, sentence, container){
     }
 
     const data=await res.json();
+    diag=claudeDiag(data,systemPrompt,userMsg);
     // Truncated responses produce invalid JSON — report it as a length problem, not a parse error
     if(data.stop_reason==="max_tokens") throw new Error("Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere setning.");
-    const rawText=data.content?.[0]?.text||"{}";
+    const rawText=claudeText(data);
     // Strip any accidental markdown fences
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
@@ -1706,6 +1754,7 @@ async function checkWithClaude(word, sentence, container){
         ? "❌ Ugyldig API-nøkkel. Sjekk nøkkelen i Innstillinger."
         : `❌ Feil: ${err.message}. Prøv igjen, eller bruk LanguageTool (fjern nøkkelen).`
     ));
+    appendClaudeDiag(container, diag);
   }
 }
 
@@ -1719,7 +1768,7 @@ async function generateFormsAndDistractors(wordId, word, meaning){
     });
     if(!res.ok) return;
     const data=await res.json();
-    const raw=(data.content?.[0]?.text||"{}").replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
+    const raw=claudeText(data).replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const parsed=JSON.parse(raw);
     const forms=Array.isArray(parsed.forms)?parsed.forms.filter(f=>typeof f==="string"&&f.trim()):[];
     const distractors=Array.isArray(parsed.distractors)?parsed.distractors.filter(d=>typeof d==="string"&&d.trim()).slice(0,4):[];
@@ -2218,6 +2267,7 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements 
 
   const userMsg=`Please evaluate this Norwegian essay written by a B2-level learner:\n\n${essay}`;
 
+  let diag=null;
   try{
     const res=await fetch("/api/proxy/claude",{
       method:"POST",
@@ -2234,9 +2284,10 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements 
       throw new Error(err.error?.message||`HTTP ${res.status}`);
     }
     const data=await res.json();
+    diag=claudeDiag(data,systemPrompt,userMsg);
     // Truncated responses produce invalid JSON — report it as a length problem, not a parse error
     if(data.stop_reason==="max_tokens") throw new Error("Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere tekst.");
-    const rawText=data.content?.[0]?.text||"{}";
+    const rawText=claudeText(data);
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
     renderEssayClaudeResult(result, container);
@@ -2270,6 +2321,7 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements 
         ? "❌ Ugyldig API-nøkkel. Sjekk nøkkelen i Innstillinger."
         : `❌ Feil: ${err.message}. Prøv igjen.`
     ));
+    appendClaudeDiag(container, diag);
   }
 }
 
@@ -2378,10 +2430,10 @@ VIKTIG: Svaret skal ha samme lengde uansett hvor lang originalteksten er. Respek
     }
     const data=await res.json();
     // Captured so the catch below can report what actually came back
-    diag={stop:data.stop_reason,usage:data.usage,blocks:(data.content||[]).map(b=>b.type).join(","),raw:data.content?.[0]?.text||"",sysLen:systemPrompt.length,userLen:userMsg.length};
+    diag=claudeDiag(data,systemPrompt,userMsg);
     // Truncated responses produce invalid JSON — report it as a length problem, not a parse error
     if(data.stop_reason==="max_tokens") throw new Error("Svaret ble avkuttet fordi det ble for langt. Prøv med et kortere sammendrag.");
-    const rawText=data.content?.[0]?.text||"{}";
+    const rawText=claudeText(data);
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
     renderGjenfortellResult(result,container);
@@ -2400,13 +2452,7 @@ VIKTIG: Svaret skal ha samme lengde uansett hvor lang originalteksten er. Respek
     container.innerHTML="";
     const msg=err instanceof Error?err.message:"Ukjent feil";
     container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},`Klarte ikke å hente tilbakemelding. Prøv igjen. (${msg})`));
-    if(diag){
-      const det=el("details",{style:{marginTop:"8px",fontSize:"12px",color:"#666"}});
-      det.appendChild(el("summary",{style:{cursor:"pointer"}},"Teknisk info (kopier denne ved feilrapport)"));
-      const info=`stop_reason: ${diag.stop}\nblokker: ${diag.blocks}\ntokens inn/ut: ${diag.usage?.input_tokens}/${diag.usage?.output_tokens}\nsystemprompt: ${diag.sysLen} tegn\nbrukermelding: ${diag.userLen} tegn\nsvarlengde: ${diag.raw.length} tegn\n\nSISTE 300 TEGN AV SVARET:\n${diag.raw.slice(-300)}`;
-      det.appendChild(el("pre",{style:{whiteSpace:"pre-wrap",wordBreak:"break-word",background:"#faf9f7",padding:"8px",borderRadius:"6px",marginTop:"6px"}},info));
-      container.appendChild(det);
-    }
+    appendClaudeDiag(container, diag);
   }
 }
 
@@ -4963,7 +5009,7 @@ function buildLaererRoster(){
     style:{width:"100%",padding:"8px",marginBottom:"8px",boxSizing:"border-box",
       border:"1px solid #ccc",borderRadius:"6px",fontSize:"14px"}});
   const addErr = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
-  const addBtn = el("button",{class:"btn-primary",style:{width:"100%"},
+  const addBtn = el("button",{class:"btn-cta",
     click: async ()=>{
       const email = emailInput.value.trim();
       if(!email){ addErr.textContent="Skriv inn en e-postadresse"; addErr.style.display=""; return; }
@@ -6261,7 +6307,7 @@ function buildGiOppgaver(students){
     const errDiv = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
     modeContent.appendChild(errDiv);
 
-    const btn = el("button",{class:"btn-primary",style:{width:"100%"},disabled:selectedIds.size===0,
+    const btn = el("button",{class:"btn-cta",disabled:selectedIds.size===0,
       click: async ()=>{
         const topic=topicSel.value;
         if(!topic){errDiv.textContent="Velg et tema";errDiv.style.display="";return;}
@@ -6690,7 +6736,7 @@ function buildGiOppgaver(students){
     const errDiv2 = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
     modeContent.appendChild(errDiv2);
 
-    const assignBtn2 = el("button",{class:"btn-primary",style:{width:"100%"},disabled:selectedIds.size===0,
+    const assignBtn2 = el("button",{class:"btn-cta",disabled:selectedIds.size===0,
       click: async ()=>{
         const itemsArr = [];
         if(includeWords && items._getWordList) { const w=items._getWordList(); if(w) itemsArr.push(w); }
@@ -6800,6 +6846,57 @@ function buildLaererAssignments(){
 
 // ── TEACHER: Text bank view ────────────────────────────────────────────────
 
+// Shared selectable card for Tekstbank and Oppgavebank. The whole card is the hit
+// target — no checkbox, no expand chevron. The body is clamped to two lines and the
+// "Vis mer" link only appears when the text actually overflows, so most items need
+// no click at all to read.
+function renderPickCard({item, title, meta, body, selectedItems, onChange, onDelete}){
+  const card = el("div",{class:"pick-card"});
+  const isPicked = ()=>selectedItems.some(i=>i._key===item._key);
+  const sync = ()=>card.classList.toggle("picked", isPicked());
+
+  card.appendChild(el("div",{class:"pick-check"},"✓"));
+  card.appendChild(el("div",{class:"pick-title"},$esc(title)));
+  if(meta) card.appendChild(el("div",{class:"pick-meta"},$esc(meta)));
+
+  if(body){
+    const preview = el("div",{class:"pick-preview"});
+    preview.textContent = body;
+    card.appendChild(preview);
+    const more = el("span",{class:"pick-more",style:{display:"none"},
+      click:e=>{
+        e.stopPropagation();               // expanding must not toggle selection
+        const open = preview.classList.toggle("open");
+        more.textContent = open ? "Vis mindre" : "… Vis mer";
+      }
+    },"… Vis mer");
+    card.appendChild(more);
+    // Measure after layout — only offer the link when two lines genuinely clip it.
+    requestAnimationFrame(()=>{
+      if(preview.scrollHeight > preview.clientHeight + 2) more.style.display="";
+    });
+  }
+
+  card.addEventListener("click",()=>{
+    if(isPicked()){
+      const i = selectedItems.findIndex(x=>x._key===item._key);
+      if(i!==-1) selectedItems.splice(i,1);
+    } else selectedItems.push(item);
+    sync();
+    onChange();
+  });
+
+  if(onDelete){
+    card.appendChild(el("button",{class:"btn-danger",
+      style:{fontSize:"12px",padding:"5px 12px",marginTop:"10px"},
+      click:e=>{ e.stopPropagation(); onDelete(); }
+    },"Slett"));
+  }
+
+  sync();
+  return card;
+}
+
 function buildLaererBankTexts(){
   const frag = document.createDocumentFragment();
 
@@ -6850,7 +6947,7 @@ function buildLaererBankTexts(){
     const labelIn=el("input",{type:"text",placeholder:"Merkelapp (valgfritt)",
       style:{width:"100%",padding:"6px 8px",marginBottom:"10px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box"}});
     panel.appendChild(labelIn);
-    const assignBtn=el("button",{class:"btn-primary",style:{width:"100%"},
+    const assignBtn=el("button",{class:"btn-cta",
       click:async ()=>{
         if(!selectedItems.length){toast("Velg minst én tekst");return;}
         const useAll=allCb.checked;
@@ -6921,50 +7018,23 @@ function buildLaererBankTexts(){
   }
 
   function renderTextCard(txt,isCustom){
-    const item=makeTextItem(txt,isCustom);
-    const card=el("div",{class:"card",style:{marginBottom:"10px",padding:"0",overflow:"hidden"}});
-    let expanded=false;
-    const bodyDiv=el("div",{style:{display:"none",padding:"0 14px 14px",borderTop:"1px solid #eee",fontSize:"13px",color:"#333",lineHeight:"1.7",whiteSpace:"pre-wrap"}});
-    bodyDiv.textContent=txt.body||txt.content||txt.text||"";
-    const chevron=el("span",{style:{fontSize:"12px",color:"#888",marginRight:"2px",minWidth:"12px"}},"▶");
-    const cb=el("input",{type:"checkbox",style:{flexShrink:"0"}});
-    cb.checked=selectedItems.some(i=>i._key===item._key);
-    cb.addEventListener("change",e=>{
-      e.stopPropagation();
-      if(cb.checked){ if(!selectedItems.some(i=>i._key===item._key)) selectedItems.push(item); }
-      else { const idx=selectedItems.findIndex(i=>i._key===item._key); if(idx!==-1) selectedItems.splice(idx,1); }
-      renderAssignPanel();
-    });
-    const hdr=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px",cursor:"pointer",userSelect:"none"},
-      click:e=>{
-        if(e.target===cb) return;
-        expanded=!expanded;
-        chevron.textContent=expanded?"▼":"▶";
-        bodyDiv.style.display=expanded?"":"none";
-      }
-    });
-    const info=el("div",{style:{flex:"1"}});
-    info.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px"}},$esc(txt.title||txt.id)));
     const meta=[];
     if(txt.topic) meta.push(txt.topic);
     if(txt.level) meta.push(txt.level);
-    if(meta.length) info.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginTop:"2px"}},$esc(meta.join(" · "))));
-    hdr.appendChild(cb); hdr.appendChild(chevron); hdr.appendChild(info);
-    if(isCustom){
-      const delBtn=el("button",{class:"btn-danger",style:{fontSize:"12px",padding:"4px 10px",flexShrink:"0"},
-        click:async e=>{
-          e.stopPropagation();
-          if(!confirm(`Slette "${txt.title}"?`)) return;
-          const r=await api(`/api/teacher/bank/texts/${encodeURIComponent(txt.id)}`,{method:"DELETE"}).catch(()=>null);
-          if(r?.ok){teacherState.bankTexts=null;renderBankTab();}
-          else toast("Kunne ikke slette teksten");
-        }
-      },"Slett");
-      hdr.appendChild(delBtn);
-    }
-    card.appendChild(hdr);
-    card.appendChild(bodyDiv);
-    return card;
+    return renderPickCard({
+      item: makeTextItem(txt,isCustom),
+      title: txt.title||txt.id,
+      meta: meta.join(" · "),
+      body: txt.body||txt.content||txt.text||"",
+      selectedItems,
+      onChange: renderAssignPanel,
+      onDelete: isCustom ? async ()=>{
+        if(!confirm(`Slette "${txt.title}"?`)) return;
+        const r=await api(`/api/teacher/bank/texts/${encodeURIComponent(txt.id)}`,{method:"DELETE"}).catch(()=>null);
+        if(r?.ok){teacherState.bankTexts=null;renderBankTab();}
+        else toast("Kunne ikke slette teksten");
+      } : null,
+    });
   }
 
   async function renderBankTab(){
@@ -7024,7 +7094,7 @@ function buildLaererBankTexts(){
       VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
       const bodyIn=el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"150px",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
       const addErr=el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"6px",display:"none"}});
-      const addBtn=el("button",{class:"btn-primary",style:{width:"100%"},
+      const addBtn=el("button",{class:"btn-cta",
         click:async ()=>{
           const title=(titleIn.value||"").trim();
           const body=(bodyIn.value||"").trim();
@@ -7109,7 +7179,7 @@ function buildLaererBankPrompts(){
     const labelIn=el("input",{type:"text",placeholder:"Merkelapp (valgfritt)",
       style:{width:"100%",padding:"6px 8px",marginBottom:"10px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box"}});
     panel.appendChild(labelIn);
-    const assignBtn=el("button",{class:"btn-primary",style:{width:"100%"},
+    const assignBtn=el("button",{class:"btn-cta",
       click:async ()=>{
         if(!selectedItems.length){toast("Velg minst én oppgave");return;}
         const useAll=allCb.checked;
@@ -7187,48 +7257,20 @@ function buildLaererBankPrompts(){
   }
 
   function renderPromptCard(p,topicKey,isCustom){
-    const item=makePromptItem(p,topicKey,isCustom);
-    const card=el("div",{class:"card",style:{marginBottom:"10px",padding:"0",overflow:"hidden"}});
-    let expanded=false;
-    const bodyDiv=el("div",{style:{display:"none",padding:"0 14px 14px",borderTop:"1px solid #eee",fontSize:"13px",color:"#333",lineHeight:"1.7",whiteSpace:"pre-wrap"}});
-    bodyDiv.textContent=isCustom?(p.prompt_text||""):(p.text||"");
-    const chevron=el("span",{style:{fontSize:"12px",color:"#888",marginRight:"2px",minWidth:"12px"}},"▶");
-    const cb=el("input",{type:"checkbox",style:{flexShrink:"0"}});
-    cb.checked=selectedItems.some(i=>i._key===item._key);
-    cb.addEventListener("change",e=>{
-      e.stopPropagation();
-      if(cb.checked){ if(!selectedItems.some(i=>i._key===item._key)) selectedItems.push(item); }
-      else { const idx=selectedItems.findIndex(i=>i._key===item._key); if(idx!==-1) selectedItems.splice(idx,1); }
-      renderAssignPanel();
+    return renderPickCard({
+      item: makePromptItem(p,topicKey,isCustom),
+      title: p.title,
+      meta: isCustom?(p.topic||""):(PROMPT_TOPIC_LABELS[topicKey]||topicKey),
+      body: isCustom?(p.prompt_text||""):(p.text||""),
+      selectedItems,
+      onChange: renderAssignPanel,
+      onDelete: isCustom ? async ()=>{
+        if(!confirm(`Slette "${p.title}"?`)) return;
+        const r=await api(`/api/teacher/bank/prompts/${encodeURIComponent(p.id)}`,{method:"DELETE"}).catch(()=>null);
+        if(r?.ok){teacherState.bankPrompts=null;renderBankTab();}
+        else toast("Kunne ikke slette oppgaven");
+      } : null,
     });
-    const hdr=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px",cursor:"pointer",userSelect:"none"},
-      click:e=>{
-        if(e.target===cb) return;
-        expanded=!expanded;
-        chevron.textContent=expanded?"▼":"▶";
-        bodyDiv.style.display=expanded?"":"none";
-      }
-    });
-    const info=el("div",{style:{flex:"1"}});
-    info.appendChild(el("div",{style:{fontWeight:"700",fontSize:"14px"}},$esc(p.title)));
-    const topicLabel=isCustom?(p.topic||""):(PROMPT_TOPIC_LABELS[topicKey]||topicKey);
-    if(topicLabel) info.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginTop:"2px"}},$esc(topicLabel)));
-    hdr.appendChild(cb); hdr.appendChild(chevron); hdr.appendChild(info);
-    if(isCustom){
-      const delBtn=el("button",{class:"btn-danger",style:{fontSize:"12px",padding:"4px 10px",flexShrink:"0"},
-        click:async e=>{
-          e.stopPropagation();
-          if(!confirm(`Slette "${p.title}"?`)) return;
-          const r=await api(`/api/teacher/bank/prompts/${encodeURIComponent(p.id)}`,{method:"DELETE"}).catch(()=>null);
-          if(r?.ok){teacherState.bankPrompts=null;renderBankTab();}
-          else toast("Kunne ikke slette oppgaven");
-        }
-      },"Slett");
-      hdr.appendChild(delBtn);
-    }
-    card.appendChild(hdr);
-    card.appendChild(bodyDiv);
-    return card;
   }
 
   async function renderBankTab(){
@@ -7293,7 +7335,7 @@ function buildLaererBankPrompts(){
       VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
       const promptIn=el("textarea",{placeholder:"Oppgaveteksten…",style:{width:"100%",minHeight:"80px",padding:"7px 10px",marginBottom:"8px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box",resize:"vertical"}});
       const addErr=el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"6px",display:"none"}});
-      const addBtn=el("button",{class:"btn-primary",style:{width:"100%"},
+      const addBtn=el("button",{class:"btn-cta",
         click:async ()=>{
           const title=(titleIn.value||"").trim();
           const prompt_text=(promptIn.value||"").trim();
