@@ -694,9 +694,19 @@ state.userRole = localStorage.getItem("b2_user_role")||"student";
 
 // ── API HELPER ─────────────────────────────────────────────────────────
 const _host = window.location.hostname;
-const API_BASE = (_host === "norsk-b2-pro.pages.dev" || _host === "norsk.innovate-learning.no")
+const IS_PROD_HOST = (_host === "norsk-b2-pro.pages.dev" || _host === "norsk.innovate-learning.no");
+const API_BASE = IS_PROD_HOST
   ? "https://norskb2-backend-production.up.railway.app"
   : "https://norskb2-backend-staging.up.railway.app";
+
+// The technical panel under an AI error is developer output, so teachers should not
+// meet it. It shows automatically off production, and on production only after
+// localStorage.setItem("b2_debug","1") — so support can enable it on one session
+// when a failure is reported instead of debugging blind.
+function diagEnabled(){
+  if(!IS_PROD_HOST) return true;
+  try{ return localStorage.getItem("b2_debug")==="1"; }catch(e){ return false; }
+}
 async function api(path, opts = {}){
   const headers = {"Content-Type":"application/json", ...(opts.headers||{})};
   if(state.sessionToken) headers["Authorization"] = `Bearer ${state.sessionToken}`;
@@ -722,7 +732,7 @@ function claudeDiag(data, systemPrompt, userMsg){
 // Collapsible technical panel shown after a Claude failure, so the exact stop_reason,
 // token counts and response tail can be reported without opening DevTools.
 function appendClaudeDiag(container, diag){
-  if(!diag) return;
+  if(!diag || !diagEnabled()) return;
   const det=el("details",{style:{marginTop:"8px",fontSize:"12px",color:"#666"}});
   det.appendChild(el("summary",{style:{cursor:"pointer"}},"Teknisk info (kopier denne ved feilrapport)"));
   const info=`stop_reason: ${diag.stop}\nblokker: ${diag.blocks}\ntokens inn/ut: ${diag.usage?.input_tokens}/${diag.usage?.output_tokens}\nsystemprompt: ${diag.sysLen} tegn\nbrukermelding: ${diag.userLen} tegn\nsvarlengde: ${diag.raw.length} tegn\n\nSISTE 400 TEGN AV SVARET:\n${diag.raw.slice(-400)}`;
