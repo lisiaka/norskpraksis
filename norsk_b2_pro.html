@@ -462,12 +462,23 @@ const TOPICS = {
   utdanning:     {name:"Utdanning",             emoji:"🎓", color:"#d35400"},
 };
 
-// 12 canonical topic values used across word bank, flashcards, setninger, and lesing
+// 13 canonical topic values used across word bank, flashcards, setninger, and lesing.
+// Must stay in step with VALID_TOPICS in backend/app/schemas/word.py — a value known
+// to one tier but not the other makes the affected rows invisible here rather than
+// merely mislabelled, which is how 117 rows went missing before feature 013.
 const VALID_TOPIC_LIST = [
   "arbeid","demokrati","familie","helse",
   "integrering","internasjonalt","miljø","natur",
-  "politikk","språk","teknologi","utdanning"
+  "politikk","språk","teknologi","utdanning",
+  // General-purpose topic for words with no natural theme (roughly 62% of the bank:
+  // "dessverre", "gi opp", "verdig"). A real member of the list, so words filed here
+  // are filterable — not a sentinel and not a dumping ground for uncertain guesses.
+  "generelt"
 ];
+
+// Written where a topic is required but genuinely unknown. Never write a bare literal:
+// that is exactly how "annet" entered the database.
+const FALLBACK_TOPIC = "generelt";
 
 // Maps common near-match strings to a canonical topic, or "" if unrecognised
 function normalizeTopic(str){
@@ -486,6 +497,11 @@ function normalizeTopic(str){
     "sprak":"språk","språk":"språk","norsk":"språk","dialekt":"språk",
     "teknologi":"teknologi","digitalt":"teknologi","ai":"teknologi","data":"teknologi",
     "utdanning":"utdanning","skole":"utdanning","studie":"utdanning",
+    "generelt":"generelt","generell":"generelt","annet":"generelt",
+    // Legacy values from before the canonical list was enforced. Mapping them here
+    // means an old export or a stale client re-imports as "generelt" rather than
+    // silently becoming "" and disappearing from every filter.
+    "rettsstat":"generelt","samfunn":"generelt",
   };
   return map[s]||"";
 }
@@ -1455,7 +1471,7 @@ async function addWord(){
   try{
     const r=await api("/api/words",{method:"POST",body:JSON.stringify({
       word:entry.word, meaning:entry.meaning, category:entry.category,
-      topic:entry.topic||"annet", forms:[], flashcard_options:[],
+      topic:entry.topic||FALLBACK_TOPIC, forms:[], flashcard_options:[],
     })});
     if(r.ok){
       const sv=await r.json();
@@ -1518,7 +1534,7 @@ function importWords(file){
     // Persist to backend in background
     api("/api/words/batch",{method:"POST",body:JSON.stringify(toAdd.map(w=>({
       word:w.word, meaning:w.meaning||"-", category:w.category||"enkeltord",
-      topic:w.topic||"annet", forms:[], flashcard_options:[],
+      topic:w.topic||FALLBACK_TOPIC, forms:[], flashcard_options:[],
     })))}).then(async r=>{
       if(!r.ok){console.error("Batch import failed",r.status);return;}
       const saved=await r.json();
@@ -3501,7 +3517,9 @@ function buildLesingReader(text){
       addBtn.style.display="block";
       addBtn.onclick=async()=>{
         const tempId="tmp_"+Date.now();
-        const topicVal=text.topic||"annet";
+        // Normalise rather than trust: a teacher's custom text may carry a topic
+        // that is not canonical, and writing it raw is what stranded 117 rows.
+        const topicVal=normalizeTopic(text.topic)||FALLBACK_TOPIC;
         state.words.push({id:tempId,word,meaning,category:"enkeltord",topic:topicVal,createdAt:Date.now(),forms:[],flashcard_options:[]});
         saveStorage(); renderTabs();
         resultBox.className="lookup-in-bank";

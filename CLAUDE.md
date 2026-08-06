@@ -167,7 +167,7 @@ A teacher can set per-student "AI-fokus" instructions and rate individual AI fee
 | `ordbank-2-med-emner.json` | Sample word bank for import testing |
 
 <!-- SPECKIT START -->
-Active plan: `specs/012-teacher-ai-steering/plan.md` (in the monorepo root, sibling to this submodule).
+Active plan: `specs/013-word-bank-enrichment/plan.md` (in the monorepo root, sibling to this submodule).
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read that plan and its
 companion `research.md`, `data-model.md`, `contracts/api.md`, and `quickstart.md`.
