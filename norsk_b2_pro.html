@@ -69,6 +69,9 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .word-chip .wm{color:#999;font-size:12px;margin-top:2px;word-break:break-word;}
 .btn-del{background:none;border:none;color:#ccc;font-size:18px;padding:0 3px;line-height:1;flex-shrink:0;margin-left:6px;}
 .btn-del:hover{color:#e05c5c;opacity:1;}
+.btn-learnt{background:none;border:none;color:#ccc;font-size:15px;padding:0 3px;line-height:1;flex-shrink:0;margin-left:6px;cursor:pointer;}
+.btn-learnt:hover{color:#2d9e6b;}
+.btn-learnt.on{color:#1a6b4a;font-weight:700;}
 .empty-state{text-align:center;padding:56px 20px;background:#fff;border-radius:14px;color:#bbb;}
 .empty-state .big{font-size:48px;margin-bottom:12px;}
 .topic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
@@ -626,6 +629,19 @@ const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null,
 const LEARNT_STATES = ["learnt_auto", "learnt_manual"];
 const isLearnt = w => LEARNT_STATES.includes(w.learnt_state);
 
+// Deep link into Bokmålsordboka. The old `bm,nn/search?q=` form now 404s, and their
+// SPA turns that into a mangled `/bm,nn/undefined/bm,nn/<word>` route rather than an
+// error page — so a stale URL here looks like our bug, not theirs.
+//
+// The infinitive marker is stripped because the dictionary is keyed on the bare
+// headword: "å fremme" resolves, but only as a near match, while "fremme" lands on the
+// article itself. Feature 013 stores verbs with the marker, so this is now the common
+// case rather than an edge one.
+function ordbokeneUrl(word){
+  const headword=(word||"").trim().replace(/^å\s+/i,"");
+  return `https://ordbokene.no/nob/bm,nn/${encodeURIComponent(headword)}`;
+}
+
 function learntOriginLabel(w){
   switch(w.learnt_state){
     case "learnt_auto":       return "Markert som lært automatisk etter tre riktige svar på rad.";
@@ -638,13 +654,29 @@ function learntOriginLabel(w){
 // A manual mark is terminal against the automatic threshold, in both directions — the
 // server records which of the two manual states was chosen, so unmarking survives any
 // number of further correct answers.
+//
+// Applied optimistically: marking words learnt is a sweep down a list, and waiting for
+// a round trip per click turns that into a stutter. A failure reverts the card and says
+// so, which is a rarer and more visible outcome than a laggy one.
 async function setWordLearnt(wordId, learnt){
-  const r=await api(`/api/words/${encodeURIComponent(wordId)}/learnt`,
-    {method:"PATCH",body:JSON.stringify({learnt})});
-  if(!r.ok){toast("Kunne ikke lagre. Prøv igjen.");return false;}
-  const sv=await r.json();
   const idx=state.words.findIndex(x=>x.id===wordId);
-  if(idx>=0) state.words[idx]={...state.words[idx],learnt_state:sv.learnt_state,learnt_at:sv.learnt_at};
+  if(idx<0)return false;
+  const before=state.words[idx].learnt_state;
+  state.words[idx]={...state.words[idx],learnt_state:learnt?"learnt_manual":"not_learnt_manual"};
+  renderWordList();
+
+  const r=await api(`/api/words/${encodeURIComponent(wordId)}/learnt`,
+    {method:"PATCH",body:JSON.stringify({learnt})}).catch(()=>null);
+  const cur=state.words.findIndex(x=>x.id===wordId);
+  if(cur<0)return false; // deleted while the request was in flight
+  if(!r||!r.ok){
+    state.words[cur]={...state.words[cur],learnt_state:before};
+    renderWordList();
+    toast("Kunne ikke lagre. Prøv igjen.");
+    return false;
+  }
+  const sv=await r.json();
+  state.words[cur]={...state.words[cur],learnt_state:sv.learnt_state,learnt_at:sv.learnt_at};
   saveStorage();
   return true;
 }
@@ -1415,12 +1447,16 @@ function renderWordList(){
       const info=el("div",{style:{flex:"1",minWidth:"0"}});
       const wn=el("div",{class:"wn"},w.word);
       if(w.topic) wn.appendChild(el("span",{class:"word-topic-tag"},w.topic));
-      if(isLearnt(w)) wn.appendChild(el("span",{class:"word-topic-tag",
-        style:{background:"#e6f5ec",color:"#1a6b4a",border:"1px solid #c8e6d4"},
-        title:learntOriginLabel(w)},"✓ lært"));
       info.appendChild(wn);
       if(w.meaning)info.appendChild(el("div",{class:"wm"},w.meaning));
       chip.appendChild(info);
+      // Marking a word learnt is a sweep across many words, so it has to be one click
+      // on the card — opening the detail panel first would make it a three-click job.
+      chip.appendChild(el("button",{
+        class:"btn-learnt"+(isLearnt(w)?" on":""),
+        title:learntOriginLabel(w)+" Klikk for å endre.",
+        click(e){e.stopPropagation();setWordLearnt(w.id,!isLearnt(w));}
+      },"✓"));
       chip.appendChild(el("button",{class:"btn-del",title:"Fjern",
         click(e){e.stopPropagation();const wid=w.id;state.words=state.words.filter(x=>x.id!==wid);if(state.openWordId===wid)state.openWordId=null;saveStorage();renderWordList();renderTabs();api(`/api/words/${encodeURIComponent(wid)}`,{method:"DELETE"}).catch(()=>{});}
       },"×"));
@@ -1464,11 +1500,7 @@ function renderWordList(){
           lRow.appendChild(el("button",{
             style:{padding:"7px 16px",fontSize:"13px",borderRadius:"9px",fontWeight:"600",cursor:"pointer",
               background:learnt?"#fff":"#1a6b4a",color:learnt?"#1a6b4a":"#fff",border:"1px solid #1a6b4a"},
-            async click(e){
-              const btn=e.currentTarget; btn.disabled=true;
-              await setWordLearnt(w.id,!learnt);
-              renderWordList();
-            }
+            click(){setWordLearnt(w.id,!learnt);} // re-renders on its own
           },learnt?"↺ Marker som ikke lært":"✓ Marker som lært"));
           panel.appendChild(lRow);
         }
@@ -1519,7 +1551,7 @@ async function lookupWord(){
   btn.disabled=true;
   btn.innerHTML='<span class="spinning">⏳</span>';
   status.innerHTML='<span style="color:#999">Slår opp ordet…</span>';
-  const orbUrl=`https://ordbokene.no/bm,nn/search?q=${encodeURIComponent(word)}`;
+  const orbUrl=ordbokeneUrl(word);
 
   try{
     const body={term:word};
@@ -3680,7 +3712,7 @@ function buildLesingReader(text){
       resultBox.innerHTML=`<div class="wn">✓ ${inBank.word}</div><div class="wm">${inBank.meaning||"(ingen betydning)"}</div><div style="font-size:11px;color:#2d9e6b;margin-top:4px">Allerede i ordbanken</div>`;
       addBtn.style.display="none";
       orbLink.style.display="block";
-      orbLink.href=`https://ordbokene.no/bm,nn/search?q=${encodeURIComponent(word)}`;
+      orbLink.href=ordbokeneUrl(word);
       return;
     }
 
@@ -3703,7 +3735,7 @@ function buildLesingReader(text){
       if(r.ok)p=await r.json();
     }catch(e){}
 
-    orbLink.href=`https://ordbokene.no/bm,nn/search?q=${encodeURIComponent(word)}`;
+    orbLink.href=ordbokeneUrl(word);
     orbLink.style.display="block";
 
     const meaning=p&&p.origin!=="unavailable"?(p.meaning||""):"";
