@@ -39,6 +39,8 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - `state.subscription` — loaded from `/api/subscription/{userId}` after login
 - `state.topicFilter` — active topic chip in Ordbank (`""` = all)
 - `state.practicedFilter` — `""` (all) or `"not_practiced"` (hides words with a sentence or correct flashcard answer)
+- `state.learntFilter` — `""` (all) or `"hide_learnt"` (hides `learnt_auto`/`learnt_manual` words). A separate axis from `practicedFilter`, so the two stack. The bank shows learnt words by default — only flashcards exclude them by default
+- `lesingState.readFilter` — `""` (all) or `"hide_read"` (hides texts with a `text_read` event, the same signal behind the "✓ Lest" badge). Applies to the text list only; the reader's prev/next navigation deliberately ignores it, since opening a text marks it read
 - `state.sentences` — `{ wordId: sentenceText }` — written sentences keyed by word id
 - `lesingState.savedSummaries` — `{ textId: readingSummaryObj }` — cached reading summaries keyed by text id (loaded from backend on login + on save)
 

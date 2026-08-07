@@ -610,7 +610,7 @@ const TIPS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────
-const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", currentTopic:null, currentPrompt:null, essay:"",
+const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", learntFilter:"", currentTopic:null, currentPrompt:null, essay:"",
   wordIdx:0, sentences:{}, sentTopicFilter:"", openWordId:null,
   subscription: null, // loaded after login: { status, provider, renewalDate, ... } | null
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
@@ -1407,6 +1407,22 @@ function buildOrdbank(){
     });
     filterSection.appendChild(pracBar);
 
+    // Learnt filter row. Deliberately always present and without a hidden-count in the
+    // label: marking a word learnt re-renders only the list, not this bar, so anything
+    // derived from learnt state here would sit stale until the tab was left and re-entered.
+    const learntBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"8px"}});
+    learntBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"LÆRT:"));
+    [["","Alle ord"],["hide_learnt","Skjul lærte"]].forEach(([val,label])=>{
+      learntBar.appendChild(el("button",{class:"topic-chip"+(state.learntFilter===val?" active":""),
+        click(e){
+          state.learntFilter=val;
+          e.currentTarget.parentNode.querySelectorAll('.topic-chip').forEach(b=>b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          renderWordList();
+        }},label));
+    });
+    filterSection.appendChild(learntBar);
+
     // Time filter row
     const timeBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"8px"}});
     timeBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TID:"));
@@ -1461,6 +1477,11 @@ function getFilteredWords(){
       return !hasSentence&&!wasCorrect;
     });
   }
+  // Learnt is a separate axis from practised — a word can be practised but not learnt,
+  // or marked learnt without ever being practised — so this filter stacks with the one
+  // above rather than replacing it. Unlike flashcards, the bank shows everything by
+  // default: this is the learner's record of what they know, not a practice pool.
+  if(state.learntFilter==="hide_learnt") filtered=filtered.filter(w=>!isLearnt(w));
   if(state.search) filtered=filtered.filter(w=>
     w.word.toLowerCase().includes(state.search.toLowerCase())||
     w.meaning.toLowerCase().includes(state.search.toLowerCase()));
@@ -3371,7 +3392,7 @@ function printMissedWords(mode, words){
 }
 
 // ── LESING TAB ───────────────────────────────────────────────────────
-const lesingState = { texts:null, topicFilter:"", grammarFilter:"", search:"", currentText:null, answers:{}, summaryText:"", summaryVisible:false, savedSummaries:{} };
+const lesingState = { texts:null, topicFilter:"", grammarFilter:"", readFilter:"", search:"", currentText:null, answers:{}, summaryText:"", summaryVisible:false, savedSummaries:{} };
 
 function setLesingText(text){
   lesingState.currentText=text;
@@ -3430,6 +3451,17 @@ function buildLesing(){
       click(e){lesingState.grammarFilter=val;e.currentTarget.parentNode.querySelectorAll('.topic-chip').forEach(b=>b.classList.remove('active'));e.currentTarget.classList.add('active');refreshLesingList();}},label));
   });
   filterCard.appendChild(grammarBar);
+
+  // Read filter. Applies to the list only — the prev/next navigation inside the reader
+  // deliberately ignores it, because opening a text marks it read, and a nav set that
+  // dropped the text you are currently in would renumber itself under you.
+  const readBar=el("div",{class:"topic-filter-bar",style:{marginTop:"10px"}});
+  readBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"LEST:"));
+  [["","Alle tekster"],["hide_read","Skjul leste"]].forEach(([val,label])=>{
+    readBar.appendChild(el("button",{class:"topic-chip"+(lesingState.readFilter===val?" active":""),
+      click(e){lesingState.readFilter=val;e.currentTarget.parentNode.querySelectorAll('.topic-chip').forEach(b=>b.classList.remove('active'));e.currentTarget.classList.add('active');refreshLesingList();}},label));
+  });
+  filterCard.appendChild(readBar);
   frag.appendChild(filterCard);
 
   // Text list container
@@ -3450,9 +3482,14 @@ function refreshLesingList(){
     listDiv.appendChild(el("div",{class:"empty-state"},[el("div",{class:"big"},"📭"),el("p",{},"Ingen tekster lastet")]));
     return;
   }
+  // Same signal that renders the "✓ Lest" badge below, so the filter means exactly what
+  // the badge says. Read state is only ever added to, so this is safe to compute once.
+  const readIds = new Set((statsCache?.events||[]).filter(e=>e.type==="text_read").map(e=>e.textId));
+
   let filtered=lesingState.texts.filter(t=>{
     if(lesingState.topicFilter && t.topic!==lesingState.topicFilter) return false;
     if(lesingState.grammarFilter && !t.grammarFocus.some(g=>g.includes(lesingState.grammarFilter.split("-")[0]))) return false;
+    if(lesingState.readFilter==="hide_read" && readIds.has(t.id)) return false;
     if(lesingState.search){
       const q=lesingState.search.toLowerCase();
       return t.title.toLowerCase().includes(q)||t.text.toLowerCase().includes(q)||(t.keyWords||[]).some(w=>w.toLowerCase().includes(q));
@@ -3461,7 +3498,12 @@ function refreshLesingList(){
   });
 
   if(filtered.length===0){
-    listDiv.appendChild(el("div",{class:"empty-state"},[el("div",{class:"big"},"🔍"),el("p",{},"Ingen tekster passer søket")]));
+    // With the read filter on, an empty list usually means the learner has finished
+    // everything matching, which is a different message from "your search found nothing".
+    const doneAll = lesingState.readFilter==="hide_read";
+    listDiv.appendChild(el("div",{class:"empty-state"},[
+      el("div",{class:"big"},doneAll?"🎉":"🔍"),
+      el("p",{},doneAll?"Du har lest alle tekstene som passer filtrene.":"Ingen tekster passer søket")]));
     return;
   }
 
@@ -3472,7 +3514,6 @@ function refreshLesingList(){
     "miljø":{emoji:"♻️",color:"#16a085"},"demokrati":{emoji:"⚖️",color:"#8e44ad"},"internasjonalt":{emoji:"🌍",color:"#d35400"}
   };
 
-  const readIds = new Set((statsCache?.events||[]).filter(e=>e.type==="text_read").map(e=>e.textId));
   const readCounts = {};
   (statsCache?.events||[]).filter(e=>e.type==="text_read").forEach(e=>{ readCounts[e.textId]=(readCounts[e.textId]||0)+1; });
 
@@ -3909,7 +3950,9 @@ function buildLesingReader(text){
       return true;
     });
     const idx=filtered.findIndex(t=>t.id===text.id);
-    if(filtered.length>1){
+    // A teacher's custom text (`asgn-<item_id>`) is not in the list, so it has no
+    // neighbours — without this guard the "next" branch would offer filtered[0].
+    if(idx>=0 && filtered.length>1){
       const navRow=el("div",{style:{display:"flex",justifyContent:"space-between",maxWidth:"720px",margin:"14px auto 0"}});
       if(idx>0){
         const prevBtn=el("button",{class:"btn-io",click(){setLesingText(filtered[idx-1]);trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();window.scrollTo(0,0);}},"← "+filtered[idx-1].title.substring(0,30));
