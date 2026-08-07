@@ -616,7 +616,38 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
 }; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
-const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, learningFilter:"", started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false};
+// `includeLearnt` is off by default: practice excludes learnt words unless the learner
+// asks for them back (FR-032). The bank view is unaffected — exclusion is the default
+// for practice only.
+const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, learningFilter:"", includeLearnt:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false, autoLearnt:[]};
+
+// Words the learner is done with. `not_learnt_manual` is deliberately absent: it is a
+// learner saying "not learnt", so it stays in the practice pool.
+const LEARNT_STATES = ["learnt_auto", "learnt_manual"];
+const isLearnt = w => LEARNT_STATES.includes(w.learnt_state);
+
+function learntOriginLabel(w){
+  switch(w.learnt_state){
+    case "learnt_auto":       return "Markert som lært automatisk etter tre riktige svar på rad.";
+    case "learnt_manual":     return "Du har markert dette ordet som lært.";
+    case "not_learnt_manual": return "Du har markert dette ordet som ikke lært. Det blir ikke markert automatisk.";
+    default:                  return "Ikke markert som lært.";
+  }
+}
+
+// A manual mark is terminal against the automatic threshold, in both directions — the
+// server records which of the two manual states was chosen, so unmarking survives any
+// number of further correct answers.
+async function setWordLearnt(wordId, learnt){
+  const r=await api(`/api/words/${encodeURIComponent(wordId)}/learnt`,
+    {method:"PATCH",body:JSON.stringify({learnt})});
+  if(!r.ok){toast("Kunne ikke lagre. Prøv igjen.");return false;}
+  const sv=await r.json();
+  const idx=state.words.findIndex(x=>x.id===wordId);
+  if(idx>=0) state.words[idx]={...state.words[idx],learnt_state:sv.learnt_state,learnt_at:sv.learnt_at};
+  saveStorage();
+  return true;
+}
 
 // Word-sort game state
 const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selectedAnswerIdx:null};
@@ -829,12 +860,14 @@ async function loadStats(){
   }catch(e){ return {events:[]}; }
 }
 
+// Returns the response body for callers that need it (the flashcard session reads
+// `auto_learnt` back), but never rejects — tracking must not break the app.
 function trackEvent(type, data){
   statsCache = null; // invalidate so next stats view re-fetches
-  api("/api/stats", {
+  return api("/api/stats", {
     method:"POST",
     body:JSON.stringify({event_type:type, payload:data||{}}),
-  }).catch(()=>{}); // silent — tracking must never break the app
+  }).then(r=>r.ok?r.json():null).catch(()=>null);
 }
 
 // ── STORAGE ───────────────────────────────────────────────────────────
@@ -1382,6 +1415,9 @@ function renderWordList(){
       const info=el("div",{style:{flex:"1",minWidth:"0"}});
       const wn=el("div",{class:"wn"},w.word);
       if(w.topic) wn.appendChild(el("span",{class:"word-topic-tag"},w.topic));
+      if(isLearnt(w)) wn.appendChild(el("span",{class:"word-topic-tag",
+        style:{background:"#e6f5ec",color:"#1a6b4a",border:"1px solid #c8e6d4"},
+        title:learntOriginLabel(w)},"✓ lært"));
       info.appendChild(wn);
       if(w.meaning)info.appendChild(el("div",{class:"wm"},w.meaning));
       chip.appendChild(info);
@@ -1417,6 +1453,25 @@ function renderWordList(){
         }
         panel.appendChild(mkField("Bøyningsformer (kommaseparert)",(w.forms||[]).join(", "),"dp-forms"));
         panel.appendChild(mkField("Distraktorer – flervalg-svar (kommaseparert)",(w.flashcard_options||[]).join(", "),"dp-distractors"));
+
+        // Learnt toggle. The label states who set the current state, because an
+        // automatic mark and a deliberate one are undone for different reasons (FR-037).
+        {
+          const lRow=el("div",{style:{marginBottom:"12px",paddingTop:"4px",borderTop:"1px solid #dcefe4"}});
+          lRow.appendChild(el("div",{style:{fontSize:"12px",color:"#4a7a62",marginBottom:"6px"}},
+            learntOriginLabel(w)));
+          const learnt=isLearnt(w);
+          lRow.appendChild(el("button",{
+            style:{padding:"7px 16px",fontSize:"13px",borderRadius:"9px",fontWeight:"600",cursor:"pointer",
+              background:learnt?"#fff":"#1a6b4a",color:learnt?"#1a6b4a":"#fff",border:"1px solid #1a6b4a"},
+            async click(e){
+              const btn=e.currentTarget; btn.disabled=true;
+              await setWordLearnt(w.id,!learnt);
+              renderWordList();
+            }
+          },learnt?"↺ Marker som ikke lært":"✓ Marker som lært"));
+          panel.appendChild(lRow);
+        }
 
         const btnRow=el("div",{style:{display:"flex",gap:"8px",marginTop:"4px",flexWrap:"wrap"}});
         const saveBtn=el("button",{class:"btn-add",style:{padding:"7px 18px",fontSize:"13px"},
@@ -2777,21 +2832,41 @@ function buildFcSetup(frag){
         click(){fc.maxWords=val;renderContent();}},label)));
     card.appendChild(mBar);
 
-    // Learning filter chips
+    // Learning filter chips. "Ikke lært ennå" is gone: not-learnt is now the default
+    // pool, so the chip would have selected everything already shown. "Flest feil"
+    // stays — it answers a different question from learnt status (FR-038).
     const lBar=el("div",{class:"fc-filter-bar"});
     lBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"LÆRING: "));
-    [["","Alle ord"],["not_learned","Ikke lært ennå"],["error_only","Flest feil"]].forEach(([val,label])=>
+    [["","Alle ord"],["error_only","Flest feil"]].forEach(([val,label])=>
       lBar.appendChild(el("button",{class:"topic-chip"+(fc.learningFilter===val?" active":""),
         click(){
           fc.learningFilter=val;
           if(val) loadStats().then(()=>renderContent()); else renderContent();
         }},label)));
+    lBar.appendChild(el("button",{class:"topic-chip"+(fc.includeLearnt?" active":""),
+      title:"Lærte ord holdes utenfor øvingen med mindre du tar dem med",
+      click(){fc.includeLearnt=!fc.includeLearnt;renderContent();}},
+      "✓ Ta med lærte ord"));
     card.appendChild(lBar);
   }
 
   const avail=getFcWords();
+  const learntHidden=fc.includeLearnt?0:state.words.filter(isLearnt).length;
   card.appendChild(el("p",{style:{marginTop:"16px",fontSize:"13px",color:"#999"}},
-    `${avail.length} ord tilgjengelig med gjeldende filter`));
+    `${avail.length} ord tilgjengelig med gjeldende filter`
+    +(learntHidden?` (${learntHidden} lærte ord er holdt utenfor)`:"")));
+
+  // An empty pool is nearly always the learnt exclusion doing its job. Say so, and
+  // offer the way out in place rather than making the learner find the chip (FR-033).
+  if(avail.length<2&&learntHidden){
+    const hint=el("div",{style:{marginTop:"10px",padding:"12px 14px",background:"#fffbe6",border:"1px solid #f0e0a0",borderRadius:"10px",fontSize:"13px",color:"#6b5a1a"}});
+    hint.appendChild(el("div",{style:{marginBottom:"8px"}},
+      "Ingen ord igjen å øve på med disse filtrene — de er markert som lærte."));
+    hint.appendChild(el("button",{class:"btn-sec",style:{padding:"8px 16px",fontSize:"13px"},
+      click(){fc.includeLearnt=true;renderContent();}},"Ta med lærte ord"));
+    card.appendChild(hint);
+  }
+
   card.appendChild(el("button",{
     class:"btn-add",style:{marginTop:"18px",padding:"13px 36px",fontSize:"15px"},
     disabled:avail.length<2?"":null,
@@ -2851,8 +2926,8 @@ function buildFcChoiceCard(frag,word){
         if(fc.answered)return;
         fc.answered=true; fc.chosenIdx=i;
         const w=fc.queue[fc.idx];
-        if(opt.correct){fc.correct++;fc.log.push({word:w.word,meaning:w.meaning,correct:true,mode:"choice"});}
-        else{fc.wrong++;fc.log.push({word:w.word,meaning:w.meaning,correct:false,mode:"choice",chosen:opt.text});}
+        if(opt.correct){fc.correct++;fc.log.push({wordId:w.id,word:w.word,meaning:w.meaning,correct:true,mode:"choice"});}
+        else{fc.wrong++;fc.log.push({wordId:w.id,word:w.word,meaning:w.meaning,correct:false,mode:"choice",chosen:opt.text});}
         renderContent();
       }
     },opt.text));
@@ -2926,15 +3001,30 @@ function fcCheckWrite(input,word){
   const normalize=s=>s.toLowerCase().trim().replace(/^å\s+/,"").replace(/\s+/g," ");
   fc.writeResult=normalize(fc.writeInput)===normalize(word.word);
   fc.writeChecked=true;
-  if(fc.writeResult){fc.correct++;fc.log.push({word:word.word,meaning:word.meaning,correct:true,mode:"write"});}
-  else{fc.wrong++;fc.log.push({word:word.word,meaning:word.meaning,correct:false,mode:"write",written:fc.writeInput});}
+  // `wordId` is what keeps this answer attached to the word after a rename; `word` is
+  // kept because every event logged before feature 013 has only the text (R4).
+  if(fc.writeResult){fc.correct++;fc.log.push({wordId:word.id,word:word.word,meaning:word.meaning,correct:true,mode:"write"});}
+  else{fc.wrong++;fc.log.push({wordId:word.id,word:word.word,meaning:word.meaning,correct:false,mode:"write",written:fc.writeInput});}
   renderContent();
 }
 
 function buildFcDone(frag){
   const total=fc.correct+fc.wrong;
   const pct=total?Math.round(fc.correct/total*100):0;
-  if(!fc.tracked){ fc.tracked=true; trackEvent("flashcard_session",{correct:fc.correct,wrong:fc.wrong,total,pct,topicFilter:fc.topicFilter||null,words:fc.log}); }
+  if(!fc.tracked){
+    fc.tracked=true;
+    // The threshold is evaluated server-side on this write (R9), so the ids come back
+    // in the response rather than being computed here.
+    trackEvent("flashcard_session",{correct:fc.correct,wrong:fc.wrong,total,pct,topicFilter:fc.topicFilter||null,words:fc.log})
+      .then(res=>{
+        const ids=res?.auto_learnt||[];
+        if(!ids.length)return;
+        fc.autoLearnt=ids;
+        ids.forEach(id=>{const w=state.words.find(x=>x.id===id); if(w) w.learnt_state="learnt_auto";});
+        saveStorage();
+        if(fc.started)renderContent();
+      });
+  }
   const emoji=pct>=80?"🎉":pct>=60?"👍":"💪";
   const msg=pct>=80?"Utmerket!":pct>=60?"Bra jobbet!":"Øv mer – du klarer det!";
 
@@ -2942,6 +3032,19 @@ function buildFcDone(frag){
   done.appendChild(el("div",{class:"fc-done-emoji"},emoji));
   done.appendChild(el("div",{class:"fc-done-score"},`${fc.correct} / ${total} riktig`));
   done.appendChild(el("div",{class:"fc-done-pct"},`${pct}% — ${msg}`));
+
+  // Say which words this session marked learnt, and where to undo it. An exclusion the
+  // learner cannot account for is the failure this notice exists to prevent (FR-037).
+  if(fc.autoLearnt.length){
+    const names=fc.autoLearnt.map(id=>state.words.find(w=>w.id===id)?.word).filter(Boolean);
+    const note=el("div",{style:{margin:"14px auto 0",maxWidth:"460px",padding:"12px 14px",background:"#f0f9f4",border:"1px solid #c8e6d4",borderRadius:"10px",fontSize:"13px",color:"#1a6b4a",textAlign:"left"}});
+    note.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"4px"}},
+      `✓ Markert som lært automatisk: ${names.join(", ")}`));
+    note.appendChild(el("div",{style:{color:"#4a7a62"}},
+      "Disse holdes utenfor øvingen framover. Du kan angre i Ordbanken."));
+    done.appendChild(note);
+  }
+
   const nav=el("div",{class:"fc-nav"});
   nav.appendChild(el("button",{class:"btn-fc-next",click:startFlashcards},"🔄 Spill igjen"));
   nav.appendChild(el("button",{class:"btn-sec",style:{padding:"12px 28px",fontSize:"14px"},
@@ -2989,10 +3092,12 @@ function getFcWords(){
   let w=state.words.slice();
   if(fc.topicFilter) w=w.filter(x=>x.topic===fc.topicFilter);
   if(fc.timeFilter){const cut=Date.now()-fc.timeFilter*24*60*60*1000;w=w.filter(x=>(x.createdAt||0)>=cut);}
-  if(fc.learningFilter==="not_learned"){
-    const last=buildLastAnswerMap();
-    w=w.filter(x=>{const k=x.word.toLowerCase(); return !(k in last)||last[k]===false;});
-  } else if(fc.learningFilter==="error_only"){
+  // Learnt words are excluded by default (FR-032). This reads the stored flag rather
+  // than inferring learnt status from the most recent answer, which was the previous
+  // "Ikke lært ennå" filter: an inference over a local stats cache cannot agree
+  // across devices, and it could not represent "the learner said this is not learnt".
+  if(!fc.includeLearnt) w=w.filter(x=>!isLearnt(x));
+  if(fc.learningFilter==="error_only"){
     const missed=new Set(getNetMissedWords().map(x=>x.word.toLowerCase()));
     w=w.filter(x=>missed.has(x.word.toLowerCase()));
   }
@@ -3008,7 +3113,7 @@ function startFlashcards(){
     const type=Math.random()<0.5?"write":"choice";
     return {...w,_type:type,_options:type==="choice"?fcGetOptions(w):null};
   });
-  fc.idx=0; fc.correct=0; fc.wrong=0; fc.log=[]; fc.tracked=false;
+  fc.idx=0; fc.correct=0; fc.wrong=0; fc.log=[]; fc.tracked=false; fc.autoLearnt=[];
   fc.answered=false; fc.chosenIdx=null;
   fc.writeInput=""; fc.writeChecked=false; fc.writeResult=false;
   fc.started=true;
