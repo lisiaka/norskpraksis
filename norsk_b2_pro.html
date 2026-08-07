@@ -67,6 +67,7 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .word-chip{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 12px;background:#f8fdf9;border-radius:9px;border-left:3px solid #ddd;}
 .word-chip .wn{font-weight:600;color:#222;font-size:14px;word-break:break-word;}
 .word-chip .wm{color:#999;font-size:12px;margin-top:2px;word-break:break-word;}
+.word-chip .w-forklaring{color:#4a7a62;font-size:12px;font-style:italic;margin-top:3px;word-break:break-word;}
 .btn-del{background:none;border:none;color:#ccc;font-size:18px;padding:0 3px;line-height:1;flex-shrink:0;margin-left:6px;}
 .btn-del:hover{color:#e05c5c;opacity:1;}
 .btn-learnt{background:none;border:none;color:#ccc;font-size:15px;padding:0 3px;line-height:1;flex-shrink:0;margin-left:6px;cursor:pointer;}
@@ -679,6 +680,55 @@ async function setWordLearnt(wordId, learnt){
   state.words[cur]={...state.words[cur],learnt_state:sv.learnt_state,learnt_at:sv.learnt_at};
   saveStorage();
   return true;
+}
+
+// ── Word provenance ────────────────────────────────────────────────────────
+// A word added while reading records the text it came from. The two kinds live in
+// separate id spaces: `builtin` ids index lesing-tekster.json, `custom` ids are the
+// `asgn-<item_id>` handles minted in Mine oppgaver for teacher-written texts.
+//
+// The index is built once per session and only when a word actually has an origin —
+// most learners have none, and neither fetch is worth making on their behalf. It is
+// deliberately never invalidated: a text's body does not change under a learner.
+const sourceTextIndex = {map:null, loading:null};
+
+async function loadSourceTextIndex(){
+  if(sourceTextIndex.map) return sourceTextIndex.map;
+  if(sourceTextIndex.loading) return sourceTextIndex.loading;
+  sourceTextIndex.loading = (async()=>{
+    const map={};
+    const texts = await loadLesingTexts().catch(()=>[]);
+    (texts||[]).forEach(t=>{ map[`builtin:${t.id}`]={...t,isCustom:false}; });
+    // Custom texts are only reachable through the assignment that delivered them, so
+    // that request is made only when a word actually points into the custom id space —
+    // otherwise a built-in origin would wait on a round trip that cannot resolve it.
+    const r = state.words.some(w=>w.source_text_kind==="custom")
+      ? await api("/api/assignments/mine").catch(()=>null) : null;
+    if(r?.ok){
+      const assignments = await r.json().catch(()=>[]);
+      (assignments||[]).forEach(a=>(a.items||[]).forEach(it=>{
+        if(it.item_type!=="reading_text" || it.content?.source==="bank") return;
+        map[`custom:asgn-${it.item_id}`]={
+          id:`asgn-${it.item_id}`, title:it.content?.title||"Egen tekst",
+          topic:it.content?.topic||"", text:it.content?.body||"", isCustom:true,
+        };
+      }));
+    }
+    sourceTextIndex.map=map;
+    sourceTextIndex.loading=null;
+    return map;
+  })();
+  return sourceTextIndex.loading;
+}
+
+// Returns the originating text, or null when the word has no origin or the reference
+// no longer resolves — a deleted assignment or a retired text id. Both are silent:
+// provenance is a convenience, and an error where a learner expects a word is worse
+// than the missing link (FR-041).
+function resolveSourceText(w){
+  if(!w || !w.source_text_id || !sourceTextIndex.map) return null;
+  const kind = w.source_text_kind || "builtin";
+  return sourceTextIndex.map[`${kind}:${w.source_text_id}`] || null;
 }
 
 // Word-sort game state
@@ -1449,6 +1499,9 @@ function renderWordList(){
       if(w.topic) wn.appendChild(el("span",{class:"word-topic-tag"},w.topic));
       info.appendChild(wn);
       if(w.meaning)info.appendChild(el("div",{class:"wm"},w.meaning));
+      // The Norwegian explanation sits directly under the English translation, so the
+      // learner meets the word in the language they are learning it in (FR-010).
+      if(w.explanation)info.appendChild(el("div",{class:"w-forklaring"},w.explanation));
       chip.appendChild(info);
       // Marking a word learnt is a sweep across many words, so it has to be one click
       // on the card — opening the detail panel first would make it a three-click job.
@@ -1473,6 +1526,7 @@ function renderWordList(){
         };
         panel.appendChild(mkField("Ord",w.word,"dp-word"));
         panel.appendChild(mkField("Betydning",w.meaning,"dp-meaning"));
+        panel.appendChild(mkField("Forklaring på norsk",w.explanation,"dp-explanation"));
         // Tema — select dropdown
         {
           const tRow=el("div",{style:{marginBottom:"10px"}});
@@ -1489,6 +1543,41 @@ function renderWordList(){
         }
         panel.appendChild(mkField("Bøyningsformer (kommaseparert)",(w.forms||[]).join(", "),"dp-forms"));
         panel.appendChild(mkField("Distraktorer – flervalg-svar (kommaseparert)",(w.flashcard_options||[]).join(", "),"dp-distractors"));
+
+        // Example sentences — read-only. They are generated to use the word in context,
+        // and there is nothing for the learner to correct in them (FR-005, FR-010).
+        {
+          const ex=(w.examples||[]).filter(e=>typeof e==="string"&&e.trim());
+          if(ex.length){
+            const exRow=el("div",{style:{marginBottom:"10px"}});
+            exRow.appendChild(el("label",{style:{display:"block",fontWeight:"700",color:"#1a6b4a",marginBottom:"3px",fontSize:"12px"}},"Eksempler"));
+            const list=el("ul",{style:{margin:"0",paddingLeft:"18px",color:"#4a5a52",lineHeight:"1.6"}});
+            ex.forEach(s=>list.appendChild(el("li",{},s)));
+            exRow.appendChild(list);
+            panel.appendChild(exRow);
+          }
+        }
+
+        // Where the word was met. Absent for words typed straight into the bank, and
+        // absent again when the text no longer resolves — neither is an error state,
+        // so nothing at all is rendered in either case (FR-041).
+        {
+          // The index is fetched the first time an open card actually needs it, then
+          // the panel is re-rendered with the link in place. Learners who never open a
+          // word met while reading never pay for the two requests.
+          if(w.source_text_id && !sourceTextIndex.map) loadSourceTextIndex().then(renderWordList);
+          const src=resolveSourceText(w);
+          if(src){
+            const sRow=el("div",{style:{marginBottom:"10px"}});
+            sRow.appendChild(el("label",{style:{display:"block",fontWeight:"700",color:"#1a6b4a",marginBottom:"3px",fontSize:"12px"}},"Møtt i teksten"));
+            sRow.appendChild(el("button",{
+              style:{background:"none",border:"none",padding:"0",color:"#1a6b4a",fontSize:"13px",
+                textDecoration:"underline",cursor:"pointer",textAlign:"left"},
+              click(){ setLesingText(src); setTab("lesing"); window.scrollTo(0,0); }
+            },`${src.title} →`));
+            panel.appendChild(sRow);
+          }
+        }
 
         // Learnt toggle. The label states who set the current state, because an
         // automatic mark and a deliberate one are undone for different reasons (FR-037).
@@ -1512,6 +1601,7 @@ function renderWordList(){
               word:panel.querySelector("#dp-word").value.trim()||w.word,
               meaning:panel.querySelector("#dp-meaning").value.trim()||w.meaning,
               topic:panel.querySelector("#dp-topic").value.trim()||w.topic,
+              explanation:panel.querySelector("#dp-explanation").value.trim()||null,
               forms:panel.querySelector("#dp-forms").value.split(",").map(s=>s.trim()).filter(Boolean),
               flashcard_options:panel.querySelector("#dp-distractors").value.split(",").map(s=>s.trim()).filter(Boolean).slice(0,4),
             };
@@ -5892,6 +5982,23 @@ function buildLaererWords(){
       wrap.appendChild(el("p",{style:{color:"#888",marginTop:"16px"}},"Ingen ord i ordbanken ennå.")); return;
     }
 
+    // Resolve word provenance to text titles. The teacher's own session index is no use
+    // here — a custom text lives in the student's assignments, not the teacher's — so the
+    // map is built per student, the same way buildLaererSummaries resolves its titles.
+    const srcTitles={};
+    const sysTexts = await loadLesingTexts().catch(()=>[]);
+    (sysTexts||[]).forEach(t=>{ srcTitles[`builtin:${t.id}`]=t.title; });
+    const ar = await api(`/api/teacher/students/${encodeURIComponent(s.id)}/assignments`).catch(()=>null);
+    if(ar?.ok){
+      const assignments = await ar.json().catch(()=>[]);
+      (assignments||[]).forEach(a=>(a.items||[]).forEach(it=>{
+        if(it.item_type!=="reading_text") return;
+        srcTitles[`custom:asgn-${it.item_id}`]=it.content?.title||"Egen tekst";
+      }));
+    }
+    const srcTitle = w => w.source_text_id
+      ? (srcTitles[`${w.source_text_kind||"builtin"}:${w.source_text_id}`]||null) : null;
+
     const total = teacherState.studentWords.reduce((s,g)=>s+g.total,0);
     const practiced = teacherState.studentWords.reduce((s,g)=>s+g.practiced,0);
     const summary = el("div",{style:{background:"#f0f7ff",border:"1px solid #cce0f5",borderRadius:"8px",padding:"12px 16px",marginBottom:"16px",fontSize:"14px"}});
@@ -5919,15 +6026,36 @@ function buildLaererWords(){
       const body = el("div",{class:"word-group-body",style:{display:"none",marginTop:"4px"}});
       const tbl = el("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:"13px"}});
       const thead=el("tr",{style:{background:"#f0f0f0"}});
-      ["Ord","Betydning","Kategori","Øvd"].forEach(h=>thead.appendChild(el("th",{style:{padding:"6px 10px",textAlign:"left",fontWeight:"600",borderBottom:"1px solid #ddd"}},$esc(h))));
+      ["Ord","Betydning","Forklaring","Kategori","Øvd"].forEach(h=>thead.appendChild(el("th",{style:{padding:"6px 10px",textAlign:"left",fontWeight:"600",borderBottom:"1px solid #ddd"}},$esc(h))));
       tbl.appendChild(thead);
       group.words.forEach(w=>{
+        const examples=(w.examples||[]).filter(e=>typeof e==="string"&&e.trim());
+        const origin=srcTitle(w);
         const tr=el("tr",{style:{borderBottom:"1px solid #f0f0f0",background:w.practiced?"#f6fff9":"#fff"}});
         tr.appendChild(el("td",{style:{padding:"6px 10px",fontWeight:"500"}},$esc(w.word)));
         tr.appendChild(el("td",{style:{padding:"6px 10px",color:"#555"}},$esc(w.meaning)));
+        tr.appendChild(el("td",{style:{padding:"6px 10px",color:"#4a7a62",fontStyle:"italic"}},$esc(w.explanation||"")));
         tr.appendChild(el("td",{style:{padding:"6px 10px",color:"#888"}},$esc(w.category)));
         tr.appendChild(el("td",{style:{padding:"6px 10px",fontSize:"16px",textAlign:"center"}},w.practiced?"✅":"⬜"));
         tbl.appendChild(tr);
+
+        // Examples and origin go in a detail row that opens on click. Inline they would
+        // double the height of a 200-word bank and make it unscannable; a word with
+        // neither simply has no detail row, which is not an error (FR-041).
+        if(!examples.length && !origin) return;
+        const det=el("tr",{style:{display:"none",background:"#fbfdfc"}});
+        const cell=el("td",{colSpan:5,style:{padding:"8px 14px 10px 24px",fontSize:"12px",color:"#5a6a62",borderBottom:"1px solid #f0f0f0"}});
+        if(examples.length){
+          const list=el("ul",{style:{margin:"0",paddingLeft:"16px",lineHeight:"1.6"}});
+          examples.forEach(x=>list.appendChild(el("li",{},$esc(x))));
+          cell.appendChild(list);
+        }
+        if(origin) cell.appendChild(el("div",{style:{marginTop:examples.length?"6px":"0",color:"#888"}},$esc(`Møtt i teksten: ${origin}`)));
+        det.appendChild(cell);
+        tbl.appendChild(det);
+        tr.style.cursor="pointer";
+        tr.title="Klikk for å se eksempler og kilde";
+        tr.addEventListener("click",()=>{ det.style.display=det.style.display==="none"?"table-row":"none"; });
       });
       body.appendChild(tbl);
       sec.appendChild(body);
@@ -6325,7 +6453,10 @@ function buildMineOppgaver(){
                 if(found){ setLesingText(found); setTab("lesing"); }
                 else{ openBtn.disabled=false; openBtn.textContent="📖 Les teksten →"; toast("Teksten ble ikke funnet"); }
               } else {
-                setLesingText({id:`asgn-${item.item_id}`,title:item.content.title||"Tekst",topic:item.content.topic||"",text:item.content.body||""});
+                // isCustom is what makes a word looked up in this text record
+                // `source_text_kind: "custom"` — without it the origin is written into
+                // the built-in id space and never resolves back.
+                setLesingText({id:`asgn-${item.item_id}`,title:item.content.title||"Tekst",topic:item.content.topic||"",text:item.content.body||"",isCustom:true});
                 setTab("lesing");
               }
             }
