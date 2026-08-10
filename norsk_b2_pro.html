@@ -49,6 +49,7 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .text-input{width:100%;padding:10px 13px;border-radius:9px;border:1.5px solid #e0e4ec;font-size:14px;background:#fff;}
 .sel{padding:10px 13px;border-radius:9px;border:1.5px solid #e0e4ec;font-size:14px;background:#fff;width:100%;}
 .btn-add{padding:10px 22px;background:#1a6b4a;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;white-space:nowrap;}
+.btn-add:disabled{background:#c3d6cc;cursor:not-allowed;}
 .hint{font-size:12px;color:#bbb;margin-top:6px;}
 .io-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .btn-io{padding:8px 16px;background:#fff;border:1.5px solid #e0e4ec;border-radius:9px;font-size:13px;color:#555;font-weight:600;}
@@ -3826,6 +3827,14 @@ function buildLesingReader(text){
   panelCard.appendChild(lookupInput);
 
   const resultBox=el("div",{class:"lookup-result-box",style:{color:"#aaa"}},"Skriv et ord og trykk Slå opp");
+  // Shown only when the lookup came back without a translation. The word must still
+  // be addable (FR-004), and the backend requires a non-empty meaning, so the
+  // learner supplies it here rather than being turned away. They are reading the
+  // word in context, which is the best moment to ask.
+  const manualWrap=el("div",{style:{display:"none",marginBottom:"8px"}});
+  manualWrap.appendChild(el("label",{style:{display:"block",fontSize:"11px",fontWeight:"700",color:"#8a6d1a",marginBottom:"3px"}},"Skriv betydningen selv"));
+  const manualInput=el("input",{class:"lookup-word-input",type:"text",placeholder:"Hva betyr ordet?",style:{marginBottom:"0"}});
+  manualWrap.appendChild(manualInput);
   const addBtn=el("button",{class:"btn-add",style:{width:"100%",marginBottom:"8px",display:"none"}});
   const orbLink=el("a",{target:"_blank",style:{fontSize:"12px",color:"#1a6b4a",display:"none",marginBottom:"8px",display:"none"}},"Se i Bokmålsordboka →");
 
@@ -3841,6 +3850,7 @@ function buildLesingReader(text){
     if(inBank){
       resultBox.className="lookup-in-bank";
       resultBox.innerHTML=`<div class="wn">✓ ${inBank.word}</div><div class="wm">${inBank.meaning||"(ingen betydning)"}</div><div style="font-size:11px;color:#2d9e6b;margin-top:4px">Allerede i ordbanken</div>`;
+      manualWrap.style.display="none";
       addBtn.style.display="none";
       orbLink.style.display="block";
       orbLink.href=ordbokeneUrl(word);
@@ -3850,6 +3860,7 @@ function buildLesingReader(text){
     // Not in bank — look up translation
     resultBox.className="lookup-result-box";
     resultBox.innerHTML='<span style="color:#999">Henter oversettelse…</span>';
+    manualWrap.style.display="none";
     addBtn.style.display="none";
 
     // A word met while reading records where it came from, so the learner can get
@@ -3869,50 +3880,78 @@ function buildLesingReader(text){
     orbLink.href=ordbokeneUrl(word);
     orbLink.style.display="block";
 
-    const meaning=p&&p.origin!=="unavailable"?(p.meaning||""):"";
-    if(meaning){
-      const headword=p.word||word;
-      let head=`<strong>${escapeHtml(headword)}</strong> — ${escapeHtml(meaning)}`;
+    // A proposal without a translation is not the same as no proposal: a reused
+    // entry from an unrepaired bank row arrives with everything except a meaning.
+    // Both still have to end in an addable word, so the add path is shared and the
+    // only difference is where the meaning comes from.
+    const classified=p&&p.origin!=="unavailable";
+    const headword=(classified&&p.word)||word;
+    const proposed=classified?(p.meaning||""):"";
+
+    async function addWord(meaning){
+      const tempId="tmp_"+Date.now();
+      // Prefer the proposal's topic; fall back to the text's own, normalised —
+      // a teacher's custom text may carry a value that is not canonical, and
+      // writing it raw is what stranded 117 rows.
+      const topicVal=(classified&&p.topic)||normalizeTopic(text.topic)||FALLBACK_TOPIC;
+      const payload={
+        word:headword, meaning, category:(classified&&p.category)||"enkeltord", topic:topicVal,
+        forms:(classified&&p.forms)||[], flashcard_options:[],
+        explanation:(classified&&p.explanation)||null, examples:(classified&&p.examples)||[],
+        base_form:(classified&&p.base_form)||null,
+        source_text_id:srcId, source_text_kind:srcId?srcKind:null,
+        // A learner-supplied meaning is not a classification. Marking it
+        // unclassified is what lets the repair pass find it later (FR-004).
+        classification_status:!proposed?"unclassified":(p.origin==="shared_bank"?"reused":"classified"),
+      };
+      state.words.push({id:tempId,createdAt:Date.now(),...payload});
+      saveStorage(); renderTabs();
+      resultBox.className="lookup-in-bank";
+      resultBox.innerHTML=`<div class="wn">✓ ${escapeHtml(headword)}</div><div class="wm">${escapeHtml(meaning)}</div><div style="font-size:11px;color:#2d9e6b;margin-top:4px">Lagt til i ordbanken!</div>`;
+      manualWrap.style.display="none";
+      addBtn.style.display="none";
+      toast(`✓ «${headword}» lagt til i ordbanken`);
+      try{
+        const r=await api("/api/words",{method:"POST",body:JSON.stringify(payload)});
+        if(r.ok){const sv=await r.json();const idx=state.words.findIndex(w=>w.id===tempId);if(idx>=0){state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};saveStorage();}}
+      }catch{}
+    }
+
+    addBtn.textContent="+ Legg til i ordbanken";
+    addBtn.style.display="block";
+
+    if(proposed){
+      let head=`<strong>${escapeHtml(headword)}</strong> — ${escapeHtml(proposed)}`;
       if(p.explanation) head+=`<div style="font-size:12px;color:#666;margin-top:3px">${escapeHtml(p.explanation)}</div>`;
       if(p.normalised) head+=`<div style="font-size:11px;color:#8a6d1a;margin-top:3px">Lagres som «${escapeHtml(headword)}»</div>`;
       resultBox.innerHTML=head;
-      addBtn.textContent=`+ Legg til i ordbanken`;
-      addBtn.style.display="block";
-      addBtn.onclick=async()=>{
-        const tempId="tmp_"+Date.now();
-        // Prefer the proposal's topic; fall back to the text's own, normalised —
-        // a teacher's custom text may carry a value that is not canonical, and
-        // writing it raw is what stranded 117 rows.
-        const topicVal=p.topic||normalizeTopic(text.topic)||FALLBACK_TOPIC;
-        const payload={
-          word:headword, meaning, category:p.category||"enkeltord", topic:topicVal,
-          forms:p.forms||[], flashcard_options:[],
-          explanation:p.explanation||null, examples:p.examples||[],
-          base_form:p.base_form||null,
-          source_text_id:srcId, source_text_kind:srcId?srcKind:null,
-          classification_status:p.origin==="shared_bank"?"reused":"classified",
-        };
-        state.words.push({id:tempId,createdAt:Date.now(),...payload});
-        saveStorage(); renderTabs();
-        resultBox.className="lookup-in-bank";
-        resultBox.innerHTML=`<div class="wn">✓ ${escapeHtml(headword)}</div><div class="wm">${escapeHtml(meaning)}</div><div style="font-size:11px;color:#2d9e6b;margin-top:4px">Lagt til i ordbanken!</div>`;
-        addBtn.style.display="none";
-        toast(`✓ «${headword}» lagt til i ordbanken`);
-        try{
-          const r=await api("/api/words",{method:"POST",body:JSON.stringify(payload)});
-          if(r.ok){const sv=await r.json();const idx=state.words.findIndex(w=>w.id===tempId);if(idx>=0){state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};saveStorage();}}
-        }catch{}
-      };
+      addBtn.disabled=false;
+      addBtn.onclick=()=>addWord(proposed);
     } else {
-      resultBox.innerHTML=`<span style="color:#888">Fant ingen forklaring nå. Prøv Bokmålsordboka.</span>`;
-      addBtn.style.display="none";
+      // Say which of the two happened — a learner who reads "ingen forbindelse"
+      // knows to retry, one who reads "fant ingen oversettelse" does not.
+      resultBox.innerHTML=p
+        ?`<strong>${escapeHtml(headword)}</strong><div style="font-size:12px;color:#888;margin-top:3px">Fant ingen oversettelse. Skriv den selv, så kan du legge til ordet.</div>`
+        :`<span style="color:#888">Ingen forbindelse akkurat nå. Skriv betydningen selv, så kan du legge til ordet.</span>`;
+      manualWrap.style.display="block";
+      manualInput.value="";
+      addBtn.disabled=true;
+      addBtn.onclick=()=>{
+        const typed=manualInput.value.trim();
+        if(typed) addWord(typed); // guarded: the backend rejects an empty meaning
+      };
     }
   }
 
   lookupInput.addEventListener("keydown",e=>{ if(e.key==="Enter") doLookup(); });
+  // The add button stays disabled until there is something to save, so the learner
+  // cannot trigger the 422 the backend would return for an empty meaning.
+  manualInput.addEventListener("input",()=>{ addBtn.disabled=!manualInput.value.trim(); });
+  manualInput.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!addBtn.disabled) addBtn.onclick(); });
   const lookupBtn=el("button",{class:"btn-sec",style:{width:"100%",marginBottom:"8px"},click:doLookup},"Slå opp");
   panelCard.appendChild(lookupBtn);
   panelCard.appendChild(resultBox);
+  panelCard.appendChild(manualWrap);
   panelCard.appendChild(addBtn);
   orbLink.textContent="Se i Bokmålsordboka →";
   panelCard.appendChild(orbLink);
