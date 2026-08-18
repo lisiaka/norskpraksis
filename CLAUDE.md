@@ -81,10 +81,22 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - Oppgavebank tabs: Systemoppgaver (from `PROMPTS` object, all 48 prompts) | Mine oppgaver | + Ny oppgave
 - Text cards use `.text` field for system texts (NOT `.body` or `.content`) — `txt.body||txt.content||txt.text`
 
-**Subscription access logic:**
-- `isActiveSubscriber()` — returns true if `state.subscription.status` is active/grace/cancelled-but-not-expired
-- `canOpenText(textId, topicKey)` — returns true for subscribers; for free users: max 3 texts, 1 per topic
-- `recordTextOpened(textId, topicKey)` — persists free-tier usage to localStorage
+**Subscription access logic — paywall currently DISABLED:**
+- `SUBSCRIPTION_ENABLED = false` — master switch. While off, everyone is an active subscriber:
+  all 120 texts open, free-tier counters inert, plan lock lifted, no payment UI. Set to `true`
+  to restore gating; no other edits needed and no data fixup
+- `isActiveSubscriber()` — returns `true` immediately when the switch is off; otherwise true if
+  `state.subscription.status` is active/grace/cancelled-but-not-expired
+- `canOpenText(textId, topicKey)` — true for subscribers; for free users: max 3 texts, 1 per topic
+- `recordTextOpened(textId, topicKey)` — persists free-tier usage to localStorage; no-ops for subscribers
+- `buildSubscriptionSection()` checks the flag separately — `state.subscription` stays `null`, so
+  `active && sub` would otherwise fall through to the payment UI
+- Enforcement is client-side only; no backend endpoint has ever checked it
+
+**⚠️ Never put secrets in this directory.** `wrangler pages deploy` uploads the working
+directory verbatim and ignores both `.gitignore` and `.wranglerignore` — see `.wranglerignore`
+for the full account. `.dev.vars` leaked `ANTHROPIC_API_KEY` publicly this way. It now lives in
+`~/.config/norskb2/.dev.vars`; copy it in for `wrangler pages dev` and remove it before deploying.
 
 **Cloudflare Functions structure:**
 ```
