@@ -741,6 +741,14 @@ const skPlan = id => `b2_plan_${id}`;
 
 // ── Subscription helpers ─────────────────────────────────────────────────────
 
+/**
+ * Master switch for the paywall. While false every user is treated as an active
+ * subscriber: all reading texts are open, the free-tier counters are inert and
+ * the payment UI in Innstillinger is replaced by a "full tilgang" note.
+ * Set back to true to re-enable Vipps/PayPal gating — no other code changes needed.
+ */
+const SUBSCRIPTION_ENABLED = false;
+
 const skFreeAccess = id => `b2_free_access_${id}`;
 
 function loadFreeAccess(userId){
@@ -790,6 +798,7 @@ function recordTextOpened(textId, topicKey){
  * Active = status "active", "grace", or "cancelled" with renewalDate still in future.
  */
 function isActiveSubscriber(){
+  if(!SUBSCRIPTION_ENABLED) return true; // paywall disabled — everyone has full access
   const sub=state.subscription;
   if(!sub) return false;
   if(sub.status==="active"||sub.status==="grace") return true;
@@ -5189,6 +5198,14 @@ function switchUser(){
 function buildSubscriptionSection(container){
   const sub = state.subscription;
   const active = isActiveSubscriber();
+
+  if(!SUBSCRIPTION_ENABLED){
+    // Paywall disabled — no payment UI, no free-tier counter
+    container.appendChild(el("div",{class:"sub-status-badge active",style:{marginBottom:"12px"}},"✓ Full tilgang"));
+    container.appendChild(el("p",{style:{fontSize:"13px",color:"#555",lineHeight:"1.6"}},
+      "Alle tekster og funksjoner er åpne for deg. Du trenger ikke abonnement."));
+    return;
+  }
 
   if(active && sub){
     // ── Active subscriber ──
