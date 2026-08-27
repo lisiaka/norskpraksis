@@ -13,7 +13,6 @@ SUBSCRIPTION_TEST_MODE = "false"
 
 # Secrets (added via CLI — never stored here):
 #   wrangler secret put ANTHROPIC_API_KEY
-#   wrangler secret put DEMO_PASSWORD
 #   wrangler secret put VIPPS_CLIENT_ID
 #   wrangler secret put VIPPS_CLIENT_SECRET
 #   wrangler secret put VIPPS_SUBSCRIPTION_KEY

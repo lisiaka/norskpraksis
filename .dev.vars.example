@@ -3,7 +3,10 @@
 
 # Existing secrets
 ANTHROPIC_API_KEY=your-anthropic-api-key-here
-DEMO_PASSWORD=your-demo-password-here
+
+# JWT_SECRET_KEY must match the FastAPI backend — the Pages Function verifies the
+# backend's tokens with it, and rejects every request when it is unset.
+JWT_SECRET_KEY=must-match-the-backend
 
 # Subscription: Vipps Recurring API (sandbox)
 # Get these from https://developer.vipps.no

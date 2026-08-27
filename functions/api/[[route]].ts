@@ -3,7 +3,6 @@
  *
  * Secrets required (set via `wrangler secret put`):
  *   ANTHROPIC_API_KEY      — Anthropic Claude API key
- *   DEMO_PASSWORD          — shared demo password (legacy, kept for compat)
  *   VIPPS_CLIENT_ID        — Vipps Recurring API client ID
  *   VIPPS_CLIENT_SECRET    — Vipps Recurring API client secret
  *   VIPPS_SUBSCRIPTION_KEY — Vipps Ocp-Apim-Subscription-Key
@@ -25,7 +24,6 @@
 export interface Env {
   USER_DATA: KVNamespace;
   ANTHROPIC_API_KEY: string;
-  DEMO_PASSWORD: string;
   JWT_SECRET_KEY?: string;
   // Subscription env vars
   APP_BASE_URL: string;
@@ -49,45 +47,36 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
 /**
  * Validate the X-Auth-Token header.
- * Accepts either:
- *  - Railway JWT (verified with JWT_SECRET_KEY if available)
- *  - Legacy btoa(userId + ':' + DEMO_PASSWORD) token
+ *
+ * Accepts a Railway-issued JWT and nothing else. Every token the app holds comes from
+ * the FastAPI backend's /auth/login or /auth/register; there is no other minter.
+ *
+ * A `btoa(userId + ':' + DEMO_PASSWORD)` form was also accepted until 2026-08-27. It was
+ * minted only by a local /api/login handler the frontend had stopped calling, and its
+ * shared password had been served publicly in the .dev.vars leak — so it was an
+ * unauthenticated route to the Claude proxy below, which passes no expectedUserId and so
+ * never checked the userId half. Both were deleted rather than rotated.
  */
 async function validateToken(request: Request, env: Env, expectedUserId: string | null = null): Promise<boolean> {
   const token = request.headers.get("X-Auth-Token") ?? "";
   if (!token) return false;
+  if (!env.JWT_SECRET_KEY) return false;
 
-  // Try JWT validation first (Railway tokens)
-  if (env.JWT_SECRET_KEY && token.includes(".")) {
-    try {
-      const parts = token.split(".");
-      if (parts.length === 3) {
-        const [headerB64, payloadB64, sigB64] = parts;
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(env.JWT_SECRET_KEY);
-        const key = await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
-        const toBase64 = (s: string) => s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4);
-        const sigBytes = Uint8Array.from(atob(toBase64(sigB64)), c => c.charCodeAt(0));
-        const data = encoder.encode(`${headerB64}.${payloadB64}`);
-        const valid = await crypto.subtle.verify("HMAC", key, sigBytes, data);
-        if (!valid) return false;
-        const payload = JSON.parse(atob(toBase64(payloadB64)));
-        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return false;
-        if (expectedUserId && payload.sub !== expectedUserId) return false;
-        return true;
-      }
-    } catch { /* fall through to legacy */ }
-  }
-
-  // Legacy: btoa(userId + ':' + DEMO_PASSWORD)
   try {
-    const decoded = atob(token);
-    const colon = decoded.indexOf(":");
-    if (colon === -1) return false;
-    const userId = decoded.slice(0, colon);
-    const password = decoded.slice(colon + 1);
-    if (password !== env.DEMO_PASSWORD) return false;
-    if (expectedUserId && userId !== expectedUserId) return false;
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const [headerB64, payloadB64, sigB64] = parts;
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(env.JWT_SECRET_KEY);
+    const key = await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
+    const toBase64 = (s: string) => s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4);
+    const sigBytes = Uint8Array.from(atob(toBase64(sigB64)), c => c.charCodeAt(0));
+    const data = encoder.encode(`${headerB64}.${payloadB64}`);
+    const valid = await crypto.subtle.verify("HMAC", key, sigBytes, data);
+    if (!valid) return false;
+    const payload = JSON.parse(atob(toBase64(payloadB64)));
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return false;
+    if (expectedUserId && payload.sub !== expectedUserId) return false;
     return true;
   } catch {
     return false;
@@ -114,7 +103,7 @@ function unauthorized(): Response {
 
 /**
  * Parse the URL path into route parts.
- * /api/{type}/{userId}  or  /api/login  or  /api/proxy/claude
+ * /api/{type}/{userId}  or  /api/proxy/claude
  * /api/subscription/{userId}/cancel  → type="subscription", sub="userId/cancel"
  */
 function parseRoute(url: string): { type: string; sub: string | null; rest: string[] } {
@@ -141,20 +130,6 @@ export async function kvPut(env: Env, userId: string, type: string, value: strin
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────────
-
-async function handleLogin(request: Request, env: Env): Promise<Response> {
-  const { userId, password } = await request.json<{ userId: string; password: string }>();
-  if (!userId || !password) return json(400, { error: "userId and password required" });
-  if (password !== env.DEMO_PASSWORD) {
-    return json(401, {
-      error: "Feil passord",
-      debug_env_set: !!env.DEMO_PASSWORD,
-      debug_env_len: env.DEMO_PASSWORD?.length ?? 0,
-    });
-  }
-  const token = btoa(userId + ":" + password);
-  return json(200, { ok: true, token });
-}
 
 async function handleClaudeProxy(request: Request, env: Env): Promise<Response> {
   if (!await validateToken(request, env)) return unauthorized();
@@ -245,9 +220,6 @@ export async function onRequest(context: EventContext<Env, string, unknown>): Pr
   }
 
   const { type, sub, rest } = parseRoute(url);
-
-  // POST /api/login
-  if (type === "login" && method === "POST") return handleLogin(request, env);
 
   // POST /api/proxy/claude
   if (type === "proxy" && method === "POST") return handleClaudeProxy(request, env);
