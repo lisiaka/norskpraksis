@@ -2,7 +2,7 @@
  * Playwright E2E tests for the subscription / pricing feature.
  *
  * Requires servers:
- *   - Frontend: python3 start_server.py (port 8080)
+ *   - Frontend: python3 -m http.server 8080 --directory public
  *   - Backend functions: wrangler pages dev (port 8788) — for subscription API
  *
  * For tests that need subscription state manipulation:

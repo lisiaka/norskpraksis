@@ -1,29 +1,27 @@
 # ⚠️ THIS FILE DOES NOTHING. `wrangler pages deploy` does NOT honour it.
 #
-# Verified 2026-08-18: start_server.py is listed below and was still served at
+# Verified 2026-08-18: start_server.py was listed here and still served at
 # https://norsk-b2-pro.pages.dev/start_server.py on a freshly created deployment.
-# Every file in this directory gets uploaded and published, regardless of what
-# is written here. .gitignore does not protect you either — wrangler uploads the
-# working directory, not the git tree.
+# .gitignore does not protect you either — wrangler uploads a directory from the
+# filesystem, not the git tree.
 #
-# This is how ANTHROPIC_API_KEY leaked: .dev.vars sat here, git-ignored but
-# world-readable at /.dev.vars on both the production and staging sites.
+# This is how ANTHROPIC_API_KEY leaked: .dev.vars sat in the repo root, git-ignored
+# but world-readable at /.dev.vars on both the production and staging sites.
 #
-# The only thing that works is keeping secrets OUT of this directory.
-# Local secrets now live in ~/.config/norskb2/.dev.vars — copy it in only for
-# the duration of a `wrangler pages dev` session, and delete it before deploying.
+# ── Resolved 2026-08-27 ──────────────────────────────────────────────────────
 #
-# A durable fix would be to deploy from a curated subdirectory (e.g. set
-# pages_build_output_dir in wrangler.toml to a public/ folder holding only the
-# assets meant to be public), so that publishing is opt-in rather than opt-out.
+# The durable fix this file used to recommend is now in place:
+# wrangler.toml sets `pages_build_output_dir = "public"`, so deploys publish only
+# what is inside public/ — currently norsk_b2_pro.html, lesing-tekster.json,
+# _redirects and _headers. Everything else in the repo, including CLAUDE.md,
+# start_server.py, tests/ and any stray .dev.vars, is no longer reachable.
 #
-# Kept only as a warning marker. Do not add secrets below and assume they are safe.
-
-node_modules
-stats
-.git
-.claude
-.DS_Store
-start_server.py
-start_server.bat
-norsk_b2_trening.html
+# Verified by serving the tree with a .dev.vars present: GET /.dev.vars returned
+# 404 with an empty body, as did /CLAUDE.md, /start_server.py and /package.json,
+# while /norsk_b2_pro.html served all 425 KB.
+#
+# Publishing is now opt-in. To make a file public, put it in public/ — that is the
+# only mechanism. Adding names to this file still does nothing.
+#
+# The old advice — keep secrets out of this directory — is no longer load-bearing,
+# but remains good hygiene. Local secrets live in ~/.config/norskb2/.dev.vars.

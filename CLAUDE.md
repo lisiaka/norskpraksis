@@ -6,16 +6,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running the App
 
-**Frontend only (port 8080):**
+**Frontend only (port 8080)** — static files, no API, no secrets:
 ```bash
-python3 start_server.py
+python3 -m http.server 8080 --directory public
 ```
+This replaced `start_server.py`, deleted 2026-08-27. That script also carried local
+`/words/`, `/sentences/`, `/essays/`, `/stats/` and `/plan/` endpoints backed by JSON files
+in `stats/`, plus a `/proxy/claude` route — all dead since the FastAPI backend took over
+user data and the Pages Function took over the proxy. Nothing had called them in months;
+the app talks to `${API_BASE}/…` and `/api/proxy/claude`. The `stats/` folder with its old
+local test data is left on disk, untracked and unused.
 
 **Full stack with Cloudflare Pages Functions (port 8788):**
 ```bash
 npm run dev   # wrangler pages dev
 ```
 Copy `.dev.vars.example` → `.dev.vars` and fill in secrets before running wrangler.
+
+⚠️ **`JWT_SECRET_KEY` is required and must match the FastAPI backend's.** The Pages Function
+verifies the backend's tokens with it and rejects every request when it is unset — there is
+no fallback. Until 2026-08-27 there was one (a shared `DEMO_PASSWORD`), which is why local
+dev worked without this key; that path was deleted because it also let anyone holding the
+leaked password reach the Claude proxy.
 
 **Run Playwright tests:**
 ```bash
@@ -93,10 +105,20 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
   `active && sub` would otherwise fall through to the payment UI
 - Enforcement is client-side only; no backend endpoint has ever checked it
 
-**⚠️ Never put secrets in this directory.** `wrangler pages deploy` uploads the working
-directory verbatim and ignores both `.gitignore` and `.wranglerignore` — see `.wranglerignore`
-for the full account. `.dev.vars` leaked `ANTHROPIC_API_KEY` publicly this way. It now lives in
-`~/.config/norskb2/.dev.vars`; copy it in for `wrangler pages dev` and remove it before deploying.
+**Publishing is opt-in — only `public/` goes live.** `wrangler.toml` sets
+`pages_build_output_dir = "public"`, so a deploy uploads that directory and nothing else.
+`public/` holds exactly four files: `norsk_b2_pro.html`, `lesing-tekster.json`, `_redirects`
+and `_headers`. **To make a new asset public you must put it in `public/`** — there is no
+other mechanism, and referencing it from the HTML is not enough.
+
+This replaced a `pages_build_output_dir = "."` that published the whole repo, including
+`CLAUDE.md` and — until it was found — `.dev.vars`, which leaked `ANTHROPIC_API_KEY`.
+`.gitignore` and `.wranglerignore` never helped: wrangler uploads a filesystem directory,
+not the git tree. See `.wranglerignore` for the full account.
+
+Local secrets still live in `~/.config/norskb2/.dev.vars`. Copying one into the repo root
+for a `wrangler pages dev` session is now safe from publication, but keeping them out
+remains good hygiene.
 
 **Cloudflare Functions structure:**
 ```
@@ -152,7 +174,7 @@ The `TOPICS` object (essay/skriv tab, ASCII keys `miljo`/`sprak`) is a separate 
 
 `renderGjenfortellResult(result, container)` renders formatted reading-summary AI feedback (level badge, comprehension, vocabulary, grammar errors, overall). Used in the student Lesing tab and in the teacher `buildLaererSummaries()` view. Always use this function; never dump raw JSON.
 
-Reading summaries are persisted via `PUT /api/reading-summaries/{textId}`. AI feedback is checked with `checkGjenfortellWithClaude()` which calls `/api/proxy/claude` — this **requires wrangler pages dev**, not `python3 start_server.py`.
+Reading summaries are persisted via `PUT /api/reading-summaries/{textId}`. AI feedback is checked with `checkGjenfortellWithClaude()` which calls `/api/proxy/claude` — this **requires `npm run dev`** (wrangler); a plain static server has no `/api` routes.
 
 Text cards in `lesing-tekster.json` have an optional `questions` array. Each question is either MCQ `{ question, options[], answer }` (answer is the correct option index) or open-ended `{ question }` (no options). All 120 texts have questions.
 
@@ -171,14 +193,26 @@ A teacher can set per-student "AI-fokus" instructions and rate individual AI fee
 
 | File | Purpose |
 |------|---------|
-| `norsk_b2_pro.html` | The entire frontend application |
-| `start_server.py` | Local HTTP server (port 8080) |
-| `wrangler.toml` | Cloudflare Pages config + KV binding |
+| `public/norsk_b2_pro.html` | The entire frontend application |
+| `public/lesing-tekster.json` | The 120 reading texts — the only asset the app fetches |
+| `public/_redirects` / `public/_headers` | Root redirect and CSP |
+| `wrangler.toml` | Pages config + KV binding + `pages_build_output_dir` |
 | `.dev.vars.example` | Template for local secrets (copy to `.dev.vars`) |
-| `tsconfig.json` | TypeScript config for `functions/` |
+| `tsconfig.json` | TypeScript config for `functions/` (no `tsc` installed — see below) |
 | `functions/api/[[route]].ts` | Cloudflare Pages Function router |
 | `tests/abonnement.spec.ts` | Playwright E2E tests for subscription flows |
-| `ordbank-2-med-emner.json` | Sample word bank for import testing |
+| `ordbank-2-med-emner.json` | Sample word bank for import testing (not published) |
+
+Everything above outside `public/` is repo-local and not served. `functions/` stays at the
+repo root — Pages resolves it there regardless of `pages_build_output_dir`.
+
+**There is no `tsc` in the project** despite `tsconfig.json`. The closest thing to a
+typecheck is `npx wrangler pages functions build --outdir=/tmp/x`, which esbuild-compiles
+the worker and fails on syntax errors but not type errors.
+
+**Deploy scripts name their branch.** `npm run deploy:staging` / `npm run deploy:production`.
+The old bare `npm run deploy` was removed: it omitted `--branch`, so wrangler inferred the
+branch from the git checkout and publishing to production was a `git checkout main` away.
 
 <!-- SPECKIT START -->
 Active plan: `specs/013-word-bank-enrichment/plan.md` (in the monorepo root, sibling to this submodule).

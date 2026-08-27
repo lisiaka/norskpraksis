@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler pages dev . --compatibility-date=2024-01-01",
-    "deploy": "wrangler pages deploy . --project-name norsk-b2-pro",
+    "dev": "wrangler pages dev --compatibility-date=2024-01-01",
+    "deploy:staging": "wrangler pages deploy --project-name norsk-b2-pro --branch staging",
+    "deploy:production": "wrangler pages deploy --project-name norsk-b2-pro --branch main",
     "test": "playwright test",
     "test:ui": "playwright test --ui"
   },

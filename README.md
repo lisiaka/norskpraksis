@@ -131,13 +131,16 @@ E-mail + password registration. Login returns a **JWT** (default 30-day expiry) 
 ## Local development
 
 ```bash
-# Static-serve the frontend (no API)
-python3 start_server.py    # → http://localhost:8080/norsk_b2_pro.html
+# Static-serve the frontend (no API, no secrets needed)
+python3 -m http.server 8080 --directory public
+# → http://localhost:8080/norsk_b2_pro.html
 
-# Or via wrangler for a Pages-like environment
+# Or via wrangler for a Pages-like environment, with a working Claude proxy
 npm install
-npx wrangler pages dev .
+npm run dev
 ```
+
+Only `public/` is served locally, and only `public/` is deployed — see `wrangler.toml`.
 
 For a fully working app locally, run the backend too (see `../backend/README.md`) and point the frontend's `API_BASE` to `http://localhost:8000`.
 
@@ -159,7 +162,7 @@ Backend deploys automatically from `../backend/` on a push to `main` (Railway wa
 | `lesing-tekster.json` | 120 reading texts with topic, grammar-focus, key-words, source |
 | `gin3-ordliste.json`, `herpaberget-ordliste.json` | Source ordlister for vocabulary import |
 | `ordbank-2-med-emner.json` | Sample word bank with topic tags |
-| `start_server.py` | Local-only Python dev server (static files + optional Claude proxy) |
+| `public/` | The only directory served locally or deployed |
 | `tests/` | Playwright end-to-end tests |
 | `Multiuser_design.md` | Original design notes; superseded by `specs/` in the repo root |
 

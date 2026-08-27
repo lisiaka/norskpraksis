@@ -16,5 +16,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  // Servers are started manually: start_server.py (8080) + uvicorn (8000)
+  // Servers are started manually:
+  //   python3 -m http.server 8080 --directory public   (or `npm run dev` for /api routes)
+  //   uvicorn app.main:app (8000)
 });

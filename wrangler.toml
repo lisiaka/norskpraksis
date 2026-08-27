@@ -1,6 +1,10 @@
 name = "norsk-b2-pro"
 compatibility_date = "2024-01-01"
-pages_build_output_dir = "."
+# ⚠️ Only what sits in public/ is published. `wrangler pages deploy` uploads a directory
+# verbatim and honours neither .gitignore nor .wranglerignore, so pointing this at "." —
+# as it did until 2026-08-27 — published every file in the repo, including CLAUDE.md and
+# (once) .dev.vars. Keep this pointed at a curated directory so publishing stays opt-in.
+pages_build_output_dir = "public"
 
 [[kv_namespaces]]
 binding = "USER_DATA"
