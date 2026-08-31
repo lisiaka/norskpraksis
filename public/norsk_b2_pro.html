@@ -207,6 +207,22 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .lookup-in-bank{background:#edfaf3;border-left:3px solid #2d9e6b;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:8px;}
 .lookup-in-bank .wn{font-weight:700;color:#1a6b4a;}
 .lookup-in-bank .wm{color:#777;font-size:12px;}
+/* ── Tekst til tale ── */
+.tts-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;background:#f8fdf9;border:1.5px solid #d4edda;border-radius:10px;margin-bottom:16px;}
+.btn-tts-main{display:flex;align-items:center;gap:6px;padding:7px 14px;background:#2d9e6b;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;font-family:inherit;}
+.btn-tts-main:hover{background:#268a5c;}
+.btn-tts-stop{padding:7px 11px;background:#fff;border:1.5px solid #dde;border-radius:8px;font-size:13px;color:#666;font-family:inherit;}
+.btn-tts-stop:hover{border-color:#e05c5c;color:#e05c5c;}
+.btn-tts-stop:disabled{opacity:.4;}
+.tts-rate{margin-left:auto;display:flex;gap:4px;}
+.tts-rate button{padding:5px 10px;background:#fff;border:1.5px solid #dde;border-radius:7px;font-size:12px;color:#666;font-family:inherit;font-weight:600;}
+.tts-rate button.active{background:#edfaf3;border-color:#2d9e6b;color:#1a6b4a;}
+.btn-tts{padding:2px 6px;background:none;border:none;font-size:14px;line-height:1;opacity:.55;flex-shrink:0;}
+.btn-tts:hover{opacity:1;}
+.btn-tts.speaking{opacity:1;animation:ttsPulse 1s ease-in-out infinite;}
+@keyframes ttsPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.22);}}
+.tts-word{border-radius:3px;transition:background .08s linear;}
+.tts-word.tts-now{background:#ffe9a8;box-shadow:0 0 0 2px #ffe9a8;}
 /* ── Word Sort (Setningsbygging) game ── */
 .ws-pool-area{display:flex;flex-wrap:wrap;gap:8px;min-height:52px;padding:12px;background:#f8fdf9;border-radius:10px;border:1.5px dashed #c8e6c9;margin-bottom:12px;align-content:flex-start;}
 .ws-answer-area{display:flex;flex-wrap:wrap;gap:8px;min-height:56px;padding:12px;background:#fff;border-radius:10px;border:2px solid #2d9e6b;margin-bottom:14px;align-items:flex-start;align-content:flex-start;}
@@ -1291,6 +1307,10 @@ function renderTabs(){
 function setTab(tab){ state.tab=tab; if(tab==="statistik"||tab==="plan"||tab==="mineoppgaver") statsCache=null; renderTabs(); renderContent(); }
 
 function renderContent(){
+  // Any re-render discards the word spans the reading highlight points at, so speech
+  // that survived one would go on talking against detached nodes. Stopping here covers
+  // every route out of a text at once — tab switch, back button, answering a question.
+  ttsStop();
   const c=$("content"); c.innerHTML="";
   if(state.tab==="ordbank")     c.appendChild(buildOrdbank());
   if(state.tab==="setninger")   c.appendChild(buildSetninger());
@@ -1534,6 +1554,11 @@ function renderWordList(){
       // learner meets the word in the language they are learning it in (FR-010).
       if(w.explanation)info.appendChild(el("div",{class:"w-forklaring"},w.explanation));
       chip.appendChild(info);
+      // Pronunciation is the half of a word the bank cannot show in writing. The button
+      // stops the click from reaching the chip, so hearing a word does not also open its
+      // edit panel.
+      const wordSpeak=ttsButton(()=>w.word,`Hør uttalen av «${w.word}»`);
+      if(wordSpeak) chip.appendChild(wordSpeak);
       // Marking a word learnt is a sweep across many words, so it has to be one click
       // on the card — opening the detail panel first would make it a three-click job.
       chip.appendChild(el("button",{
@@ -3401,6 +3426,275 @@ function printMissedWords(mode, words){
   }
 }
 
+// ── TEKST TIL TALE ───────────────────────────────────────────────────
+// The browser's own speech synthesiser, not a hosted provider: no per-play cost, no
+// audio to cache, no second AI credential to keep in sync. Every caller goes through
+// `speak()`, so swapping the engine later is a change here and nowhere else.
+//
+// Voice choice is the one thing that must not degrade quietly. Reading Norwegian with
+// an English voice teaches the wrong pronunciation, which is worse for a learner than
+// silence — so with no Norwegian voice installed we render no controls at all.
+const tts = {
+  voice: null,          // resolved Norwegian SpeechSynthesisVoice, or null
+  resolved: false,      // getVoices() has returned a non-empty list at least once
+  rate: 1,              // 0.7 | 1 — persisted in localStorage
+  chunks: [],           // [{text, offset}] queued utterances for the current run
+  idx: 0,               // index into chunks
+  token: 0,             // bumped on every stop; a stale utterance callback checks it
+  onWord: null,         // (absoluteCharIndex) => void, for the reading-text highlight
+  onState: null,        // ("playing"|"paused"|"idle") => void, for the control buttons
+};
+
+// Chrome stops speaking partway through a long utterance, so the text is split into
+// pieces short enough to finish. Splitting on sentence ends keeps the prosody intact;
+// the length cap is the fallback for a sentence that has no end in sight.
+const TTS_CHUNK_MAX = 180;
+
+const ttsAvailable = () => typeof window.speechSynthesis !== "undefined" && !!tts.voice;
+
+// `getVoices()` is empty on first call in most browsers and fills in asynchronously,
+// so this runs again on `voiceschanged`. Nynorsk is accepted as a last resort: it is
+// a Norwegian voice reading Bokmål, which is a dialect mismatch rather than a
+// language one. Anything else is rejected.
+function resolveTtsVoice(){
+  if(typeof window.speechSynthesis === "undefined") return;
+  const voices = window.speechSynthesis.getVoices() || [];
+  if(!voices.length) return;
+  const had = !!tts.voice;
+  tts.resolved = true;
+  const norwegian = v => /^(nb|nn|no)([-_]|$)/i.test(v.lang || "");
+  const pool = voices.filter(norwegian);
+  tts.voice = pool.find(v => /^nb/i.test(v.lang) && v.localService)
+           || pool.find(v => /^nb/i.test(v.lang))
+           || pool.find(v => /^no/i.test(v.lang))
+           || pool[0]
+           || null;
+  // The voice list usually arrives after the first paint. A reader rendered before it
+  // did decided there was no voice and left its controls out, so it has to be rebuilt.
+  // Only the reader is worth re-rendering for: every other surface here is redrawn on
+  // its own within a click or two anyway.
+  if(!had && tts.voice && state.tab === "lesing" && lesingState.currentText) renderContent();
+}
+
+function initTts(){
+  if(typeof window.speechSynthesis === "undefined") return;
+  const saved = parseFloat(localStorage.getItem("b2_tts_rate"));
+  if(saved === 0.7 || saved === 1) tts.rate = saved;
+  resolveTtsVoice();
+  window.speechSynthesis.addEventListener("voiceschanged", resolveTtsVoice);
+  // A voice talking to a page nobody is looking at is the worst failure mode here,
+  // so every way of leaving stops it.
+  document.addEventListener("visibilitychange", () => { if(document.hidden) ttsStop(); });
+  window.addEventListener("pagehide", ttsStop);
+  window.addEventListener("beforeunload", ttsStop);
+}
+
+function ttsSetRate(rate){
+  tts.rate = rate;
+  localStorage.setItem("b2_tts_rate", String(rate));
+}
+
+// Invalidating the token first means the `onend` of whatever is currently speaking
+// becomes a no-op, so cancelling never advances the old queue into the new one.
+function ttsStop(){
+  tts.token++;
+  tts.chunks = []; tts.idx = 0;
+  if(tts.onWord) tts.onWord(null);
+  const notify = tts.onState;
+  tts.onWord = null; tts.onState = null;
+  try{
+    window.speechSynthesis.cancel();
+    // Cancelling while paused leaves the engine flagged paused with an empty queue, and
+    // in that state some builds silently drop the next speak(). The queue is already
+    // gone, so resuming here has nothing to say — it only clears the flag.
+    if(window.speechSynthesis.paused) window.speechSynthesis.resume();
+  }catch(e){}
+  if(notify) notify("idle");
+}
+
+function ttsChunk(text){
+  const out = [];
+  // Keep the terminator with its sentence, and keep every character accounted for —
+  // the highlight maps a character index back to a word in the rendered text, so the
+  // offsets must line up with the original string exactly.
+  const parts = String(text).split(/(?<=[.!?…:]["»)]?)\s+|\n+/);
+  let cursor = 0;
+  for(const part of parts){
+    const at = String(text).indexOf(part, cursor);
+    const offset = at >= 0 ? at : cursor;
+    cursor = offset + part.length;
+    if(!part.trim()) continue;
+    if(part.length <= TTS_CHUNK_MAX){ out.push({text:part, offset}); continue; }
+    // An over-long sentence is broken at a comma or a space rather than mid-word.
+    let rest = part, restOffset = offset;
+    while(rest.length > TTS_CHUNK_MAX){
+      const window_ = rest.slice(0, TTS_CHUNK_MAX);
+      let cut = Math.max(window_.lastIndexOf(", "), window_.lastIndexOf("; "));
+      if(cut < 40) cut = window_.lastIndexOf(" ");
+      if(cut < 40) cut = TTS_CHUNK_MAX;
+      out.push({text:rest.slice(0, cut), offset:restOffset});
+      restOffset += cut;
+      rest = rest.slice(cut).replace(/^\s+/, m => { restOffset += m.length; return ""; });
+    }
+    if(rest.trim()) out.push({text:rest, offset:restOffset});
+  }
+  return out;
+}
+
+// The single entry point. `opts.onWord` receives a character index into the *original*
+// string (not the chunk), so a caller that rendered the text as spans can find the one
+// being spoken; it gets null when reading ends.
+function speak(text, opts){
+  if(!ttsAvailable() || !String(text||"").trim()) return;
+  ttsStop();
+  const token = tts.token;
+  tts.chunks = ttsChunk(text);
+  tts.idx = 0;
+  tts.onWord = (opts && opts.onWord) || null;
+  tts.onState = (opts && opts.onState) || null;
+  if(!tts.chunks.length) return;
+  if(tts.onState) tts.onState("playing");
+  ttsSpeakNext(token);
+}
+
+function ttsSpeakNext(token){
+  if(token !== tts.token) return;
+  const chunk = tts.chunks[tts.idx];
+  if(!chunk){ ttsStop(); return; }
+  const u = new SpeechSynthesisUtterance(chunk.text);
+  u.voice = tts.voice;
+  u.lang = tts.voice.lang || "nb-NO";
+  u.rate = tts.rate;
+  if(tts.onWord){
+    u.addEventListener("boundary", e => {
+      // Safari does not fire these. FR-007 makes the highlight optional for exactly
+      // that reason — everything else works without it.
+      if(token !== tts.token || e.name === "sentence") return;
+      tts.onWord(chunk.offset + e.charIndex);
+    });
+  }
+  u.addEventListener("end", () => {
+    if(token !== tts.token) return;
+    tts.idx++;
+    ttsSpeakNext(token);
+  });
+  u.addEventListener("error", () => {
+    // "interrupted" and "canceled" are our own cancel() arriving; anything else is a
+    // real failure and stopping is the honest response either way.
+    if(token !== tts.token) return;
+    ttsStop();
+  });
+  window.speechSynthesis.speak(u);
+}
+
+function ttsPause(){
+  if(!window.speechSynthesis.speaking || window.speechSynthesis.paused) return;
+  window.speechSynthesis.pause();
+  if(tts.onState) tts.onState("paused");
+}
+
+function ttsResume(){
+  if(!window.speechSynthesis.paused) return;
+  window.speechSynthesis.resume();
+  if(tts.onState) tts.onState("playing");
+}
+
+// A speaker button for one short string — a word, or a question with its options.
+// Shares the queue with the reader, so pressing one cuts the other off (FR-008).
+function ttsButton(getText, title){
+  if(!ttsAvailable()) return null;
+  const btn = el("button", {class:"btn-tts", type:"button", title:title||"Les høyt",
+    click(e){
+      e.preventDefault(); e.stopPropagation();
+      const wasActive = btn.classList.contains("speaking");
+      ttsStop();
+      if(wasActive) return;
+      btn.classList.add("speaking");
+      speak(getText(), {onState(s){ if(s!=="playing") btn.classList.remove("speaking"); }});
+    }}, "🔊");
+  return btn;
+}
+
+// Renders `str` into `host` as one span per word, and returns a `mark(charIndex)` that
+// highlights the word containing that index — or clears the highlight when passed null.
+// Whitespace stays in plain text nodes so the rendered text is character-for-character
+// the original, which is what lets a character index from the speech engine be looked
+// up here at all.
+function fillSpokenText(host, str){
+  const tokens=[];
+  const text=String(str||"");
+  const re=/\S+/g;
+  let last=0, m;
+  while((m=re.exec(text))!==null){
+    if(m.index>last) host.appendChild(document.createTextNode(text.slice(last,m.index)));
+    const span=el("span",{class:"tts-word"},m[0]);
+    tokens.push({start:m.index, end:m.index+m[0].length, span});
+    host.appendChild(span);
+    last=m.index+m[0].length;
+  }
+  if(last<text.length) host.appendChild(document.createTextNode(text.slice(last)));
+
+  let current=null;
+  return function mark(charIndex){
+    if(current){ current.classList.remove("tts-now"); current=null; }
+    if(charIndex==null) return;
+    // First token that has not ended yet. A boundary index landing in the space before
+    // a word is the common case, and this resolves it to that word.
+    let lo=0, hi=tokens.length-1, hit=-1;
+    while(lo<=hi){
+      const mid=(lo+hi)>>1;
+      if(tokens[mid].end>charIndex){ hit=mid; hi=mid-1; } else { lo=mid+1; }
+    }
+    if(hit<0) return;
+    current=tokens[hit].span;
+    current.classList.add("tts-now");
+    const r=current.getBoundingClientRect();
+    if(r.top<70||r.bottom>window.innerHeight-40) current.scrollIntoView({block:"center",behavior:"smooth"});
+  };
+}
+
+// Play / pause / stop plus the speed choice, for one reading text.
+function buildTtsBar(text, onWord){
+  const bar=el("div",{class:"tts-bar"});
+  const playBtn=el("button",{class:"btn-tts-main",type:"button"},"▶︎ Les høyt");
+  const stopBtn=el("button",{class:"btn-tts-stop",type:"button",disabled:true},"⏹ Stopp");
+  let playing=false;
+
+  function setState(s){
+    playing = s==="playing";
+    playBtn.textContent = s==="playing" ? "⏸ Pause" : s==="paused" ? "▶︎ Fortsett" : "▶︎ Les høyt";
+    if(s==="idle") stopBtn.setAttribute("disabled",true); else stopBtn.removeAttribute("disabled");
+  }
+
+  playBtn.addEventListener("click",()=>{
+    if(playing){ ttsPause(); setState("paused"); return; }
+    if(window.speechSynthesis.paused && tts.chunks.length){ ttsResume(); setState("playing"); return; }
+    speak(text.text, {onWord, onState:setState});
+  });
+  stopBtn.addEventListener("click",()=>{ ttsStop(); setState("idle"); });
+
+  bar.appendChild(playBtn);
+  bar.appendChild(stopBtn);
+
+  const rateWrap=el("div",{class:"tts-rate"});
+  rateWrap.appendChild(el("span",{style:{fontSize:"12px",color:"#888",alignSelf:"center",marginRight:"4px"}},"Fart:"));
+  [[0.7,"Sakte"],[1,"Normal"]].forEach(([val,label])=>{
+    const b=el("button",{type:"button",class:tts.rate===val?"active":"",
+      click(e){
+        ttsSetRate(val);
+        rateWrap.querySelectorAll("button").forEach(x=>x.classList.remove("active"));
+        e.currentTarget.classList.add("active");
+        // Rate is fixed for the lifetime of an utterance, so a change mid-read only
+        // takes effect if the queue is restarted. Restarting from the top is the
+        // predictable reading of "read it slower".
+        if(playing) speak(text.text,{onWord,onState:setState});
+      }},label);
+    rateWrap.appendChild(b);
+  });
+  bar.appendChild(rateWrap);
+  return bar;
+}
+
 // ── LESING TAB ───────────────────────────────────────────────────────
 const lesingState = { texts:null, topicFilter:"", grammarFilter:"", readFilter:"", search:"", currentText:null, answers:{}, summaryText:"", summaryVisible:false, savedSummaries:{} };
 
@@ -3673,9 +3967,17 @@ function buildLesingReader(text){
   });
   card.appendChild(tagRow);
 
-  // Main text
+  // Main text. With a Norwegian voice available it is rendered as one span per word so
+  // the word being spoken can be marked; without one it stays a plain text node, so a
+  // learner who cannot use the feature sees exactly the page they saw before it existed.
   const textDiv=el("div",{style:{fontSize:"16px",lineHeight:"1.85",color:"#333",whiteSpace:"pre-wrap",fontFamily:"Georgia,serif",letterSpacing:".01em"}});
-  textDiv.textContent=text.text;
+  let markSpokenWord=null;
+  if(ttsAvailable()){
+    card.appendChild(buildTtsBar(text, idx=>markSpokenWord&&markSpokenWord(idx)));
+    markSpokenWord=fillSpokenText(textDiv, text.text);
+  } else {
+    textDiv.textContent=text.text;
+  }
   card.appendChild(textDiv);
 
   // Divider
@@ -3703,7 +4005,13 @@ function buildLesingReader(text){
     const textAnswers=lesingState.answers[text.id]||{};
     text.questions.forEach((q,qi)=>{
       const qBlock=el("div",{style:{marginBottom:"18px"}});
-      qBlock.appendChild(el("div",{style:{fontSize:"14px",fontWeight:"600",color:"#222",marginBottom:"8px",lineHeight:"1.5"}},(qi+1)+". "+q.question));
+      const qRow=el("div",{style:{display:"flex",alignItems:"flex-start",gap:"6px",marginBottom:"8px"}});
+      qRow.appendChild(el("div",{style:{fontSize:"14px",fontWeight:"600",color:"#222",lineHeight:"1.5"}},(qi+1)+". "+q.question));
+      // The options are read after the question, so a multiple-choice item works as a
+      // listening exercise without the learner having to read anything.
+      const qSpeak=ttsButton(()=>[q.question,...(q.options||[])].join(". "),"Les spørsmålet høyt");
+      if(qSpeak){ qSpeak.style.marginTop="2px"; qRow.appendChild(qSpeak); }
+      qBlock.appendChild(qRow);
       if(q.options && q.options.length>0){
         const answered=textAnswers[qi]!==undefined;
         const correct=q.answer;
@@ -3833,7 +4141,18 @@ function buildLesingReader(text){
   panelCard.appendChild(el("h3",{},"🔍 Slå opp ord"));
 
   const lookupInput=el("input",{class:"lookup-word-input",type:"text",placeholder:"Lim inn eller skriv et ord…"});
-  panelCard.appendChild(lookupInput);
+  // The speaker reads whatever is in the box, so it answers "how is this said?" before
+  // the lookup has run and regardless of which branch the lookup took.
+  const lookupSpeak=ttsButton(()=>lookupInput.value.replace(/[.,;:!?()«»"']/g,"").trim(),"Hør uttalen");
+  if(lookupSpeak){
+    lookupInput.style.marginBottom="0";
+    const row=el("div",{style:{display:"flex",alignItems:"center",gap:"4px",marginBottom:"8px"}});
+    row.appendChild(lookupInput);
+    row.appendChild(lookupSpeak);
+    panelCard.appendChild(row);
+  } else {
+    panelCard.appendChild(lookupInput);
+  }
 
   const resultBox=el("div",{class:"lookup-result-box",style:{color:"#aaa"}},"Skriv et ord og trykk Slå opp");
   // Shown only when the lookup came back without a translation. The word must still
@@ -5128,6 +5447,7 @@ function switchUser(){
 
 // ── INIT ──────────────────────────────────────────────────────────────
 (function init(){
+  initTts();
   const savedToken = localStorage.getItem("b2_session_token");
   const savedId    = localStorage.getItem("b2_user_id");
   const loginScreen  = $("login-screen");

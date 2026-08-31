@@ -55,12 +55,13 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - `lesingState.readFilter` — `""` (all) or `"hide_read"` (hides texts with a `text_read` event, the same signal behind the "✓ Lest" badge). Applies to the text list only; the reader's prev/next navigation deliberately ignores it, since opening a text marks it read
 - `state.sentences` — `{ wordId: sentenceText }` — written sentences keyed by word id
 - `lesingState.savedSummaries` — `{ textId: readingSummaryObj }` — cached reading summaries keyed by text id (loaded from backend on login + on save)
+- `b2_tts_rate` — read-aloud speed, `0.7` or `1` (see "Tekst til tale" below)
 
 **UI rendering** uses a custom `el(tag, props, ...children)` helper. Re-renders by calling `renderContent()`.
 
 **Tabs / features:**
 - `ordbank` — vocabulary bank (add, search, filter by topic + "ikke øvd ennå", import/export)
-- `lesing` — reading texts with subscription access control + paywall overlay; each text has 3 comprehension questions (2 MCQ + 1 open-ended) and a Gjenfortell (reading summary) section with Claude AI feedback
+- `lesing` — reading texts with subscription access control + paywall overlay; each text has 3 comprehension questions (2 MCQ + 1 open-ended) and a Gjenfortell (reading summary) section with Claude AI feedback, plus a read-aloud bar over the text body (see "Tekst til tale" below)
 - `setninger` — sentence practice; "Lagre og neste" navigates to next word without a sentence
 - `flashcards` — quiz modes (choice + write); filter by topic / time / learning status
 - `setningsbygging` — word-sort game
@@ -188,6 +189,42 @@ A teacher can set per-student "AI-fokus" instructions and rate individual AI fee
 - `buildAiRatingWidget(sourceType, sourceId)` — shared 👍/👎 + comment widget, attached under AI feedback blocks in `buildLaererEssayDetail` and `buildLaererSummaries` (`POST /api/teacher/ai-ratings`). Distinct from the existing teacher→student comment/Like widget on the same essay card — this one is teacher→AI.
 - `teacherState.aiInstructions` / `aiChatMessages` / `aiChatTurnCount` / `aiRatings` — cached state for the above, scoped to `teacherState.selectedStudent`.
 - A student has at most one active teacher at a time (`UNIQUE(student_id)` on `teacher_student_links`), so there is no multi-teacher resolution logic anywhere in this feature.
+
+## Tekst til tale (feature 016)
+
+Read-aloud for reading texts, comprehension questions, and single words. **No AI provider
+is involved** — despite the backlog calling it "AI reads a text aloud", Anthropic has no
+speech API. This is the browser's own `speechSynthesis`, so there is no per-play cost, no
+audio asset, no cache and no credential.
+
+- `speak(text, {onWord, onState})` is the **only** entry point. Everything else —
+  `ttsPause`, `ttsResume`, `ttsStop`, `ttsButton` — sits around it. Replacing the engine
+  later (pre-generated audio, a server route) is a change inside `speak()` and nowhere
+  else; do not call `speechSynthesis` directly from a feature.
+- **`ttsAvailable()` gates every control.** With no Norwegian voice installed it returns
+  false and each surface renders as it did before the feature existed — no disabled
+  button, no reading text split into spans. Reading Norwegian aloud in an English voice
+  teaches the wrong pronunciation, so silence is the correct failure, and
+  `resolveTtsVoice()` accepts only `nb`/`nn`/`no`.
+- **Voices arrive asynchronously.** `getVoices()` is empty on the first call in most
+  browsers; `resolveTtsVoice()` re-runs on `voiceschanged` and re-renders the reader if
+  one was already open when the list landed.
+- **Long text is chunked** (`ttsChunk`, `TTS_CHUNK_MAX = 180`). Chrome stops partway
+  through a long utterance, so a 250-word text spoken as one utterance does not finish.
+  Chunks are split on sentence ends and carry a character `offset` into the original
+  string — that offset is what makes the highlight land on the right word, so any change
+  to the splitter must preserve it exactly.
+- **`fillSpokenText(host, str)`** renders the reading text as one `<span class="tts-word">`
+  per word and returns `mark(charIndex)`. Whitespace stays in plain text nodes so the
+  rendered text is character-identical to the source. Safari does not fire `boundary`
+  events — the highlight is optional by design, everything else still works.
+- **`renderContent()` calls `ttsStop()` first.** A re-render throws away the spans the
+  highlight points at, so speech surviving one would talk against detached nodes. That
+  one call covers tab switches, the reader's back button and answering a question.
+  `visibilitychange`/`pagehide` cover leaving the page.
+- `tts.token` is bumped on every stop and checked in every utterance callback, so a
+  cancelled run can never advance the queue of the run that replaced it.
+- Speed (0.7 / 1) persists in `localStorage` under `b2_tts_rate`.
 
 ## Key Files
 
