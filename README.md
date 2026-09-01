@@ -147,8 +147,24 @@ For a fully working app locally, run the backend too (see `../backend/README.md`
 ## Deploy
 
 ```bash
-npm run deploy    # wrangler pages deploy . --project-name norsk-b2-pro
+npm run deploy:staging       # wrangler pages deploy --project-name norsk-b2-pro --branch staging
+npm run deploy:production    # ... --branch main
 ```
+
+Staging first, always — production carries real learners.
+
+Two things the scripts exist to prevent, both of which have bitten:
+
+- **No directory argument.** `wrangler pages deploy [directory]` is a positional that
+  overrides `pages_build_output_dir = "public"`. `wrangler pages deploy .` therefore uploads
+  the whole repo — including a `.dev.vars` copied in for a `wrangler pages dev` session.
+  That is how `ANTHROPIC_API_KEY` was once served in plaintext from `*.pages.dev`.
+- **`--branch` is never inferred.** A bare `wrangler pages deploy` takes the branch from the
+  git checkout, so running it on `main` publishes to production. The old `npm run deploy`
+  did exactly that and was deleted; these two replaced it.
+
+A leaked file stays in Cloudflare's edge cache for up to 7 days (`s-maxage=604800`) and
+`*.pages.dev` cannot be purged — rotate the credential, don't just remove the file.
 
 Backend deploys automatically from `../backend/` on a push to `main` (Railway watches the repo).
 
