@@ -628,6 +628,9 @@ const TIPS = [
 
 // ── STATE ─────────────────────────────────────────────────────────────
 const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", learntFilter:"", currentTopic:null, currentPrompt:null, essay:"",
+  // Feature 018. myClass is {class, classmates} — a null `class` means the student
+  // is in no class, which is ordinary and must be explained rather than hidden.
+  myClass:null, sharedInbox:null, shareOpen:false, shareSelected:null,
   wordIdx:0, sentences:{}, sentTopicFilter:"", openWordId:null,
   subscription: null, // loaded after login: { status, provider, renewalDate, ... } | null
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
@@ -908,6 +911,36 @@ async function fetchAiSteeringContext(){
     state.aiSteeringContext = {instructions:null, recent_ratings:[]};
   }
   return state.aiSteeringContext;
+}
+
+// ── Word sharing between classmates (feature 018) ──────────────────────────
+//
+// Both of these are fetched once per session, following fetchAiSteeringContext()
+// above: one request at login, refreshed after any inbox action. No polling — a
+// word arriving while the app is open shows up on the next navigation, which is
+// the right trade for an occasional, asynchronous suggestion between classmates.
+const MAX_SHARE_WORDS = 50;   // must match MAX_WORDS_PER_SEND in the backend
+
+async function fetchMyClass(force){
+  if(state.myClass && !force) return state.myClass;
+  try{
+    const res = await api("/api/me/class");
+    state.myClass = res.ok ? await res.json() : {class:null, classmates:[]};
+  }catch(e){ state.myClass = {class:null, classmates:[]}; }
+  return state.myClass;
+}
+
+async function fetchSharedInbox(force){
+  if(state.sharedInbox && !force) return state.sharedInbox;
+  try{
+    const res = await api("/api/me/shared-words");
+    state.sharedInbox = res.ok ? await res.json() : {pending_count:0, items:[]};
+  }catch(e){ state.sharedInbox = {pending_count:0, items:[]}; }
+  return state.sharedInbox;
+}
+
+async function refreshSharing(){
+  await Promise.all([fetchMyClass(true), fetchSharedInbox(true)]);
 }
 
 function buildTeacherSteeringBlock(){
@@ -1257,6 +1290,10 @@ function renderHeader(){
 }
 
 // ── TABS ──────────────────────────────────────────────────────────────
+function pendingShareCount(){
+  return state.sharedInbox?.pending_count || 0;
+}
+
 function renderTabs(){
   const c=$("tabs"); c.innerHTML="";
   const doneCount=Object.keys(state.sentences).filter(id=>state.sentences[id]?.trim()).length;
@@ -1280,7 +1317,9 @@ function renderTabs(){
   // Grouped nav sections for students
   const sections=[
     {label:"Lær",tabs:[
-      {key:"ordbank",     label:`📚 Ordbank${state.words.length?` (${state.words.length})`:""}`},
+      // The pending count rides on the Ordbank entry rather than taking a nav slot of
+      // its own: shared words are words, and the sidebar already has eleven entries.
+      {key:"ordbank",     label:`📚 Ordbank${state.words.length?` (${state.words.length})`:""}${pendingShareCount()?` 📬${pendingShareCount()}`:""}`},
       {key:"lesing",      label:"📖 Lesing"},
     ]},
     {label:"Øv",tabs:[
@@ -1327,8 +1366,241 @@ function renderContent(){
 }
 
 // ── ORDBANK TAB ───────────────────────────────────────────────────────
+// Pending words a classmate has offered. Nothing here has touched the learner's
+// bank: an offer becomes a word only when they press "Legg til".
+function buildSharedInboxPanel(){
+  const inbox = state.sharedInbox;
+  if(!inbox || !inbox.items || !inbox.items.length) return null;
+
+  const card = el("div",{class:"card",style:{borderLeft:"4px solid #1a6b4a"}});
+  const hdr = el("div",{style:{display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap",marginBottom:"10px"}});
+  hdr.appendChild(el("h2",{style:{margin:0,fontSize:"18px"}},
+    `📬 Delte ord fra klassen (${inbox.items.length})`));
+  hdr.appendChild(el("span",{style:{flex:"1"}}));
+
+  async function bulk(action){
+    const label = action==="accept" ? "Legge til alle i ordbanken?" : "Forkaste alle?";
+    if(!confirm(label)) return;
+    const r = await api("/api/me/shared-words/bulk",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({action})}).catch(()=>null);
+    if(!r?.ok){ toast("Kunne ikke oppdatere"); return; }
+    const res = await r.json();
+    if(action==="accept"){
+      const dup = res.duplicates ? ` (${res.duplicates} hadde du fra før)` : "";
+      toast(`La til ${res.accepted} ord${dup}`);
+    } else toast(`Forkastet ${res.discarded} ord`);
+    await syncWordsFromServer();
+    await refreshSharing();
+    renderContent();
+  }
+  hdr.appendChild(el("button",{style:{fontSize:"12px",padding:"4px 10px"},
+    click:()=>bulk("accept")},"Legg til alle"));
+  hdr.appendChild(el("button",{style:{fontSize:"12px",padding:"4px 10px"},
+    click:()=>bulk("discard")},"Forkast alle"));
+  card.appendChild(hdr);
+
+  inbox.items.forEach(item=>{
+    const row = el("div",{style:{display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap",
+      padding:"8px 0",borderBottom:"1px solid #f0f0f0"}});
+    const info = el("div",{style:{flex:"1",minWidth:"180px"}});
+    const title = el("div",{style:{fontWeight:"600"}},$esc(item.word));
+    if(item.already_in_bank){
+      title.appendChild(el("span",{style:{marginLeft:"8px",fontSize:"11px",color:"#8a6d3b",
+        background:"#fcf8e3",padding:"2px 6px",borderRadius:"8px"}},"allerede i ordbanken din"));
+    }
+    info.appendChild(title);
+    info.appendChild(el("div",{style:{fontSize:"13px",color:"#888"}},
+      `${$esc(item.meaning||"")} · ${$esc(item.topic||"")} · fra ${$esc(item.sender_name)}`));
+    row.appendChild(info);
+
+    async function resolve(action){
+      const r = await api(`/api/me/shared-words/${encodeURIComponent(item.id)}/${action}`,
+        {method:"POST"}).catch(()=>null);
+      if(!r?.ok){
+        // 409 means the sender is no longer a classmate — the offer lapsed while the
+        // list was on screen. Say so plainly rather than showing a generic failure.
+        toast(r?.status===409 ? "Dette ordet er ikke lenger tilgjengelig" : "Kunne ikke oppdatere");
+        await refreshSharing(); renderContent(); return;
+      }
+      if(action==="accept"){
+        const res = await r.json();
+        toast(res.duplicate ? "Du hadde dette ordet fra før" : "Lagt til i ordbanken");
+        await syncWordsFromServer();
+      }
+      await refreshSharing();
+      renderContent();
+    }
+    row.appendChild(el("button",{class:"btn-cta",style:{fontSize:"12px",padding:"4px 10px"},
+      click:()=>resolve("accept")},"Legg til"));
+    row.appendChild(el("button",{style:{fontSize:"12px",padding:"4px 10px"},
+      click:()=>resolve("discard")},"Forkast"));
+    card.appendChild(row);
+  });
+  return card;
+}
+
+// Sending words to classmates. Selection runs over the Ordbank's *current* filters,
+// so filtering to a topic and pressing "Velg alle" is how a learner shares a topic —
+// no separate topic picker, and it composes with search and "Ikke øvd ennå".
+function buildSharePanel(){
+  const mine = state.myClass;
+  if(!mine) return null;
+
+  const card = el("div",{class:"card"});
+  const hdr = el("div",{style:{display:"flex",alignItems:"center",gap:"10px",cursor:"pointer"},
+    click:()=>{ state.shareOpen=!state.shareOpen; renderContent(); }});
+  hdr.appendChild(el("span",{style:{fontSize:"11px",color:"#666"}}, state.shareOpen?"▼":"▶"));
+  hdr.appendChild(el("h2",{style:{margin:0,fontSize:"18px"}},"🤝 Del ord med klassen"));
+  card.appendChild(hdr);
+
+  if(!state.shareOpen) return card;
+
+  // Two distinct states, both explained rather than hidden. A control that vanishes
+  // with no reason is unexplainable to a learner whose teacher can fix it.
+  if(!mine.class){
+    card.appendChild(el("p",{style:{color:"#888",marginTop:"10px"}},
+      "Du er ikke i en klasse ennå. Når læreren din setter deg i en klasse, kan du dele ord med klassekameratene dine."));
+    return card;
+  }
+  if(!mine.classmates.length){
+    card.appendChild(el("p",{style:{color:"#888",marginTop:"10px"}},
+      `Du er alene i klassen «${$esc(mine.class.name)}» akkurat nå, så det er ingen å dele med ennå.`));
+    return card;
+  }
+
+  if(!state.shareSelected) state.shareSelected = new Set();
+  const selected = state.shareSelected;
+  const visible = getFilteredWords();
+
+  const filterNote = (state.topicFilter||state.search||state.practicedFilter)
+    ? " (med filtrene du har valgt)" : "";
+  card.appendChild(el("p",{style:{fontSize:"13px",color:"#888",margin:"10px 0"}},
+    `Klasse: ${$esc(mine.class.name)} · ${visible.length} ord synlig${filterNote}`));
+
+  // ── Word selection ──
+  const selRow = el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"8px",flexWrap:"wrap"}});
+  const counter = el("span",{style:{fontSize:"12px",color:"#888"}});
+  const capNote = el("div",{style:{fontSize:"12px",color:"#8a6d3b",display:"none",width:"100%"}},
+    `⚠ Maks ${MAX_SHARE_WORDS} ord per sending`);
+
+  function updateCounter(){
+    counter.textContent = `${selected.size} av ${visible.length} valgt`;
+    capNote.style.display = (visible.length>MAX_SHARE_WORDS) ? "" : "none";
+    sendBtn.disabled = selected.size===0 || !pickedRecipients().length;
+  }
+  const selAllBtn = el("button",{type:"button",style:{fontSize:"12px",padding:"3px 10px"},
+    click:()=>{
+      if(selected.size >= Math.min(visible.length, MAX_SHARE_WORDS)){ selected.clear(); }
+      else {
+        selected.clear();
+        // Take the first 50 and say both numbers. Not silent truncation, and not
+        // auto-batching: the cap is what stops one classmate filling another's inbox.
+        visible.slice(0,MAX_SHARE_WORDS).forEach(w=>selected.add(w.id));
+      }
+      renderContent();
+    }},"Velg alle");
+  selRow.appendChild(selAllBtn);
+  selRow.appendChild(counter);
+  selRow.appendChild(capNote);
+  card.appendChild(selRow);
+
+  const listWrap = el("div",{style:{maxHeight:"200px",overflowY:"auto",border:"1px solid #eee",
+    borderRadius:"6px",marginBottom:"12px"}});
+  if(!visible.length){
+    listWrap.appendChild(el("div",{style:{padding:"10px",color:"#888",fontSize:"13px"}},
+      "Ingen ord matcher filtrene dine."));
+  }
+  visible.forEach(w=>{
+    const row = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"6px 10px",
+      borderBottom:"1px solid #f0f0f0",fontSize:"13px"}});
+    const cb = el("input",{type:"checkbox"});
+    cb.checked = selected.has(w.id);
+    cb.addEventListener("change",()=>{
+      if(cb.checked){
+        if(selected.size >= MAX_SHARE_WORDS){
+          cb.checked=false;
+          toast(`Maks ${MAX_SHARE_WORDS} ord per sending`);
+          return;
+        }
+        selected.add(w.id);
+      } else selected.delete(w.id);
+      updateCounter();
+    });
+    row.appendChild(cb);
+    row.appendChild(el("span",{style:{flex:"1",fontWeight:"600"}},$esc(w.word)));
+    row.appendChild(el("span",{style:{color:"#888",fontSize:"12px"}},$esc(w.meaning||"")));
+    listWrap.appendChild(row);
+  });
+  card.appendChild(listWrap);
+
+  // ── Recipients ──
+  card.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"6px"}},"Send til:"));
+  const allCb = el("input",{type:"checkbox",id:"share-all"});
+  const mateCbs = [];
+  function pickedRecipients(){
+    if(allCb.checked) return mine.classmates.map(m=>m.id);
+    return mateCbs.filter(({cb})=>cb.checked).map(({id})=>id);
+  }
+  const allRow = el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"}});
+  allCb.addEventListener("change",()=>{
+    mateCbs.forEach(({cb})=>{ cb.checked=allCb.checked; });
+    updateCounter();
+  });
+  allRow.appendChild(allCb);
+  allRow.appendChild(el("label",{for:"share-all",style:{fontSize:"13px",fontWeight:"600",cursor:"pointer"}},
+    "Hele klassen"));
+  card.appendChild(allRow);
+  mine.classmates.forEach(m=>{
+    const id="share-m-"+m.id.replace(/[^a-z0-9]/gi,"-");
+    const cb=el("input",{type:"checkbox",id});
+    cb.addEventListener("change",()=>{
+      allCb.checked = mine.classmates.length>0 && mateCbs.every(({cb:c})=>c.checked);
+      updateCounter();
+    });
+    mateCbs.push({cb,id:m.id});
+    const row=el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"}});
+    row.appendChild(cb);
+    row.appendChild(el("label",{for:id,style:{fontSize:"13px",cursor:"pointer"}},$esc(m.name)));
+    card.appendChild(row);
+  });
+
+  const sendBtn = el("button",{class:"btn-cta",style:{marginTop:"12px"},
+    click: async ()=>{
+      const recipients = pickedRecipients();
+      if(!selected.size || !recipients.length) return;
+      sendBtn.disabled=true; sendBtn.textContent="Sender…";
+      const r = await api("/api/me/shared-words",{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({word_ids:[...selected], recipient_ids:recipients})}).catch(()=>null);
+      sendBtn.textContent="Send";
+      if(!r?.ok){
+        const d = await r?.json().catch(()=>null);
+        toast(d?.detail || "Kunne ikke dele ordene");
+        sendBtn.disabled=false;
+        return;
+      }
+      const res = await r.json();
+      // Report the parts separately — a full inbox refuses one classmate while the
+      // rest of the send succeeds, and saying only "sent" would hide that.
+      let msg = `Delte ${res.sent} ord`;
+      if(res.skipped_duplicates) msg += ` · ${res.skipped_duplicates} var sendt fra før`;
+      if(res.refused?.length) msg += ` · ${res.refused.length} klassekamerat(er) har full innboks`;
+      toast(msg);
+      selected.clear();
+      renderContent();
+    }},"Send");
+  card.appendChild(sendBtn);
+  updateCounter();
+  return card;
+}
+
 function buildOrdbank(){
   const frag=document.createDocumentFragment();
+
+  const inboxPanel = buildSharedInboxPanel();
+  if(inboxPanel) frag.appendChild(inboxPanel);
+  const sharePanel = buildSharePanel();
+  if(sharePanel) frag.appendChild(sharePanel);
 
   // ── Add-word card ──
   const card=el("div",{class:"card"});
@@ -5364,6 +5636,15 @@ async function onLoginSuccess(token, user){
   syncEssaysFromServer();
   loadPlanFromServer().then(found=>{ if(found) renderContent(); });
 
+  // Class and shared-word inbox (feature 018). Reset first so a second login in the
+  // same tab cannot show the previous account's classmates. Teachers neither send
+  // nor receive, so this is student-only and skipped for them.
+  state.myClass = null; state.sharedInbox = null;
+  state.shareOpen = false; state.shareSelected = null;
+  if(state.userRole !== "teacher"){
+    refreshSharing().then(()=>renderContent());
+  }
+
   // Handle return from payment provider (e.g. ?subscriptionStatus=success)
   const urlParams=new URLSearchParams(window.location.search);
   if(urlParams.get("subscriptionStatus")==="success"){
@@ -7192,6 +7473,31 @@ function buildGiOppgaver(students){
     myTopics.forEach(t=>bankTopicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
     bankBody.appendChild(bankTopicSel);
 
+    // Select-all over whatever the topic filter above currently shows, so "give the
+    // class my whole arbeid list" is two clicks rather than twenty. The teacher push
+    // has no per-send cap — unlike student-to-student sharing, where the cap exists
+    // to stop one classmate filling another's inbox.
+    const bankSelRow=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"8px"}});
+    const bankSelBtn=el("button",{type:"button",style:{fontSize:"12px",padding:"3px 10px",borderRadius:"12px",
+      border:"1px solid #ccc",background:"#fff",cursor:"pointer"}},"Velg alle");
+    const bankSelCount=el("span",{style:{fontSize:"12px",color:"#888"}},"");
+    bankSelRow.appendChild(bankSelBtn); bankSelRow.appendChild(bankSelCount);
+    bankBody.appendChild(bankSelRow);
+
+    function bankBoxes(){ return [...bankListWrap.querySelectorAll("input[type=checkbox]")]; }
+    function updateBankSelCount(){
+      const boxes=bankBoxes();
+      const n=boxes.filter(cb=>cb.checked).length;
+      bankSelCount.textContent = n ? `${n} av ${boxes.length} valgt` : `${boxes.length} ord`;
+      bankSelBtn.textContent = (boxes.length && n===boxes.length) ? "Fjern alle" : "Velg alle";
+    }
+    bankSelBtn.addEventListener("click",()=>{
+      const boxes=bankBoxes();
+      const selectAll = !(boxes.length && boxes.every(cb=>cb.checked));
+      boxes.forEach(cb=>{ cb.checked=selectAll; });
+      updateBankSelCount();
+    });
+
     const bankListWrap=el("div",{style:{maxHeight:"180px",overflowY:"auto",border:"1px solid #eee",borderRadius:"6px",marginBottom:"8px"}});
     bankBody.appendChild(bankListWrap);
 
@@ -7201,17 +7507,20 @@ function buildGiOppgaver(students){
       const filtered=(state.words||[]).filter(w=>!topic||(w.topic||"")===topic);
       if(!filtered.length){
         bankListWrap.appendChild(el("div",{style:{padding:"10px",color:"#888",fontSize:"13px"}},"Ingen ord funnet."));
+        updateBankSelCount();
         return;
       }
       filtered.forEach(w=>{
         const row=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"6px 10px",borderBottom:"1px solid #f0f0f0",fontSize:"13px"}});
         const cb=el("input",{type:"checkbox"});
+        cb.addEventListener("change",updateBankSelCount);
         row.appendChild(cb);
         row.appendChild(el("span",{style:{flex:"1",fontWeight:"600"}},$esc(w.word)));
         row.appendChild(el("span",{style:{color:"#888",fontSize:"12px"}},$esc(w.meaning||"")));
         cb._word=w;
         bankListWrap.appendChild(row);
       });
+      updateBankSelCount();
     }
     bankTopicSel.addEventListener("change",()=>{
       // Sync topic selector above if user picks a topic from bank
