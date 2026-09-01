@@ -631,6 +631,10 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   // Feature 018. myClass is {class, classmates} — a null `class` means the student
   // is in no class, which is ordinary and must be explained rather than hidden.
   myClass:null, sharedInbox:null, shareOpen:false,
+  // Which words are ticked for sharing, and a signature of the filters they were
+  // seeded from. Changing a filter re-seeds (the new filter is a new intention);
+  // toggling individual words refines within it.
+  shareSelected:null, shareSeedKey:null,
   wordIdx:0, sentences:{}, sentTopicFilter:"", openWordId:null,
   subscription: null, // loaded after login: { status, provider, renewalDate, ... } | null
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
@@ -1454,16 +1458,62 @@ function buildSharedInboxPanel(){
   return card;
 }
 
-// Sharing lives with the filters, because the filters *are* the selection: whatever
-// the Ordbank is currently showing is what gets shared. There is no second word
-// picker, so there is nothing that can disagree with the list on screen — filter to
-// a topic and share it, or search for three words and share those.
+// Filter chips call renderWordList() but not renderContent(), so the share row —
+// which lives in the filter block — has to refresh itself rather than wait for a
+// full rebuild. Rebuilding the whole Ordbank here would also wipe whatever the
+// learner had typed into the add-word form.
+function refreshShareBar(){
+  const old = document.getElementById("share-bar");
+  if(!old) return;
+  const fresh = buildShareBar();
+  if(fresh) old.replaceWith(fresh); else old.remove();
+}
+
+// The filters propose a selection; the learner disposes. Opening the share row ticks
+// everything the filters currently show, and each word can then be unticked (or a
+// hidden one is simply not in play). Changing a filter re-seeds, because a new filter
+// is a new intention — otherwise stale ticks from a previous topic would ride along
+// invisibly.
+function shareFilterKey(){
+  return [state.topicFilter,state.search,state.practicedFilter,state.learntFilter,state.timeFilter].join("|");
+}
+
+function shareSeedIfNeeded(){
+  const key = shareFilterKey();
+  if(state.shareSelected && state.shareSeedKey === key) return;
+  state.shareSeedKey = key;
+  state.shareSelected = new Set(getFilteredWords().slice(0,MAX_SHARE_WORDS).map(w=>w.id));
+}
+
+// What would actually be sent: ticked *and* currently visible, so the request can
+// never include a word the learner cannot see.
+function shareSelectedVisible(){
+  if(!state.shareOpen || !state.shareSelected) return [];
+  return getFilteredWords().filter(w=>state.shareSelected.has(w.id)).slice(0,MAX_SHARE_WORDS);
+}
+
+function toggleShareWord(id){
+  if(!state.shareSelected) return;
+  if(state.shareSelected.has(id)) state.shareSelected.delete(id);
+  else {
+    if(state.shareSelected.size >= MAX_SHARE_WORDS){
+      toast(`Maks ${MAX_SHARE_WORDS} ord per sending`);
+      return;
+    }
+    state.shareSelected.add(id);
+  }
+  renderWordList();
+}
+
+// Sharing lives with the filters, because the filters are what propose the selection:
+// whatever the Ordbank is showing is what gets ticked. There is no second word list,
+// so nothing can disagree with what is on screen.
 function buildShareBar(){
   if(state.userRole === "teacher") return null;   // teachers neither send nor receive
   const mine = state.myClass;
   if(!mine) return null;                          // not loaded yet
 
-  const bar = el("div",{class:"topic-filter-bar",style:{marginBottom:"8px",flexWrap:"wrap"}});
+  const bar = el("div",{id:"share-bar",class:"topic-filter-bar",style:{marginBottom:"8px",flexWrap:"wrap"}});
   bar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",
     textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"DEL:"));
 
@@ -1481,23 +1531,45 @@ function buildShareBar(){
   }
 
   const visible = getFilteredWords();
-  const willSend = Math.min(visible.length, MAX_SHARE_WORDS);
 
   bar.appendChild(el("button",{class:"topic-chip"+(state.shareOpen?" active":""),
-    click(){ state.shareOpen=!state.shareOpen; renderContent(); }},
-    `🤝 Del ${willSend} ord med klassen`));
+    click(){
+      state.shareOpen=!state.shareOpen;
+      if(state.shareOpen) shareSeedIfNeeded();
+      renderWordList();
+    }},
+    state.shareOpen ? "🤝 Avbryt deling" : "🤝 Del ord med klassen"));
+
+  if(!state.shareOpen){
+    if(visible.length){
+      bar.appendChild(el("span",{style:{fontSize:"12px",color:"#888",alignSelf:"center"}},
+        `${Math.min(visible.length,MAX_SHARE_WORDS)} ord klare — filtrene bestemmer utvalget`));
+    }
+    return bar;
+  }
+
+  shareSeedIfNeeded();
+  const chosen = shareSelectedVisible();
+
+  bar.appendChild(el("span",{style:{fontSize:"12px",color:"#888",alignSelf:"center"}},
+    `${chosen.length} av ${visible.length} valgt`));
+
+  // Velg alle / Fjern alle over the filtered set. Clicking a word card toggles it
+  // individually — see renderWordList().
+  const allOn = visible.length>0 && chosen.length >= Math.min(visible.length,MAX_SHARE_WORDS);
+  bar.appendChild(el("button",{class:"topic-chip",
+    click(){
+      if(allOn) state.shareSelected = new Set();
+      else state.shareSelected = new Set(visible.slice(0,MAX_SHARE_WORDS).map(w=>w.id));
+      renderWordList();
+    }}, allOn ? "Fjern alle" : "Velg alle"));
 
   if(visible.length > MAX_SHARE_WORDS){
     // Say both numbers. Not silent truncation — the cap is what stops one classmate
     // filling another's inbox, and hiding it would make the result confusing.
     bar.appendChild(el("span",{style:{fontSize:"12px",color:"#8a6d3b",alignSelf:"center"}},
-      `⚠ de første ${MAX_SHARE_WORDS} av ${visible.length} — maks ${MAX_SHARE_WORDS} per sending`));
-  } else if(visible.length){
-    bar.appendChild(el("span",{style:{fontSize:"12px",color:"#888",alignSelf:"center"}},
-      "akkurat de ordene filtrene viser"));
+      `⚠ maks ${MAX_SHARE_WORDS} av ${visible.length}`));
   }
-
-  if(!state.shareOpen) return bar;
 
   const panel = el("div",{style:{width:"100%",marginTop:"8px",padding:"10px",
     background:"#f7faf9",border:"1px solid #dde",borderRadius:"8px"}});
@@ -1505,6 +1577,12 @@ function buildShareBar(){
   if(!visible.length){
     panel.appendChild(el("p",{style:{margin:0,fontSize:"13px",color:"#888"}},
       "Ingen ord matcher filtrene dine, så det er ingenting å dele."));
+    bar.appendChild(panel);
+    return bar;
+  }
+  if(!chosen.length){
+    panel.appendChild(el("p",{style:{margin:0,fontSize:"13px",color:"#888"}},
+      "Ingen ord er valgt. Klikk på ordene du vil dele, eller bruk «Velg alle»."));
     bar.appendChild(panel);
     return bar;
   }
@@ -1542,9 +1620,9 @@ function buildShareBar(){
     click: async ()=>{
       const recipients = picked();
       if(!recipients.length) return;
-      // Re-read the filters at click time: the list may have changed since the panel
-      // was opened, and what is on screen is what the learner means to send.
-      const ids = getFilteredWords().slice(0,MAX_SHARE_WORDS).map(w=>w.id);
+      // Re-read at click time: both the filters and the ticks may have changed since
+      // the panel opened, and what is marked on screen is what the learner means.
+      const ids = shareSelectedVisible().map(w=>w.id);
       if(!ids.length) return;
       sendBtn.disabled=true; sendBtn.textContent="Sender…";
       const r = await api("/api/me/shared-words",{method:"POST",
@@ -1565,7 +1643,8 @@ function buildShareBar(){
       if(res.refused?.length) msg += ` · ${res.refused.length} har full innboks`;
       toast(msg);
       state.shareOpen=false;
-      renderContent();
+      state.shareSelected=null; state.shareSeedKey=null;   // next open re-seeds
+      renderContent(); renderWordList();
     }},"Send");
   panel.appendChild(sendBtn);
   bar.appendChild(panel);
@@ -1775,6 +1854,7 @@ function getFilteredWords(){
 // Renders only the word-list section — never touches the form inputs
 function renderWordList(){
   const container=$("word-list"); if(!container)return;
+  refreshShareBar();          // filters changed -> re-seed and re-count
   container.innerHTML="";
   const filtered=getFilteredWords();
 
@@ -1799,8 +1879,37 @@ function renderWordList(){
     cw.forEach(w=>{
       const wrap=el("div",{style:{gridColumn:"span 1"}});
       const chip=el("div",{class:"word-chip",style:{borderLeftColor:cat.color,cursor:"pointer"}});
+
+      // Share mode: the card itself carries the selected state, matching how the
+      // teacher's bank cards work — green border, tinted background, check badge,
+      // and the whole card is the hit target rather than a separate checkbox.
+      const sharing = state.shareOpen && state.shareSelected;
+      const picked = sharing && state.shareSelected.has(w.id);
+      if(sharing){
+        chip.style.borderColor = picked ? "#1a6b4a" : "#dde";
+        chip.style.borderWidth = "1.5px";
+        chip.style.borderStyle = "solid";
+        chip.style.background = picked ? "#eef7f2" : "";
+        chip.style.borderLeftColor = cat.color;
+        chip.addEventListener("click",(e)=>{
+          // Let the row's own buttons (lyd, lært, slett, rediger) win.
+          if(e.target.closest("button")) return;
+          e.preventDefault();
+          // stopImmediatePropagation, not stopPropagation: the chip carries a second
+          // click listener further down that expands the word. It is on the *same*
+          // element, so only the immediate form suppresses it — and this works only
+          // because this listener is registered first.
+          e.stopImmediatePropagation();
+          toggleShareWord(w.id);
+        });
+      }
+
       const info=el("div",{style:{flex:"1",minWidth:"0"}});
       const wn=el("div",{class:"wn"},w.word);
+      if(sharing){
+        wn.appendChild(el("span",{style:{marginLeft:"6px",fontSize:"11px",fontWeight:"700",
+          color: picked ? "#1a6b4a" : "#bbb"}}, picked ? "✓ deles" : "○"));
+      }
       if(w.topic) wn.appendChild(el("span",{class:"word-topic-tag"},w.topic));
       info.appendChild(wn);
       if(w.meaning)info.appendChild(el("div",{class:"wm"},w.meaning));
