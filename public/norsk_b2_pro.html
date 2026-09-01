@@ -7321,7 +7321,10 @@ function buildMineOppgaver(){
                 let added=0;
                 for(const w of words){
                   const rw=await api("/api/words",{method:"POST",headers:{"Content-Type":"application/json"},
-                    body:JSON.stringify({word:w.word,meaning:w.meaning,category:w.category||"substantiv",topic:w.topic||""})
+                    // Assignment word lists created before the category fix carry
+                    // "substantiv", which is not a valid category — map anything
+                    // unrecognised onto a real member rather than passing it through.
+                    body:JSON.stringify({word:w.word,meaning:w.meaning,category:CAT_MAP[w.category]?w.category:"enkeltord",topic:w.topic||""})
                   }).catch(()=>null);
                   if(rw?.ok||rw?.status===409) added++;
                 }
@@ -7677,7 +7680,7 @@ function buildGiOppgaver(students){
       click: async ()=>{
         const topic=topicSel.value;
         if(!topic){errDiv.textContent="Velg et tema";errDiv.style.display="";return;}
-        const words=wordRows.map(r=>({word:r.wordIn.value.trim(),meaning:transCb.checked?r.meanIn.value.trim():"",category:"substantiv",topic})).filter(w=>w.word);
+        const words=wordRows.map(r=>({word:r.wordIn.value.trim(),meaning:transCb.checked?r.meanIn.value.trim():"",category:"enkeltord",topic})).filter(w=>w.word);
         if(!words.length){errDiv.textContent="Legg til minst ett ord";errDiv.style.display="";return;}
         errDiv.style.display="none";
         btn.disabled=true; btn.textContent="Sender…";
@@ -7750,7 +7753,7 @@ function buildGiOppgaver(students){
       items._getWordList = () => {
         const topic = wTopicSel.value;
         if(!topic) return null;
-        const words = wWordRows.map(r=>({word:r.wi.value.trim(),meaning:wTransCb.checked?r.mi.value.trim():"",category:"substantiv",topic})).filter(w=>w.word);
+        const words = wWordRows.map(r=>({word:r.wi.value.trim(),meaning:wTransCb.checked?r.mi.value.trim():"",category:"enkeltord",topic})).filter(w=>w.word);
         if(!words.length) return null;
         return {item_type:"word_list",content:{topic,include_translation:wTransCb.checked,words}};
       };
