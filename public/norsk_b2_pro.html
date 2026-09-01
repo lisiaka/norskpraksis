@@ -1464,9 +1464,7 @@ function buildSharedInboxPanel(){
 // learner had typed into the add-word form.
 function refreshShareBar(){
   const old = document.getElementById("share-bar");
-  if(!old) return;
-  const fresh = buildShareBar();
-  if(fresh) old.replaceWith(fresh); else old.remove();
+  if(old) old.replaceWith(buildShareBar());
 }
 
 // The filters propose a selection; the learner disposes. Opening the share row ticks
@@ -1478,25 +1476,31 @@ function shareFilterKey(){
   return [state.topicFilter,state.search,state.practicedFilter,state.learntFilter,state.timeFilter].join("|");
 }
 
+// The per-send cap exists to stop one classmate filling another's inbox. A teacher
+// writes into a bank, not into an inbox, so nothing there needs capping.
+function shareCap(){
+  return state.userRole === "teacher" ? Infinity : MAX_SHARE_WORDS;
+}
+
 function shareSeedIfNeeded(){
   const key = shareFilterKey();
   if(state.shareSelected && state.shareSeedKey === key) return;
   state.shareSeedKey = key;
-  state.shareSelected = new Set(getFilteredWords().slice(0,MAX_SHARE_WORDS).map(w=>w.id));
+  state.shareSelected = new Set(getFilteredWords().slice(0,shareCap()).map(w=>w.id));
 }
 
 // What would actually be sent: ticked *and* currently visible, so the request can
 // never include a word the learner cannot see.
 function shareSelectedVisible(){
   if(!state.shareOpen || !state.shareSelected) return [];
-  return getFilteredWords().filter(w=>state.shareSelected.has(w.id)).slice(0,MAX_SHARE_WORDS);
+  return getFilteredWords().filter(w=>state.shareSelected.has(w.id)).slice(0,shareCap());
 }
 
 function toggleShareWord(id){
   if(!state.shareSelected) return;
   if(state.shareSelected.has(id)) state.shareSelected.delete(id);
   else {
-    if(state.shareSelected.size >= MAX_SHARE_WORDS){
+    if(state.shareSelected.size >= shareCap()){
       toast(`Maks ${MAX_SHARE_WORDS} ord per sending`);
       return;
     }
@@ -1505,28 +1509,127 @@ function toggleShareWord(id){
   renderWordList();
 }
 
+// FastAPI returns a plain string `detail` for our own errors but a list of objects for
+// a schema rejection. Rendering the latter straight into a toast prints "[object
+// Object]" and hides the actual complaint.
+function apiErrorText(detail, fallback){
+  if(typeof detail === "string") return detail;
+  if(Array.isArray(detail) && detail[0]?.msg) return detail[0].msg;
+  return fallback;
+}
+
+// One share bar, two verbs. Picking the words is the same act for both roles, so the
+// selection UI is shared; what happens on send is not, and the wording must not
+// pretend otherwise. A student *offers* — nothing reaches the recipient's bank until
+// they press "Legg til". A teacher *writes* — straight into the bank, no accept step.
+// That asymmetry is authority versus suggestion, and is deliberate; do not collapse it
+// by giving both roles the same button label.
+function shareModeConfig(){
+  if(state.userRole === "teacher"){
+    const students = teacherState.students;
+    if(students === null) return null;              // roster not loaded yet
+    return {
+      teacher: true,
+      kicker: "SEND:",
+      blocked: students.length ? "" :
+        "Du har ingen elever ennå — legg dem til under «Klassen min».",
+      recipients: students,
+      openLabel: "📤 Send ord til elevene",
+      closeLabel: "📤 Avbryt sending",
+      allLabel: "Alle elever",
+      sendLabel: "Send til ordbank",
+      nothingToSend: "Ingen ord matcher filtrene dine, så det er ingenting å sende.",
+      nonePicked: "Ingen ord er valgt. Klikk på ordene du vil sende, eller bruk «Velg alle».",
+      send: sendWordsAsTeacher,
+    };
+  }
+  const mine = state.myClass;
+  if(!mine) return null;                            // not loaded yet
+  return {
+    teacher: false,
+    kicker: "DEL:",
+    // Both empty states are explained rather than hidden. A control that simply
+    // vanishes is unexplainable to a learner whose teacher can change the situation.
+    blocked: !mine.class ? "Du er ikke i en klasse ennå — da har du ingen å dele med."
+           : !mine.classmates.length ? `Du er alene i «${$esc(mine.class.name)}» akkurat nå.`
+           : "",
+    recipients: mine.classmates,
+    openLabel: "🤝 Del ord med klassen",
+    closeLabel: "🤝 Avbryt deling",
+    allLabel: "Hele klassen",
+    sendLabel: "Send",
+    nothingToSend: "Ingen ord matcher filtrene dine, så det er ingenting å dele.",
+    nonePicked: "Ingen ord er valgt. Klikk på ordene du vil dele, eller bruk «Velg alle».",
+    send: shareWordsWithClassmates,
+  };
+}
+
+// Both senders return {ok, message} so buildShareBar never has to know which endpoint
+// it just called.
+async function shareWordsWithClassmates(words, recipientIds){
+  const r = await api("/api/me/shared-words",{method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({word_ids:words.map(w=>w.id), recipient_ids:recipientIds})
+  }).catch(()=>null);
+  if(!r?.ok){
+    const d = await r?.json().catch(()=>null);
+    return {ok:false, message: apiErrorText(d?.detail,"Kunne ikke dele ordene")};
+  }
+  const res = await r.json();
+  // Report the parts separately: a full inbox refuses one classmate while the rest
+  // succeeds, and a bare "sent" would hide that.
+  let msg = `Delte ${res.sent} ord`;
+  if(res.skipped_duplicates) msg += ` · ${res.skipped_duplicates} var sendt fra før`;
+  if(res.refused?.length) msg += ` · ${res.refused.length} har full innboks`;
+  return {ok:true, message:msg};
+}
+
+// The words travel with the category and topic they already carry in the teacher's own
+// bank, so one send can span several topics. The form this replaced could not: it
+// stamped a single topic onto every word in the send.
+async function sendWordsAsTeacher(words, studentIds, includeTranslation){
+  const payload = words.map(w=>({
+    word: w.word,
+    meaning: w.meaning || "",
+    // The backend rejects a category or topic outside its own valid set rather than
+    // defaulting to one, after teacher-pushed words with an unknown category landed in
+    // student banks and were never rendered. Legacy bank rows — category "temaord", a
+    // blank topic — are mapped here so they stay sendable.
+    category: CAT_MAP[w.category] ? w.category : "enkeltord",
+    topic: VALID_TOPIC_LIST.includes(w.topic) ? w.topic : FALLBACK_TOPIC,
+  }));
+  const r = await api("/api/teacher/students/words/bulk",{method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({student_ids:studentIds, all_students:false,
+      include_translation:includeTranslation, words:payload})
+  }).catch(()=>null);
+  if(!r?.ok){
+    const d = await r?.json().catch(()=>null);
+    return {ok:false, message: apiErrorText(d?.detail,"Kunne ikke sende ordene")};
+  }
+  const d = await r.json();
+  let msg = `Ord sendt til ${d.student_count} elev${d.student_count===1?"":"er"} (${d.inserted} nye)`;
+  if(d.skipped_duplicates) msg += ` · ${d.skipped_duplicates} hadde dem fra før`;
+  return {ok:true, message:msg};
+}
+
 // Sharing lives with the filters, because the filters are what propose the selection:
 // whatever the Ordbank is showing is what gets ticked. There is no second word list,
 // so nothing can disagree with what is on screen.
 function buildShareBar(){
-  if(state.userRole === "teacher") return null;   // teachers neither send nor receive
-  const mine = state.myClass;
-  if(!mine) return null;                          // not loaded yet
-
+  // Always an element, never null. refreshShareBar() replaces this node in place, so a
+  // bar that returned nothing while its recipients were still loading could never
+  // appear once they arrived — there would be no node left to replace.
   const bar = el("div",{id:"share-bar",class:"topic-filter-bar",style:{marginBottom:"8px",flexWrap:"wrap"}});
-  bar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",
-    textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"DEL:"));
+  const cfg = shareModeConfig();
+  if(!cfg){ bar.style.display="none"; return bar; }
+  const cap = shareCap();
 
-  // Both empty states are explained rather than hidden. A control that simply
-  // vanishes is unexplainable to a learner whose teacher can change the situation.
-  if(!mine.class){
-    bar.appendChild(el("span",{style:{fontSize:"12px",color:"#888",alignSelf:"center"}},
-      "Du er ikke i en klasse ennå — da har du ingen å dele med."));
-    return bar;
-  }
-  if(!mine.classmates.length){
-    bar.appendChild(el("span",{style:{fontSize:"12px",color:"#888",alignSelf:"center"}},
-      `Du er alene i «${$esc(mine.class.name)}» akkurat nå.`));
+  bar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",
+    textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},cfg.kicker));
+
+  if(cfg.blocked){
+    bar.appendChild(el("span",{style:{fontSize:"12px",color:"#888",alignSelf:"center"}},cfg.blocked));
     return bar;
   }
 
@@ -1538,12 +1641,12 @@ function buildShareBar(){
       if(state.shareOpen) shareSeedIfNeeded();
       renderWordList();
     }},
-    state.shareOpen ? "🤝 Avbryt deling" : "🤝 Del ord med klassen"));
+    state.shareOpen ? cfg.closeLabel : cfg.openLabel));
 
   if(!state.shareOpen){
     if(visible.length){
       bar.appendChild(el("span",{style:{fontSize:"12px",color:"#888",alignSelf:"center"}},
-        `${Math.min(visible.length,MAX_SHARE_WORDS)} ord klare — filtrene bestemmer utvalget`));
+        `${Math.min(visible.length,cap)} ord klare — filtrene bestemmer utvalget`));
     }
     return bar;
   }
@@ -1556,42 +1659,53 @@ function buildShareBar(){
 
   // Velg alle / Fjern alle over the filtered set. Clicking a word card toggles it
   // individually — see renderWordList().
-  const allOn = visible.length>0 && chosen.length >= Math.min(visible.length,MAX_SHARE_WORDS);
+  const allOn = visible.length>0 && chosen.length >= Math.min(visible.length,cap);
   bar.appendChild(el("button",{class:"topic-chip",
     click(){
       if(allOn) state.shareSelected = new Set();
-      else state.shareSelected = new Set(visible.slice(0,MAX_SHARE_WORDS).map(w=>w.id));
+      else state.shareSelected = new Set(visible.slice(0,cap).map(w=>w.id));
       renderWordList();
     }}, allOn ? "Fjern alle" : "Velg alle"));
 
-  if(visible.length > MAX_SHARE_WORDS){
+  if(visible.length > cap){
     // Say both numbers. Not silent truncation — the cap is what stops one classmate
     // filling another's inbox, and hiding it would make the result confusing.
     bar.appendChild(el("span",{style:{fontSize:"12px",color:"#8a6d3b",alignSelf:"center"}},
-      `⚠ maks ${MAX_SHARE_WORDS} av ${visible.length}`));
+      `⚠ maks ${cap} av ${visible.length}`));
   }
 
   const panel = el("div",{style:{width:"100%",marginTop:"8px",padding:"10px",
     background:"#f7faf9",border:"1px solid #dde",borderRadius:"8px"}});
 
   if(!visible.length){
-    panel.appendChild(el("p",{style:{margin:0,fontSize:"13px",color:"#888"}},
-      "Ingen ord matcher filtrene dine, så det er ingenting å dele."));
+    panel.appendChild(el("p",{style:{margin:0,fontSize:"13px",color:"#888"}},cfg.nothingToSend));
     bar.appendChild(panel);
     return bar;
   }
   if(!chosen.length){
-    panel.appendChild(el("p",{style:{margin:0,fontSize:"13px",color:"#888"}},
-      "Ingen ord er valgt. Klikk på ordene du vil dele, eller bruk «Velg alle»."));
+    panel.appendChild(el("p",{style:{margin:0,fontSize:"13px",color:"#888"}},cfg.nonePicked));
     bar.appendChild(panel);
     return bar;
+  }
+
+  // Sending without the translations makes the student look each word up — a real
+  // teaching choice, and the one control the old Gi oppgave form had that the bank
+  // words do not carry themselves.
+  let transCb = null;
+  if(cfg.teacher){
+    transCb = el("input",{type:"checkbox",id:"share-trans"}); transCb.checked = true;
+    const transRow = el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"10px"}});
+    transRow.appendChild(transCb);
+    transRow.appendChild(el("label",{for:"share-trans",style:{fontSize:"13px",cursor:"pointer"}},
+      "Inkluder oversettelse"));
+    panel.appendChild(transRow);
   }
 
   panel.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"6px"}},"Send til:"));
   const allCb = el("input",{type:"checkbox",id:"share-all"});
   const mateCbs = [];
   function picked(){
-    return allCb.checked ? mine.classmates.map(m=>m.id)
+    return allCb.checked ? cfg.recipients.map(m=>m.id)
                          : mateCbs.filter(({cb})=>cb.checked).map(({id})=>id);
   }
   function sync(){ sendBtn.disabled = picked().length===0; }
@@ -1599,10 +1713,22 @@ function buildShareBar(){
   const allRow = el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"}});
   allCb.addEventListener("change",()=>{ mateCbs.forEach(({cb})=>{cb.checked=allCb.checked;}); sync(); });
   allRow.appendChild(allCb);
-  allRow.appendChild(el("label",{for:"share-all",style:{fontSize:"13px",fontWeight:"600",cursor:"pointer"}},"Hele klassen"));
+  allRow.appendChild(el("label",{for:"share-all",style:{fontSize:"13px",fontWeight:"600",cursor:"pointer"}},cfg.allLabel));
   panel.appendChild(allRow);
 
-  mine.classmates.forEach(m=>{
+  // A teacher may have several classes; a student sees only their own classmates and
+  // so has nothing to narrow down.
+  if(cfg.teacher){
+    const classRow = buildClassQuickSelect(cfg.recipients,(ids)=>{
+      const want = new Set(ids);
+      mateCbs.forEach(({cb,id})=>{ cb.checked = want.has(id); });
+      allCb.checked = cfg.recipients.length>0 && cfg.recipients.every(s=>want.has(s.id));
+      sync();
+    });
+    if(classRow) panel.appendChild(classRow);
+  }
+
+  cfg.recipients.forEach(m=>{
     const id="share-m-"+m.id.replace(/[^a-z0-9]/gi,"-");
     const cb=el("input",{type:"checkbox",id});
     cb.addEventListener("change",()=>{
@@ -1621,31 +1747,22 @@ function buildShareBar(){
       const recipients = picked();
       if(!recipients.length) return;
       // Re-read at click time: both the filters and the ticks may have changed since
-      // the panel opened, and what is marked on screen is what the learner means.
-      const ids = shareSelectedVisible().map(w=>w.id);
-      if(!ids.length) return;
+      // the panel opened, and what is marked on screen is what the sender means.
+      const words = shareSelectedVisible();
+      if(!words.length) return;
       sendBtn.disabled=true; sendBtn.textContent="Sender…";
-      const r = await api("/api/me/shared-words",{method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({word_ids:ids, recipient_ids:recipients})}).catch(()=>null);
-      sendBtn.textContent="Send";
-      if(!r?.ok){
-        const d = await r?.json().catch(()=>null);
-        toast(d?.detail || "Kunne ikke dele ordene");
+      const res = await cfg.send(words, recipients, transCb ? transCb.checked : true);
+      sendBtn.textContent=cfg.sendLabel;
+      if(!res.ok){
+        toast(res.message);
         sendBtn.disabled=false;
         return;
       }
-      const res = await r.json();
-      // Report the parts separately: a full inbox refuses one classmate while the
-      // rest succeeds, and a bare "sent" would hide that.
-      let msg = `Delte ${res.sent} ord`;
-      if(res.skipped_duplicates) msg += ` · ${res.skipped_duplicates} var sendt fra før`;
-      if(res.refused?.length) msg += ` · ${res.refused.length} har full innboks`;
-      toast(msg);
+      toast(res.message);
       state.shareOpen=false;
       state.shareSelected=null; state.shareSeedKey=null;   // next open re-seeds
       renderContent(); renderWordList();
-    }},"Send");
+    }},cfg.sendLabel);
   panel.appendChild(sendBtn);
   bar.appendChild(panel);
   return bar;
@@ -1791,9 +1908,13 @@ function buildOrdbank(){
 
     // Share row (feature 018). Sits with the filters because the filters are what
     // decide *what* gets shared — there is no separate word picker, and no way for
-    // the two to disagree about which words are in play.
-    const shareBar = buildShareBar();
-    if(shareBar) filterSection.appendChild(shareBar);
+    // the two to disagree about which words are in play. Serves both roles: a student
+    // offers words to classmates, a teacher pushes them into students' banks.
+    filterSection.appendChild(buildShareBar());
+    // A teacher reaches Ordbank straight from the sidebar, so the recipient list has to
+    // load itself rather than assume the roster view has already run. Until it lands the
+    // row renders hidden, then swaps itself in.
+    if(state.userRole==="teacher") ensureTeacherRoster().then(refreshShareBar);
 
     // Print buttons row
     const printBar=el("div",{class:"io-bar",style:{marginBottom:"0",paddingTop:"4px"}});
@@ -5727,11 +5848,14 @@ async function onLoginSuccess(token, user){
   syncEssaysFromServer();
   loadPlanFromServer().then(found=>{ if(found) renderContent(); });
 
-  // Class and shared-word inbox (feature 018). Reset first so a second login in the
-  // same tab cannot show the previous account's classmates. Teachers neither send
-  // nor receive, so this is student-only and skipped for them.
+  // Recipients for the Ordbank share bar (feature 018). Reset first so a second login
+  // in the same tab cannot show the previous account's classmates — or, for a teacher,
+  // the previous teacher's roster. Both roles send words; only students receive them,
+  // so the class and inbox fetch stays student-only.
   state.myClass = null; state.sharedInbox = null;
   state.shareOpen = false;
+  state.shareSelected = null; state.shareSeedKey = null;
+  teacherState.students = null; teacherState.classes = null;
   if(state.userRole !== "teacher"){
     refreshSharing().then(()=>renderContent());
   }
@@ -6307,15 +6431,7 @@ function buildLaererRoster(){
   }
 
   async function loadStudents(){
-    if(teacherState.classes===null){
-      const rc = await api("/api/teacher/classes").catch(()=>null);
-      teacherState.classes = rc?.ok ? await rc.json() : [];
-    }
-    if(teacherState.students===null){
-      const r = await api("/api/teacher/students").catch(()=>null);
-      if(r?.ok) teacherState.students=await r.json();
-      else teacherState.students=[];
-    }
+    await ensureTeacherRoster();
     renderClassAdmin();
     listWrap.innerHTML="";
     giOppgaverWrap.innerHTML="";
@@ -7418,6 +7534,21 @@ function buildMineOppgaver(){
 
 // ── GI OPPGAVER panel (teacher roster) ────────────────────────────────────
 
+// The roster and the class list are needed by four surfaces — the roster view, both
+// banks, and the Ordbank share bar — and three of those are reachable without ever
+// passing through the roster. One loader, so a new surface cannot fetch half of it
+// and silently lose the class quick-select.
+async function ensureTeacherRoster(){
+  if(teacherState.students===null){
+    const r = await api("/api/teacher/students").catch(()=>null);
+    teacherState.students = r?.ok ? await r.json() : [];
+  }
+  if(teacherState.classes===null){
+    const rc = await api("/api/teacher/classes").catch(()=>null);
+    teacherState.classes = rc?.ok ? await rc.json() : [];
+  }
+}
+
 // Feature 018. Once classes existed, the assign surfaces still offered only "alle
 // elever" or one student at a time, so a teacher with two classes could not give work
 // to just one of them. This ticks the members of a class.
@@ -7453,8 +7584,13 @@ function buildGiOppgaver(students){
   const wrap = el("div",{class:"card",style:{marginTop:"24px"}});
   wrap.appendChild(el("h3",{style:{margin:"0 0 16px"}},"📤 Gi oppgaver"));
 
-  // Mode selector
-  let mode = "ordliste";
+  // Mode selector. There used to be a third mode, "📚 Ordliste", which rebuilt a second
+  // word list here — its own topic dropdown, its own checkboxes, and a "Legg til valgte
+  // ord →" bridge into manual text rows. Sending words now happens in the teacher's own
+  // Ordbank, using the same filter-and-tick bar students share with, so that mode was
+  // deleted rather than maintained twice. The consequence, accepted knowingly: a teacher
+  // can only send words they have banked themselves. See specs/BACKLOG.md.
+  let mode = "lese-skriv";
   const modeWrap = el("div",{style:{display:"flex",gap:"0",marginBottom:"20px",borderRadius:"10px",overflow:"hidden",border:"1.5px solid #dde"}});
   const modeContent = el("div",{});
 
@@ -7481,7 +7617,6 @@ function buildGiOppgaver(students){
     });
   }
 
-  modeWrap.appendChild(modeBtn("ordliste","📚 Ordliste"));
   modeWrap.appendChild(modeBtn("lese-skriv","📖 Lese- og skriveoppgave"));
   modeWrap.appendChild(modeBtn("full","📋 Full plan"));
   wrap.appendChild(modeWrap);
@@ -7532,176 +7667,6 @@ function buildGiOppgaver(students){
   function updateAssignBtns(){ assignBtns.forEach(b=>{ b.disabled = selectedIds.size===0; }); }
 
   wrap.appendChild(modeContent);
-
-  // ── ORDLISTE MODE ─────────────────────────────────────────────────────
-  function renderOrdliste(){
-    modeContent.innerHTML="";
-    assignBtns.length=0;
-
-    const topicSel = el("select",{style:{marginBottom:"10px",padding:"6px 10px",borderRadius:"8px",border:"1.5px solid #dde",fontSize:"14px",width:"100%"}});
-    topicSel.appendChild(el("option",{value:""},"Velg tema…"));
-    VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
-    modeContent.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"6px"}},"Tema:"));
-    modeContent.appendChild(topicSel);
-
-    const transRow = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px"}});
-    const transCb = el("input",{type:"checkbox",id:"gi-trans"}); transCb.checked=true;
-    transRow.appendChild(transCb);
-    transRow.appendChild(el("label",{for:"gi-trans",style:{fontSize:"13px",cursor:"pointer"}},"Inkluder oversettelse"));
-    modeContent.appendChild(transRow);
-
-    // ── Load from teacher's own ordbank ────────────────────────────────
-    const bankSec = el("div",{style:{marginBottom:"12px",border:"1px solid #dde",borderRadius:"8px",overflow:"hidden"}});
-    const bankHdr = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"8px 12px",background:"#f0f7f4",cursor:"pointer",userSelect:"none"},
-      click:()=>{ bankBody.style.display=bankBody.style.display?"":"none"; bankChevron.textContent=bankBody.style.display?"▶":"▼"; }
-    });
-    const bankChevron=el("span",{style:{fontSize:"11px",color:"#666"}},"▶");
-    bankHdr.appendChild(bankChevron);
-    bankHdr.appendChild(el("span",{style:{fontSize:"13px",fontWeight:"600",color:"#1a6b4a"}},"Fra min ordbank"));
-    bankSec.appendChild(bankHdr);
-
-    const bankBody=el("div",{style:{display:"none",padding:"10px 12px"}});
-    const bankTopicSel=el("select",{style:{width:"100%",marginBottom:"8px",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
-    bankTopicSel.appendChild(el("option",{value:""},"Alle temaer"));
-    const myTopics=[...new Set((state.words||[]).map(w=>w.topic||"").filter(Boolean))].sort();
-    myTopics.forEach(t=>bankTopicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
-    bankBody.appendChild(bankTopicSel);
-
-    // Select-all over whatever the topic filter above currently shows, so "give the
-    // class my whole arbeid list" is two clicks rather than twenty. The teacher push
-    // has no per-send cap — unlike student-to-student sharing, where the cap exists
-    // to stop one classmate filling another's inbox.
-    const bankSelRow=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"8px"}});
-    const bankSelBtn=el("button",{type:"button",style:{fontSize:"12px",padding:"3px 10px",borderRadius:"12px",
-      border:"1px solid #ccc",background:"#fff",cursor:"pointer"}},"Velg alle");
-    const bankSelCount=el("span",{style:{fontSize:"12px",color:"#888"}},"");
-    bankSelRow.appendChild(bankSelBtn); bankSelRow.appendChild(bankSelCount);
-    bankBody.appendChild(bankSelRow);
-
-    function bankBoxes(){ return [...bankListWrap.querySelectorAll("input[type=checkbox]")]; }
-    function updateBankSelCount(){
-      const boxes=bankBoxes();
-      const n=boxes.filter(cb=>cb.checked).length;
-      bankSelCount.textContent = n ? `${n} av ${boxes.length} valgt` : `${boxes.length} ord`;
-      bankSelBtn.textContent = (boxes.length && n===boxes.length) ? "Fjern alle" : "Velg alle";
-    }
-    bankSelBtn.addEventListener("click",()=>{
-      const boxes=bankBoxes();
-      const selectAll = !(boxes.length && boxes.every(cb=>cb.checked));
-      boxes.forEach(cb=>{ cb.checked=selectAll; });
-      updateBankSelCount();
-    });
-
-    const bankListWrap=el("div",{style:{maxHeight:"180px",overflowY:"auto",border:"1px solid #eee",borderRadius:"6px",marginBottom:"8px"}});
-    bankBody.appendChild(bankListWrap);
-
-    function renderBankWordList(){
-      bankListWrap.innerHTML="";
-      const topic=bankTopicSel.value;
-      const filtered=(state.words||[]).filter(w=>!topic||(w.topic||"")===topic);
-      if(!filtered.length){
-        bankListWrap.appendChild(el("div",{style:{padding:"10px",color:"#888",fontSize:"13px"}},"Ingen ord funnet."));
-        updateBankSelCount();
-        return;
-      }
-      filtered.forEach(w=>{
-        const row=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"6px 10px",borderBottom:"1px solid #f0f0f0",fontSize:"13px"}});
-        const cb=el("input",{type:"checkbox"});
-        cb.addEventListener("change",updateBankSelCount);
-        row.appendChild(cb);
-        row.appendChild(el("span",{style:{flex:"1",fontWeight:"600"}},$esc(w.word)));
-        row.appendChild(el("span",{style:{color:"#888",fontSize:"12px"}},$esc(w.meaning||"")));
-        cb._word=w;
-        bankListWrap.appendChild(row);
-      });
-      updateBankSelCount();
-    }
-    bankTopicSel.addEventListener("change",()=>{
-      // Sync topic selector above if user picks a topic from bank
-      if(bankTopicSel.value && !topicSel.value) topicSel.value=bankTopicSel.value;
-      renderBankWordList();
-    });
-    renderBankWordList();
-
-    const addFromBankBtn=el("button",{style:{fontSize:"12px",padding:"5px 12px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"6px",cursor:"pointer"},
-      click:()=>{
-        const checked=[...bankListWrap.querySelectorAll("input[type=checkbox]:checked")].map(cb=>cb._word);
-        if(!checked.length){ toast("Velg minst ett ord"); return; }
-        // Set topic from bank selection if not already set
-        if(!topicSel.value && bankTopicSel.value) topicSel.value=bankTopicSel.value;
-        checked.forEach(w=>{
-          // Add a row pre-filled with the word
-          const row = el("div",{style:{display:"flex",gap:"6px",marginBottom:"6px",alignItems:"center"}});
-          const wordIn = el("input",{type:"text",placeholder:"Ord",style:{flex:"1",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
-          wordIn.value = w.word;
-          const meanIn = el("input",{type:"text",placeholder:"Oversettelse",style:{flex:"1",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
-          meanIn.value = w.meaning||"";
-          const pair={wordIn,meanIn};
-          const rm = el("button",{style:{background:"none",border:"none",cursor:"pointer",color:"#c0392b",fontSize:"16px",padding:"0 4px"},
-            click:()=>{ const i=wordRows.indexOf(pair); if(i>-1){wordRows.splice(i,1);row.remove();} }
-          },"×");
-          row.appendChild(wordIn); row.appendChild(meanIn); row.appendChild(rm);
-          wordsWrap.appendChild(row);
-          wordRows.push(pair);
-        });
-        // Uncheck all
-        bankListWrap.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
-        toast(`${checked.length} ord lagt til`);
-      }
-    },"Legg til valgte ord →");
-    bankBody.appendChild(addFromBankBtn);
-    bankSec.appendChild(bankBody);
-    modeContent.appendChild(bankSec);
-
-    modeContent.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"6px"}},"Ord:"));
-    const wordsWrap = el("div",{style:{marginBottom:"10px"}});
-    modeContent.appendChild(wordsWrap);
-    const wordRows = [];
-
-    function addWordRow(){
-      const row = el("div",{style:{display:"flex",gap:"6px",marginBottom:"6px",alignItems:"center"}});
-      const wordIn = el("input",{type:"text",placeholder:"Ord",style:{flex:"1",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
-      const meanIn = el("input",{type:"text",placeholder:"Oversettelse",style:{flex:"1",padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"}});
-      const rm = el("button",{style:{background:"none",border:"none",cursor:"pointer",color:"#c0392b",fontSize:"16px",padding:"0 4px"},
-        click:()=>{ const i=wordRows.indexOf(pair); if(i>-1){wordRows.splice(i,1);row.remove();} }
-      },"×");
-      row.appendChild(wordIn); row.appendChild(meanIn); row.appendChild(rm);
-      wordsWrap.appendChild(row);
-      const pair={wordIn,meanIn}; wordRows.push(pair);
-    }
-    addWordRow();
-    modeContent.appendChild(el("button",{style:{fontSize:"12px",padding:"4px 12px",marginBottom:"12px",background:"none",border:"1px solid #ccc",borderRadius:"6px",cursor:"pointer"},
-      click:addWordRow},"+ Legg til ord manuelt"));
-
-    const errDiv = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
-    modeContent.appendChild(errDiv);
-
-    const btn = el("button",{class:"btn-cta",disabled:selectedIds.size===0,
-      click: async ()=>{
-        const topic=topicSel.value;
-        if(!topic){errDiv.textContent="Velg et tema";errDiv.style.display="";return;}
-        const words=wordRows.map(r=>({word:r.wordIn.value.trim(),meaning:transCb.checked?r.meanIn.value.trim():"",category:"enkeltord",topic})).filter(w=>w.word);
-        if(!words.length){errDiv.textContent="Legg til minst ett ord";errDiv.style.display="";return;}
-        errDiv.style.display="none";
-        btn.disabled=true; btn.textContent="Sender…";
-        const r=await api("/api/teacher/students/words/bulk",{
-          method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({student_ids:[...selectedIds],all_students:false,include_translation:transCb.checked,words})
-        }).catch(()=>null);
-        if(r?.ok){
-          const d=await r.json();
-          toast(`Ord sendt til ${d.student_count} elev${d.student_count===1?"":"er"} (${d.inserted} nye)`);
-          renderOrdliste();
-        } else {
-          const d=await r?.json().catch(()=>({detail:"Ukjent feil"}));
-          errDiv.textContent=d?.detail||"Noe gikk galt"; errDiv.style.display="";
-          btn.disabled=selectedIds.size===0; btn.textContent="Send til ordbank";
-        }
-      }
-    },"Send til ordbank");
-    assignBtns.push(btn);
-    modeContent.appendChild(btn);
-  }
 
   // ── LESE- OG SKRIVEOPPGAVE MODE ───────────────────────────────────────
   function renderLeseSkrivMode(){ renderAssignForm(false); }
@@ -8146,8 +8111,7 @@ function buildGiOppgaver(students){
   }
 
   function renderMode(){
-    if(mode==="ordliste") renderOrdliste();
-    else if(mode==="lese-skriv") renderLeseSkrivMode();
+    if(mode==="lese-skriv") renderLeseSkrivMode();
     else renderFullPlanMode();
   }
   renderMode();
@@ -8376,21 +8340,9 @@ function buildLaererBankTexts(){
     rightCol.appendChild(panel);
   }
 
-  // Load students if not cached
-  (async ()=>{
-    if(teacherState.students===null){
-      const r=await api("/api/teacher/students").catch(()=>null);
-      teacherState.students=r?.ok?await r.json():[];
-    }
-    // The bank views are reachable without passing through the roster, which is the
-    // only other place classes are fetched — without this the class quick-select
-    // would silently be missing for a teacher who navigated straight here.
-    if(teacherState.classes===null){
-      const rc=await api("/api/teacher/classes").catch(()=>null);
-      teacherState.classes=rc?.ok?await rc.json():[];
-    }
-    renderAssignPanel();
-  })();
+  // The bank views are reachable without passing through the roster, so they load the
+  // roster and classes themselves rather than assuming a cache.
+  (async ()=>{ await ensureTeacherRoster(); renderAssignPanel(); })();
 
   // ── Tab setup ──
   let bankTab="system";
@@ -8626,21 +8578,9 @@ function buildLaererBankPrompts(){
     rightCol.appendChild(panel);
   }
 
-  // Load students if not cached
-  (async ()=>{
-    if(teacherState.students===null){
-      const r=await api("/api/teacher/students").catch(()=>null);
-      teacherState.students=r?.ok?await r.json():[];
-    }
-    // The bank views are reachable without passing through the roster, which is the
-    // only other place classes are fetched — without this the class quick-select
-    // would silently be missing for a teacher who navigated straight here.
-    if(teacherState.classes===null){
-      const rc=await api("/api/teacher/classes").catch(()=>null);
-      teacherState.classes=rc?.ok?await rc.json():[];
-    }
-    renderAssignPanel();
-  })();
+  // The bank views are reachable without passing through the roster, so they load the
+  // roster and classes themselves rather than assuming a cache.
+  (async ()=>{ await ensureTeacherRoster(); renderAssignPanel(); })();
 
   // ── Tab setup ──
   let bankTab="system";

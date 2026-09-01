@@ -10,6 +10,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 python3 -m http.server 8080 --directory public
 ```
+`.claude/launch.json` wraps this same command as the `frontend` config, so Claude Code's
+preview tools can start it. It serves `public/` only and needs no secrets.
+
 This replaced `start_server.py`, deleted 2026-08-27. That script also carried local
 `/words/`, `/sentences/`, `/essays/`, `/stats/` and `/plan/` endpoints backed by JSON files
 in `stats/`, plus a `/proxy/claude` route — all dead since the FastAPI backend took over
@@ -75,7 +78,11 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 
 **teacherState** — controls which sub-view the teacher sees within the `laerer` tab:
 - `view` — `"roster"` | `"progress"` | `"essays"` | `"essay-detail"` | `"texts"` | `"words"` | `"sentences"` | `"plan"` | `"summaries"` | `"assignments"` | `"bank-texts"` | `"bank-prompts"`
-- `students` — cached student list (`null` = not loaded yet)
+- `students` / `classes` — cached roster and class list (`null` = not loaded yet). **Load both
+  with `ensureTeacherRoster()`**, never one on its own: four surfaces need them (roster, both
+  banks, the Ordbank share bar) and three are reachable without passing through the roster, so a
+  half-fetch silently drops the class quick-select. Both are reset on login — a second login in
+  the same tab used to show the previous teacher's roster.
 - `selectedStudent` — current student object for detail views
 - `bankTexts` / `bankPrompts` — cached teacher bank arrays (`null` = not loaded)
 - Call `laererSetView(view)` to change view and re-render
@@ -84,7 +91,26 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - "👩‍🏫 Klassen min" → `teacherState.view = "roster"`
 - "📖 Tekstbank" → `teacherState.view = "bank-texts"`
 - "✍️ Oppgavebank" → `teacherState.view = "bank-prompts"`
-- "📚 Ordbank..." → `setTab("ordbank")` (teacher's own ordbank)
+- "📚 Ordbank..." → `setTab("ordbank")` (teacher's own ordbank — also where they send words to
+  students; see "Word sharing" below)
+
+**Word sharing — one bar, both roles** (`buildShareBar`, in the Ordbank filter block):
+- `shareModeConfig()` returns the role's descriptor — `recipients`, labels, `send`, and whether
+  the "Inkluder oversettelse" checkbox appears. `buildShareBar()` reads only that, so neither
+  role's flow is special-cased inside it.
+- `shareCap()` is `50` for a student (`MAX_SHARE_WORDS`, matching the backend) and `Infinity`
+  for a teacher. The cap exists to stop one classmate flooding another's *inbox*; a teacher
+  writes to a bank, which has none.
+- `sendWordsAsTeacher()` → `POST /api/teacher/students/words/bulk`, a **direct write** into each
+  student's bank. `shareWordsWithClassmates()` → `POST /api/me/shared-words`, an **offer** the
+  recipient must accept. ⚠️ Keep the button labels distinct ("Send til ordbank" vs "Send") —
+  the asymmetry is deliberate.
+- The teacher payload maps each bank word through `CAT_MAP` and `VALID_TOPIC_LIST`, falling back
+  to `enkeltord` / `FALLBACK_TOPIC`. The backend **rejects** an unknown category or topic rather
+  than defaulting, after teacher-pushed words once landed in student banks and never rendered.
+- `buildShareBar()` **always returns an element**, hidden while recipients load. Returning
+  `null` left no node for `refreshShareBar()` to replace, so a bar empty at first paint could
+  never appear.
 
 **Bank views** (`buildLaererBankTexts`, `buildLaererBankPrompts`):
 - Two-column layout: left = tabbed content, right = sticky assignment panel
