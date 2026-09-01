@@ -5744,6 +5744,7 @@ const teacherState = {
   aiChatMessages: [],    // refinement chat history for the open session
   aiChatTurnCount: 0,    // number of user turns sent this chat session
   aiRatings: null,       // cached list of ai_feedback_ratings for selectedStudent
+  classes: null,         // cached [{id,name,student_count,created_at}] — feature 018
 };
 
 function buildLaerer(){
@@ -5815,54 +5816,161 @@ function buildLaererRoster(){
   addBox.appendChild(addBtn);
   frag.appendChild(addBox);
 
+  // Klasser (feature 018). Classes group the roster; they do not replace it, so
+  // everything below still lists every student whether or not they are in one.
+  const classBox = el("div",{class:"card",style:{marginBottom:"20px",padding:"16px"}});
+  classBox.appendChild(el("h3",{style:{margin:"0 0 12px"}},"Klasser"));
+  const classListWrap = el("div",{style:{marginBottom:"12px"}});
+  classBox.appendChild(classListWrap);
+  const newClassInput = el("input",{type:"text",placeholder:"Navn på ny klasse",maxlength:"100",
+    style:{padding:"8px",marginRight:"8px",border:"1px solid #ccc",borderRadius:"6px",fontSize:"14px"}});
+  const newClassBtn = el("button",{class:"btn-cta",style:{fontSize:"13px",padding:"6px 12px"},
+    click: async ()=>{
+      const name = newClassInput.value.trim();
+      if(!name){ toast("Klassen må ha et navn"); return; }
+      newClassBtn.disabled=true;
+      const r = await api("/api/teacher/classes",{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({name})}).catch(()=>null);
+      newClassBtn.disabled=false;
+      if(r?.ok){ newClassInput.value=""; teacherState.classes=null; teacherState.students=null; renderContent(); }
+      else toast("Kunne ikke opprette klassen");
+    }},"+ Ny klasse");
+  classBox.appendChild(newClassInput);
+  classBox.appendChild(newClassBtn);
+  frag.appendChild(classBox);
+
   // Student list
   const listWrap = el("div",{});
   frag.appendChild(listWrap);
   const giOppgaverWrap = el("div",{});
   frag.appendChild(giOppgaverWrap);
 
+  async function setStudentClass(studentId, classId){
+    const r = await api(`/api/teacher/students/${encodeURIComponent(studentId)}/class`,{
+      method:"PUT",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({class_id:classId||null})}).catch(()=>null);
+    if(r?.ok){ teacherState.students=null; teacherState.classes=null; renderContent(); }
+    else toast("Kunne ikke endre klasse");
+  }
+
+  function studentRow(s){
+    const row = el("div",{class:"card",style:{display:"flex",alignItems:"center",gap:"12px",
+      padding:"12px 16px",marginBottom:"8px",cursor:"pointer"}});
+    const info = el("div",{style:{flex:"1"},click:()=>{
+      teacherState.selectedStudent=s;
+      teacherState.studentProgress=null;
+      teacherState.studentEssays=null;
+      teacherState.studentTexts=null;
+      teacherState.studentWords=null;
+      teacherState.studentSentences=null;
+      teacherState.studentPlan=null;
+      teacherState.studentSummaries=null;
+      teacherState.studentAssignments=null;
+      laererSetView("progress");
+    }});
+    info.appendChild(el("div",{style:{fontWeight:"600"}},$esc(s.name)));
+    info.appendChild(el("div",{style:{fontSize:"13px",color:"#888"}},$esc(s.email)));
+
+    // One control for place, move and unassign — a student is in at most one class,
+    // so changing it is a single choice rather than a remove-then-add.
+    const sel = el("select",{style:{fontSize:"12px",padding:"4px 6px",borderRadius:"6px",border:"1px solid #ccc"},
+      click:(e)=>e.stopPropagation(),
+      change:(e)=>{ e.stopPropagation(); setStudentClass(s.id, e.target.value); }});
+    sel.appendChild(el("option",{value:""},"Ingen klasse"));
+    (teacherState.classes||[]).forEach(c=>{
+      sel.appendChild(el("option",{value:c.id},c.name));
+    });
+    sel.value = s.class_id || "";
+
+    const removeBtn = el("button",{class:"btn-danger",style:{fontSize:"12px",padding:"4px 10px"},
+      click: async (e)=>{
+        e.stopPropagation();
+        if(!confirm(`Fjerne ${s.name} fra elevlisten din?`)) return;
+        const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}`,{method:"DELETE"}).catch(()=>null);
+        if(r?.ok){ teacherState.students=null; teacherState.classes=null; renderContent(); }
+        else toast("Kunne ikke fjerne eleven");
+      }
+    },"Fjern");
+    row.appendChild(info);
+    row.appendChild(sel);
+    row.appendChild(removeBtn);
+    return row;
+  }
+
+  function renderClassAdmin(){
+    classListWrap.innerHTML="";
+    const list = teacherState.classes||[];
+    if(!list.length){
+      classListWrap.appendChild(el("p",{style:{color:"#888",fontSize:"13px",margin:"0 0 8px"}},
+        "Ingen klasser ennå. Elevene dine fungerer som før uten en klasse."));
+      return;
+    }
+    list.forEach(c=>{
+      const row = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"6px"}});
+      row.appendChild(el("span",{style:{flex:"1",fontSize:"14px"}},
+        `${c.name} · ${c.student_count} ${c.student_count===1?"elev":"elever"}`));
+      row.appendChild(el("button",{style:{fontSize:"12px",padding:"3px 8px"},
+        click: async ()=>{
+          const name = prompt("Nytt navn på klassen:", c.name);
+          if(name===null) return;
+          if(!name.trim()){ toast("Klassen må ha et navn"); return; }
+          const r = await api(`/api/teacher/classes/${encodeURIComponent(c.id)}`,{method:"PATCH",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({name:name.trim()})}).catch(()=>null);
+          if(r?.ok){ teacherState.classes=null; teacherState.students=null; renderContent(); }
+          else toast("Kunne ikke endre navnet");
+        }},"Gi nytt navn"));
+      row.appendChild(el("button",{class:"btn-danger",style:{fontSize:"12px",padding:"3px 8px"},
+        click: async ()=>{
+          // Say plainly what survives. Deleting a class releases its students; it
+          // does not remove them or touch anything they have written.
+          if(!confirm(`Slette klassen "${c.name}"?\n\nElevene blir stående uten klasse. Ingenting de har laget blir slettet.`)) return;
+          const r = await api(`/api/teacher/classes/${encodeURIComponent(c.id)}`,{method:"DELETE"}).catch(()=>null);
+          if(r?.ok){ teacherState.classes=null; teacherState.students=null; renderContent(); }
+          else toast("Kunne ikke slette klassen");
+        }},"Slett"));
+      classListWrap.appendChild(row);
+    });
+  }
+
   async function loadStudents(){
+    if(teacherState.classes===null){
+      const rc = await api("/api/teacher/classes").catch(()=>null);
+      teacherState.classes = rc?.ok ? await rc.json() : [];
+    }
     if(teacherState.students===null){
       const r = await api("/api/teacher/students").catch(()=>null);
       if(r?.ok) teacherState.students=await r.json();
       else teacherState.students=[];
     }
+    renderClassAdmin();
     listWrap.innerHTML="";
     giOppgaverWrap.innerHTML="";
     if(!teacherState.students.length){
       listWrap.appendChild(el("p",{style:{color:"#888"}},"Ingen elever tilknyttet ennå."));
       return;
     }
-    teacherState.students.forEach(s=>{
-      const row = el("div",{class:"card",style:{display:"flex",alignItems:"center",gap:"12px",
-        padding:"12px 16px",marginBottom:"8px",cursor:"pointer"}});
-      const info = el("div",{style:{flex:"1"},click:()=>{
-        teacherState.selectedStudent=s;
-        teacherState.studentProgress=null;
-        teacherState.studentEssays=null;
-        teacherState.studentTexts=null;
-        teacherState.studentWords=null;
-        teacherState.studentSentences=null;
-        teacherState.studentPlan=null;
-        teacherState.studentSummaries=null;
-        teacherState.studentAssignments=null;
-        laererSetView("progress");
-      }});
-      info.appendChild(el("div",{style:{fontWeight:"600"}},$esc(s.name)));
-      info.appendChild(el("div",{style:{fontSize:"13px",color:"#888"}},$esc(s.email)));
-      const removeBtn = el("button",{class:"btn-danger",style:{fontSize:"12px",padding:"4px 10px"},
-        click: async (e)=>{
-          e.stopPropagation();
-          if(!confirm(`Fjerne ${s.name} fra klassen din?`)) return;
-          const r = await api(`/api/teacher/students/${encodeURIComponent(s.id)}`,{method:"DELETE"}).catch(()=>null);
-          if(r?.ok){ teacherState.students=null; renderContent(); }
-          else toast("Kunne ikke fjerne eleven");
-        }
-      },"Fjern");
-      row.appendChild(info);
-      row.appendChild(removeBtn);
-      listWrap.appendChild(row);
+
+    // Grouped by class, with the unassigned last. Unassigned is a normal state, so
+    // the group is shown without warning styling and only when it has members.
+    const groups = (teacherState.classes||[]).map(c=>({
+      label:c.name, students:teacherState.students.filter(s=>s.class_id===c.id)
+    }));
+    const unassigned = teacherState.students.filter(s=>!s.class_id);
+    if(unassigned.length) groups.push({label:"Uten klasse", students:unassigned});
+
+    groups.forEach(g=>{
+      if(!g.students.length && g.label!=="Uten klasse"){
+        listWrap.appendChild(el("div",{style:{margin:"16px 0 6px",fontSize:"13px",fontWeight:"600",color:"#888"}},
+          `${g.label} — ingen elever`));
+        return;
+      }
+      listWrap.appendChild(el("div",{style:{margin:"16px 0 6px",fontSize:"13px",fontWeight:"600",color:"#666"}},
+        $esc(g.label)));
+      g.students.forEach(s=>listWrap.appendChild(studentRow(s)));
     });
+
     giOppgaverWrap.appendChild(buildGiOppgaver(teacherState.students));
   }
   loadStudents();

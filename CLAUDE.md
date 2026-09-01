@@ -252,7 +252,7 @@ The old bare `npm run deploy` was removed: it omitted `--branch`, so wrangler in
 branch from the git checkout and publishing to production was a `git checkout main` away.
 
 <!-- SPECKIT START -->
-Active plan: `specs/013-word-bank-enrichment/plan.md` (in the monorepo root, sibling to this submodule).
+Active plan: `specs/018-classes-and-word-sharing/plan.md` (in the monorepo root, sibling to this submodule).
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read that plan and its
 companion `research.md`, `data-model.md`, `contracts/api.md`, and `quickstart.md`.
