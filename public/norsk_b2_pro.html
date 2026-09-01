@@ -7043,6 +7043,37 @@ function buildMineOppgaver(){
 
 // ── GI OPPGAVER panel (teacher roster) ────────────────────────────────────
 
+// Feature 018. Once classes existed, the assign surfaces still offered only "alle
+// elever" or one student at a time, so a teacher with two classes could not give work
+// to just one of them. This ticks the members of a class.
+//
+// It selects checkboxes rather than sending a class id, so the request stays the same
+// explicit student_ids list as before — no backend change. That also keeps the
+// semantics identical to "alle elever": membership is resolved now, at assignment
+// time, so a student who joins the class afterwards does not retroactively receive it.
+//
+// Returns null when the teacher has no classes with members on this roster, in which
+// case the caller renders nothing — a teacher without classes needs no explanation,
+// the Klasser panel is on the same screen.
+function buildClassQuickSelect(students, onPick){
+  const withMembers = (teacherState.classes||[])
+    .map(c=>({c, ids:(students||[]).filter(s=>s.class_id===c.id).map(s=>s.id)}))
+    .filter(x=>x.ids.length);
+  if(!withMembers.length) return null;
+
+  const row = el("div",{style:{display:"flex",alignItems:"center",gap:"6px",
+    flexWrap:"wrap",marginBottom:"8px"}});
+  row.appendChild(el("span",{style:{fontSize:"12px",color:"#888"}},"Hele klassen:"));
+  withMembers.forEach(({c,ids})=>{
+    row.appendChild(el("button",{type:"button",
+      style:{fontSize:"12px",padding:"3px 10px",borderRadius:"12px",
+        border:"1px solid #ccc",background:"#fff",cursor:"pointer"},
+      click:(e)=>{ e.preventDefault(); e.stopPropagation(); onPick(ids); }},
+      `${c.name} (${ids.length})`));
+  });
+  return row;
+}
+
 function buildGiOppgaver(students){
   const wrap = el("div",{class:"card",style:{marginTop:"24px"}});
   wrap.appendChild(el("h3",{style:{margin:"0 0 16px"}},"📤 Gi oppgaver"));
@@ -7097,6 +7128,14 @@ function buildGiOppgaver(students){
   allRow.appendChild(allCb);
   allRow.appendChild(el("label",{for:"gi-all",style:{fontWeight:"600",fontSize:"13px",cursor:"pointer"}},"Alle elever"));
   studentSec.appendChild(allRow);
+
+  const giClassRow = buildClassQuickSelect(students,(ids)=>{
+    selectedIds = new Set(ids);
+    studentCbs.forEach(({cb,sid})=>{ cb.checked = selectedIds.has(sid); });
+    allCb.checked = students.length>0 && students.every(st=>selectedIds.has(st.id));
+    updateAssignBtns();
+  });
+  if(giClassRow) studentSec.appendChild(giClassRow);
 
   students.forEach(s=>{
     const id = "gi-s-"+s.id.replace(/[^a-z0-9]/gi,"-");
@@ -7896,6 +7935,12 @@ function buildLaererBankTexts(){
     });
     if(!studentCbs.length) studentList.appendChild(el("p",{style:{color:"#888",fontSize:"12px"}},"Ingen elever i klassen."));
     allCb.addEventListener("change",()=>studentCbs.forEach(({cb})=>{cb.checked=allCb.checked;}));
+    const bankClassRow = buildClassQuickSelect(teacherState.students||[],(ids)=>{
+      const pick = new Set(ids);
+      studentCbs.forEach(({student,cb})=>{ cb.checked = pick.has(student.id); });
+      allCb.checked = studentCbs.length>0 && studentCbs.every(({cb})=>cb.checked);
+    });
+    if(bankClassRow) panel.appendChild(bankClassRow);
     panel.appendChild(studentList);
     const labelIn=el("input",{type:"text",placeholder:"Merkelapp (valgfritt)",
       style:{width:"100%",padding:"6px 8px",marginBottom:"10px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box"}});
@@ -7933,6 +7978,13 @@ function buildLaererBankTexts(){
     if(teacherState.students===null){
       const r=await api("/api/teacher/students").catch(()=>null);
       teacherState.students=r?.ok?await r.json():[];
+    }
+    // The bank views are reachable without passing through the roster, which is the
+    // only other place classes are fetched — without this the class quick-select
+    // would silently be missing for a teacher who navigated straight here.
+    if(teacherState.classes===null){
+      const rc=await api("/api/teacher/classes").catch(()=>null);
+      teacherState.classes=rc?.ok?await rc.json():[];
     }
     renderAssignPanel();
   })();
@@ -8133,6 +8185,12 @@ function buildLaererBankPrompts(){
     });
     if(!studentCbs.length) studentList.appendChild(el("p",{style:{color:"#888",fontSize:"12px"}},"Ingen elever i klassen."));
     allCb.addEventListener("change",()=>studentCbs.forEach(({cb})=>{cb.checked=allCb.checked;}));
+    const bankClassRow = buildClassQuickSelect(teacherState.students||[],(ids)=>{
+      const pick = new Set(ids);
+      studentCbs.forEach(({student,cb})=>{ cb.checked = pick.has(student.id); });
+      allCb.checked = studentCbs.length>0 && studentCbs.every(({cb})=>cb.checked);
+    });
+    if(bankClassRow) panel.appendChild(bankClassRow);
     panel.appendChild(studentList);
     const labelIn=el("input",{type:"text",placeholder:"Merkelapp (valgfritt)",
       style:{width:"100%",padding:"6px 8px",marginBottom:"10px",borderRadius:"7px",border:"1.5px solid #dde",fontSize:"13px",boxSizing:"border-box"}});
@@ -8170,6 +8228,13 @@ function buildLaererBankPrompts(){
     if(teacherState.students===null){
       const r=await api("/api/teacher/students").catch(()=>null);
       teacherState.students=r?.ok?await r.json():[];
+    }
+    // The bank views are reachable without passing through the roster, which is the
+    // only other place classes are fetched — without this the class quick-select
+    // would silently be missing for a teacher who navigated straight here.
+    if(teacherState.classes===null){
+      const rc=await api("/api/teacher/classes").catch(()=>null);
+      teacherState.classes=rc?.ok?await rc.json():[];
     }
     renderAssignPanel();
   })();
