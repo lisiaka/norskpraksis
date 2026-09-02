@@ -170,17 +170,8 @@ Backend deploys automatically from `../backend/` on a push to `main` (Railway wa
 
 ## Key files
 
-| File | Purpose |
-|------|---------|
-| `norsk_b2_pro.html` | The entire frontend |
-| `functions/` | Legacy Cloudflare Functions — no longer used; backend lives in `../backend/` |
-| `wrangler.toml` | Cloudflare Pages project config |
-| `lesing-tekster.json` | 120 reading texts with topic, grammar-focus, key-words, source |
-| `gin3-ordliste.json`, `herpaberget-ordliste.json` | Source ordlister for vocabulary import |
-| `ordbank-2-med-emner.json` | Sample word bank with topic tags |
-| `public/` | The only directory served locally or deployed |
-| `tests/` | Playwright end-to-end tests |
-| `Multiuser_design.md` | Original design notes; superseded by `specs/` in the repo root |
+See the **Key Files** table in [`CLAUDE.md`](CLAUDE.md#key-files) — kept there so there is a
+single inventory to update when a file moves.
 
 ## Topics
 
