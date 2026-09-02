@@ -16,9 +16,10 @@ preview tools can start it. It serves `public/` only and needs no secrets.
 This replaced `start_server.py`, deleted 2026-08-27. That script also carried local
 `/words/`, `/sentences/`, `/essays/`, `/stats/` and `/plan/` endpoints backed by JSON files
 in `stats/`, plus a `/proxy/claude` route — all dead since the FastAPI backend took over
-user data and the Pages Function took over the proxy. Nothing had called them in months;
-the app talks to `${API_BASE}/…` and `/api/proxy/claude`. The `stats/` folder with its old
-local test data is left on disk, untracked and unused.
+user data and the Pages Function took over the proxy. Nothing had called them in months.
+Since feature 015 the app talks to `${API_BASE}/…` and nothing else — the Pages proxy is
+gone too, so **a plain static server is now enough to exercise every AI surface**. The
+`stats/` folder with its old local test data is left on disk, untracked and unused.
 
 **Full stack with Cloudflare Pages Functions (port 8788):**
 ```bash
@@ -175,7 +176,9 @@ curl -X POST http://localhost:8788/api/test/simulate-renewal \
 **External APIs used:**
 - FastAPI backend (`http://localhost:8000`) — auth + user data
 - MyMemory (`api.mymemory.translated.net`) — translation lookups
-- Claude API — grammar feedback in **Norwegian** (proxied via Cloudflare function at `/api/proxy/claude`)
+- Claude API — grammar feedback in **Norwegian**, via the FastAPI backend at
+  `POST ${API_BASE}/api/ai/feedback`. **Not** through a Cloudflare function any more; see
+  "AI feedback" below
 - Bokmålsordboka (`ordbokene.no`) — dictionary deep links
 - Vipps Recurring API v3 — Norwegian payment subscriptions
 - PayPal Subscriptions API v2 — international payment subscriptions
@@ -201,7 +204,32 @@ The `TOPICS` object (essay/skriv tab, ASCII keys `miljo`/`sprak`) is a separate 
 
 `renderGjenfortellResult(result, container)` renders formatted reading-summary AI feedback (level badge, comprehension, vocabulary, grammar errors, overall). Used in the student Lesing tab and in the teacher `buildLaererSummaries()` view. Always use this function; never dump raw JSON.
 
-Reading summaries are persisted via `PUT /api/reading-summaries/{textId}`. AI feedback is checked with `checkGjenfortellWithClaude()` which calls `/api/proxy/claude` — this **requires `npm run dev`** (wrangler); a plain static server has no `/api` routes.
+Reading summaries are persisted via `PUT /api/reading-summaries/{textId}`. AI feedback is
+checked with `checkGjenfortellWithClaude()`. Since feature 015 this goes to the backend, so
+a plain static server is enough — `npm run dev` (wrangler) is no longer required for AI.
+
+### The AI transport (feature 015)
+
+All three feedback surfaces go through **`requestAiFeedback(surface, system, userMsg,
+truncatedHint)`** → `POST ${API_BASE}/api/ai/feedback`. Do not hand-roll this fetch; three
+near-identical copies is what the helper replaced.
+
+- **`AI_SURFACE`** mirrors `AiSurface` in `backend/app/schemas/ai.py`. The backend answers
+  `422` for anything outside the three members rather than defaulting, so a typo here fails
+  loudly rather than silently borrowing another surface's token budget.
+- **Do not send `model` or `max_tokens`.** The backend picks both from `surface` and ignores
+  anything the caller sends. Sending them is harmless but pointless.
+- **We still compose the wording.** The three long Norwegian prompts and
+  `buildTeacherSteeringBlock()` stay here by design — 015 moved the cost decision, not the
+  prompt. Moving the prompts server-side is a named follow-up.
+- Errors arrive as `{detail:{reason}}`; `aiFailureMessage()` turns a status and reason into
+  one Bokmål sentence. A `401` is an expired session, never an AI failure.
+
+**Distractors are not generated here.** `generateFormsAndDistractors()` was deleted in 015 —
+the classifier produces them server-side alongside `forms`, and they arrive in the
+`/words/lookup` proposal. `enrichWord(wordId)` → `POST /api/words/{id}/enrich` covers the two
+paths a proposal cannot reach: bulk import, and the "✨ Generer med AI" button. It returns a
+boolean; the automatic callers ignore it, the button reports failure.
 
 Text cards in `lesing-tekster.json` have an optional `questions` array. Each question is either MCQ `{ question, options[], answer }` (answer is the correct option index) or open-ended `{ question }` (no options). All 120 texts have questions.
 
