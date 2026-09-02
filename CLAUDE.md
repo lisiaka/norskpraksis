@@ -290,10 +290,9 @@ audio asset, no cache and no credential.
 | `wrangler.toml` | Pages config + KV binding + `pages_build_output_dir` |
 | `.dev.vars.example` | Template for local secrets (copy to `.dev.vars`) |
 | `tsconfig.json` | TypeScript config for `functions/` (no `tsc` installed — see below) |
-| `functions/api/[[route]].ts` | Cloudflare Pages Function router — **legacy, no longer used**; the backend lives in `../backend/` |
+| `functions/api/[[route]].ts` | Cloudflare Pages Function router — **still live** for the Vipps/PayPal webhooks, `/api/subscription/` and `/api/login`. Its `/api/proxy/claude` role ended with 015; AI feedback now goes to `../backend/` |
 | `tests/abonnement.spec.ts` | Playwright E2E tests for subscription flows |
 | `ordbank-2-med-emner.json` | Sample word bank for import testing (not published) |
-| `Multiuser_design.md` | Original design notes; superseded by `specs/` in the repo root |
 
 Everything above outside `public/` is repo-local and not served. `functions/` stays at the
 repo root — Pages resolves it there regardless of `pages_build_output_dir`.
