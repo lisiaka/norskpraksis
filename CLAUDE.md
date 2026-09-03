@@ -290,7 +290,7 @@ audio asset, no cache and no credential.
 | `wrangler.toml` | Pages config + KV binding + `pages_build_output_dir` |
 | `.dev.vars.example` | Template for local secrets (copy to `.dev.vars`) |
 | `tsconfig.json` | TypeScript config for `functions/` (no `tsc` installed — see below) |
-| `functions/api/[[route]].ts` | Cloudflare Pages Function router — **still live** for the Vipps/PayPal webhooks, `/api/subscription/` and the KV data routes. It holds **no AI credential**: `/api/proxy/claude` and `handleClaudeProxy` were deleted in 015, and `ANTHROPIC_API_KEY` was removed from both Pages environments with them |
+| `functions/api/[[route]].ts` | Cloudflare Pages Function router — **still live** for the Vipps/PayPal webhooks, `/api/subscription/` and the KV data routes. It **reads no AI credential**: `/api/proxy/claude` and `handleClaudeProxy` were deleted in 015 (2026-09-03). ⚠️ `ANTHROPIC_API_KEY` is still *stored* in both Pages environments — orphaned, read by nothing. Deleting it is 015 T049 and is what closes SC-001 |
 | `tests/abonnement.spec.ts` | Playwright E2E tests for subscription flows |
 | `ordbank-2-med-emner.json` | Sample word bank for import testing (not published) |
 
