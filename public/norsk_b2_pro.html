@@ -1272,6 +1272,7 @@ function exportEssayPDF(){
   const pdfBody=$("pdf-body"); if(pdfBody) pdfBody.textContent=essayText;
   const pdfDate=$("pdf-date"); if(pdfDate) pdfDate.textContent=dateStr;
   const pdfWc=$("pdf-wordcount"); if(pdfWc) pdfWc.textContent=`${wc} ord · B2`;
+  trackEvent("skriv.pdf_exported",{wordCount:(state.essay||"").trim().split(/\s+/).filter(Boolean).length});
   window.print();
 }
 
@@ -1434,6 +1435,9 @@ function renderTabs(){
 function setTab(tab){
   state.tab=tab;
   if(tab==="statistik"||tab==="plan"||tab==="mineoppgaver") statsCache=null;
+  // Opening Statistikk is the only "use" that tab has — there is nothing to
+  // submit — so the tab switch is the event.
+  if(tab==="statistik") trackEvent("statistikk.viewed",{});
   renderTabs(); renderContent();
   // Opening Ordbank re-reads the bank from the server. Words can arrive without the
   // learner doing anything — a teacher pushing a word list, or a classmate's shared
@@ -1441,7 +1445,14 @@ function setTab(tab){
   // teacher-assigned list stayed invisible until the student logged out and back in.
   if(tab==="ordbank" && state.sessionToken){
     syncWordsFromServer();
-    if(state.userRole !== "teacher") refreshSharing().then(()=>renderContent());
+    if(state.userRole !== "teacher") refreshSharing().then(()=>{
+      // The inbox is rendered inline in Ordbank rather than behind a click, so
+      // arriving here with pending offers *is* opening it. Recorded on the tab
+      // switch, not in the panel builder — that runs on every re-render.
+      const pending = pendingShareCount();
+      if(pending) trackEvent("ordbank.inbox_opened",{pending});
+      renderContent();
+    });
   }
 }
 
@@ -2132,7 +2143,7 @@ function renderWordList(){
         click(e){e.stopPropagation();setWordLearnt(w.id,!isLearnt(w));}
       },"✓"));
       chip.appendChild(el("button",{class:"btn-del",title:"Fjern",
-        click(e){e.stopPropagation();const wid=w.id;state.words=state.words.filter(x=>x.id!==wid);if(state.openWordId===wid)state.openWordId=null;saveStorage();renderWordList();renderTabs();api(`/api/words/${encodeURIComponent(wid)}`,{method:"DELETE"}).catch(()=>{});}
+        click(e){e.stopPropagation();const wid=w.id;const wtopic=w.topic;state.words=state.words.filter(x=>x.id!==wid);if(state.openWordId===wid)state.openWordId=null;saveStorage();renderWordList();renderTabs();trackEvent("ordbank.word_deleted",{topic:wtopic});api(`/api/words/${encodeURIComponent(wid)}`,{method:"DELETE"}).catch(()=>{});}
       },"×"));
       chip.addEventListener("click",()=>{state.openWordId=state.openWordId===w.id?null:w.id;renderWordList();});
       wrap.appendChild(chip);
@@ -2275,6 +2286,9 @@ async function lookupWord(){
     const p=await r.json();
 
     applyProposalToForm(p);
+    // `hit` is what makes this worth counting: a lookup that never returns
+    // anything useful is a different story from one that does.
+    trackEvent("ordbank.lookup",{hit:p.origin!=="unavailable"});
 
     if(p.origin==="unavailable"){
       // Not an error: the word is still saveable, just without classification.
@@ -2371,6 +2385,9 @@ async function addWord(){
       const idx=state.words.findIndex(w=>w.id===tempId);
       if(idx>=0){state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};}
       saveStorage(); renderWordList();
+      // Recorded here rather than at the optimistic insert above: a word that
+      // never reached the server is not a use (FR-017).
+      trackEvent("ordbank.word_added",{topic:payloadTopic,category:entry.category,source:payloadSrcKind||"manual"});
       // No follow-up AI call: the distractors travelled with the proposal.
     }
   }catch{}
@@ -2382,6 +2399,7 @@ function exportWords(){
   const data=JSON.stringify(state.words.map(({word,meaning,category,topic,createdAt})=>({word,meaning,category,topic:topic||"",createdAt:createdAt||Date.now()})),null,2);
   const a=el("a",{href:URL.createObjectURL(new Blob([data],{type:"application/json"})),download:"ordbank.json"});
   a.click(); URL.revokeObjectURL(a.href);
+  trackEvent("ordbank.export",{count:state.words.length,format:"json"});
   toast(`✓ ${state.words.length} ord eksportert som ordbank.json`);
 }
 
@@ -2423,6 +2441,7 @@ function importWords(file){
     const tempEntries=toAdd.map(w=>({id:"tmp_"+Date.now()+Math.random()*9999,...w,forms:[],flashcard_options:[]}));
     tempEntries.forEach(e=>state.words.push(e));
     saveStorage(); renderWordList(); renderTabs();
+    trackEvent("ordbank.import",{count:toAdd.length,format:file.name.endsWith(".json")?"json":"text"});
     toast(`✓ ${toAdd.length} nye ord importert! (${skipped} duplikater hoppet over)`);
     // Persist to backend in background
     api("/api/words/batch",{method:"POST",body:JSON.stringify(toAdd.map(w=>({
@@ -3991,6 +4010,29 @@ const TTS_CHUNK_MAX = 180;
 
 const ttsAvailable = () => typeof window.speechSynthesis !== "undefined" && !!tts.voice;
 
+// Feature 019 / FR-019. Read-aloud hides its controls entirely where no
+// Norwegian voice is installed. That is deliberate — an English voice reading
+// Norwegian is worse for a learner than silence — but it means nobody will ever
+// report it as broken, and we cannot currently tell how many learners see no
+// button at all. If that fraction turns out to be large, it is the trigger for
+// reconsidering pre-generated audio.
+//
+// ⚠️ Once per session. `renderContent()` runs on every tab switch, every filter
+// change and every answered question, so an unguarded call here would make the
+// "nobody can hear this" signal the single loudest feature on the page —
+// drowning out the very thing it is measuring.
+let ttsUnavailableReported = false;
+function reportTtsUnavailableOnce(){
+  if(ttsUnavailableReported) return;
+  ttsUnavailableReported = true;
+  let voicesSeen = 0;
+  try{ voicesSeen = (window.speechSynthesis?.getVoices() || []).length; }catch(e){}
+  trackEvent("lesing.tts_unavailable",{
+    voicesSeen,
+    hasSpeechSynthesis: typeof window.speechSynthesis !== "undefined",
+  });
+}
+
 // `getVoices()` is empty on first call in most browsers and fills in asynchronously,
 // so this runs again on `voiceschanged`. Nynorsk is accepted as a last resort: it is
 // a Norwegian voice reading Bokmål, which is a dialect mismatch rather than a
@@ -4208,6 +4250,8 @@ function buildTtsBar(text, onWord){
   playBtn.addEventListener("click",()=>{
     if(playing){ ttsPause(); setState("paused"); return; }
     if(window.speechSynthesis.paused && tts.chunks.length){ ttsResume(); setState("playing"); return; }
+    // A fresh read, not a resume — resuming the same utterance is not a second use.
+    trackEvent("lesing.tts_play",{textId:text.id,speed:tts.rate,scope:"text"});
     speak(text.text, {onWord, onState:setState});
   });
   stopBtn.addEventListener("click",()=>{ ttsStop(); setState("idle"); });
@@ -4516,6 +4560,11 @@ function buildLesingReader(text){
     markSpokenWord=fillSpokenText(textDiv, text.text);
   } else {
     textDiv.textContent=text.text;
+    // The controls are hidden entirely here, which is silent by design — so no
+    // learner will ever report it and the size of this group is otherwise
+    // unknowable (FR-019). Once per session, never per render: renderContent()
+    // runs constantly and would make this the loudest feature on the page.
+    reportTtsUnavailableOnce();
   }
   card.appendChild(textDiv);
 
@@ -4569,6 +4618,7 @@ function buildLesingReader(text){
             btn.addEventListener("click",()=>{
               if(!lesingState.answers[text.id]) lesingState.answers[text.id]={};
               lesingState.answers[text.id][qi]=oi;
+              trackEvent("lesing.question_answered",{textId:text.id,questionIndex:qi,correct:oi===correct,kind:"mcq"});
               renderContent();
             });
           }
@@ -4746,6 +4796,9 @@ function buildLesingReader(text){
 
     orbLink.href=ordbokeneUrl(word);
     orbLink.style.display="block";
+    // Looking a word up while reading is a distinct behaviour from the Ordbank
+    // lookup — same endpoint, different intent — so it gets its own feature.
+    trackEvent("lesing.word_lookup",{textId:text.id});
 
     // A proposal without a translation is not the same as no proposal: a reused
     // entry from an unrepaired bank row arrives with everything except a meaning.
@@ -6199,6 +6252,7 @@ function buildInnstillinger(){
             headers:{"Content-Type":"application/json"},
             body:JSON.stringify({role:value})});
           if(r.ok){
+            trackEvent("innstillinger.role_switched",{to:value});
             roleMsg.textContent="Rolle oppdatert! Logg ut og inn igjen for å aktivere den nye rollen.";
             roleMsg.style.display="";
           } else {
@@ -7502,6 +7556,7 @@ function buildMineOppgaver(){
                 await api(`/api/assignments/items/${encodeURIComponent(item.item_id)}/done`,{
                   method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({done:true})
                 }).catch(()=>null);
+                trackEvent("mineoppgaver.wordlist_imported",{count:added});
                 toast(`${added} ord lagt til i ordbanken!`);
                 load();
               }
@@ -7569,7 +7624,7 @@ function buildMineOppgaver(){
                 headers:{"Content-Type":"application/json"},
                 body:JSON.stringify({done:true})
               }).catch(()=>null);
-              if(r2?.ok){ load(); }
+              if(r2?.ok){ trackEvent("mineoppgaver.item_completed",{kind:item.item_type}); load(); }
               else { doneBtn.disabled=false; doneBtn.textContent="✓ Marker som gjort"; toast("Kunne ikke lagre"); }
             }
           },"✓ Marker som gjort");
