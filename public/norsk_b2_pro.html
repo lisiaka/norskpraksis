@@ -927,6 +927,45 @@ function aiFailureMessage(status, reason, truncatedHint){
   return `AI-hjelp feilet (${status}). Prøv igjen om litt.`;
 }
 
+// ── Failure reporting (019) ───────────────────────────────────────────────
+// The backend records the five failures it classifies itself. This covers the
+// ones it cannot see — above all a response that arrives *successfully* and
+// then fails to parse, which the server counts as a success and which,
+// before this, left no trace anywhere.
+//
+// Fire-and-forget, exactly like trackEvent: the learner already has an error on
+// screen, and a second one caused by the reporting would be strictly worse than
+// no report at all.
+// A truncated answer and an unparseable one are both "the JSON did not parse",
+// but they are different problems: one says ask for less, the other says the
+// model returned the wrong shape. `stop_reason` is what tells them apart.
+function aiFailureReasonFor(diag){
+  return diag && diag.stop === "max_tokens" ? "unusable_response" : "unparseable_response";
+}
+
+function reportAiFailure(surface, reason, diag){
+  try{
+    const body = {surface, reason};
+    if(diag){
+      // Shape only. `raw` is the model's own answer and is capped here as a
+      // courtesy — the backend truncates again, and that is the real limit.
+      if(diag.stop) body.stop_reason = String(diag.stop).slice(0,32);
+      if(diag.usage){
+        body.input_tokens = diag.usage.input_tokens;
+        body.output_tokens = diag.usage.output_tokens;
+      }
+      if(typeof diag.sysLen === "number") body.system_len = diag.sysLen;
+      if(typeof diag.userLen === "number") body.user_len = diag.userLen;
+      if(typeof diag.raw === "string"){
+        body.response_len = diag.raw.length;
+        body.response_excerpt = diag.raw.slice(-400);
+      }
+    }
+    return api("/api/ai/failures", {method:"POST", body:JSON.stringify(body)})
+      .then(()=>null).catch(()=>null);
+  }catch(e){ return Promise.resolve(null); }
+}
+
 // Throws an Error whose message is already learner-ready Norwegian, flagged with
 // `aiHandled` so the catch block prints it as-is instead of wrapping a raw
 // technical string in "❌ Feil: ...".
@@ -2617,6 +2656,10 @@ async function checkWithClaude(word, sentence, container){
     container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},
       err.aiHandled ? `❌ ${err.message}` : `❌ Feil: ${err.message}. Prøv igjen om litt.`
     ));
+    // Only the failures the backend cannot see. `aiHandled` means the request
+    // itself failed, and the server already recorded that — reporting it again
+    // here would double-count it.
+    if(!err.aiHandled) reportAiFailure(AI_SURFACE.SENTENCE, aiFailureReasonFor(diag), diag);
     appendClaudeDiag(container, diag);
   }
 }
@@ -3172,6 +3215,7 @@ Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements 
     container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},
       err.aiHandled ? `❌ ${err.message}` : `❌ Feil: ${err.message}. Prøv igjen.`
     ));
+    if(!err.aiHandled) reportAiFailure(AI_SURFACE.ESSAY, aiFailureReasonFor(diag), diag);
     appendClaudeDiag(container, diag);
   }
 }
@@ -3291,6 +3335,7 @@ VIKTIG: Svaret skal ha samme lengde uansett hvor lang originalteksten er. Respek
     const msg=err instanceof Error?err.message:"Ukjent feil";
     container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid #e05c5c",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#555"}},
       err.aiHandled ? msg : `Klarte ikke å hente tilbakemelding. Prøv igjen. (${msg})`));
+    if(!err.aiHandled) reportAiFailure(AI_SURFACE.READING_SUMMARY, aiFailureReasonFor(diag), diag);
     appendClaudeDiag(container, diag);
   }
 }
@@ -8755,17 +8800,174 @@ function buildLaererBankPrompts(){
   screen.style.display = "block";
   screen.innerHTML = "<p style='color:#888'>Laster admin-oversikt…</p>";
 
-  fetch(`${API_BASE}/api/admin/overview?secret=${encodeURIComponent(secret)}`)
+  const get = path => fetch(`${API_BASE}${path}?secret=${encodeURIComponent(secret)}`)
     .then(r => {
       if(r.status === 403) throw new Error("Feil hemmelig nøkkel.");
       if(!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
+    });
+
+  // Adoption is fetched beside the user overview, not instead of it — they
+  // answer different questions ("is this feature alive" vs "what has this
+  // learner done") and neither substitutes for the other. It is allowed to
+  // fail on its own: a backend without the endpoint should still render the
+  // user table rather than a bare error page.
+  Promise.all([
+    get("/api/admin/overview"),
+    get("/api/admin/adoption").catch(() => null),
+    get("/api/admin/failures").catch(() => null),
+  ])
+    .then(([overview, adoption, failures]) => {
+      renderAdminDashboard(screen, overview);
+      if(adoption) renderAdoption(screen, adoption);
+      if(failures) renderFailureLog(screen, failures);
     })
-    .then(data => renderAdminDashboard(screen, data))
     .catch(err => {
       screen.innerHTML = `<p style='color:#c0392b;font-weight:600'>Feil: ${err.message}</p>`;
     });
 })();
+
+// ── Feature adoption (019) ────────────────────────────────────────────────
+// Renders one row per *declared* feature, including ones nobody has touched.
+// That is the whole point: a table built from the events alone can only list
+// features somebody used, and a missing row is indistinguishable from a
+// feature that was never instrumented.
+function renderAdoption(container, data){
+  const h = (tag, attrs, ...children) => {
+    const el = document.createElement(tag);
+    Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+    children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return el;
+  };
+  const dt = iso => iso ? new Date(iso).toLocaleDateString("no") : "aldri";
+
+  container.appendChild(h("h2",{style:"font-size:16px;margin:32px 0 6px"},"📊 Funksjonsbruk"));
+
+  // The honesty line. Without it the first read looks like proof that half the
+  // product is dead, when it is really proof that we only started counting.
+  const started = new Date(data.recording_started_on).toLocaleDateString("no");
+  container.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:0 0 4px;line-height:1.5"},
+    `Registrering startet ${started}. «Aldri» for tiden før dette betyr at ingenting ble målt — ikke at funksjonen er ubrukt. `
+    + "Der en dato kan utledes fra lagrede data (ord, setninger, stiler, gjenfortellinger) vises den, merket «utledet»."));
+  if(data.excluded_test_users){
+    container.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:0 0 14px"},
+      `${data.excluded_test_users} testkonto(er) holdt utenfor.`));
+  }
+
+  const tdStyle = "padding:7px 12px;border-bottom:1px solid #eee;vertical-align:top";
+  const thStyle = "background:#1a6b4a;color:#fff;padding:8px 12px;text-align:left;white-space:nowrap";
+
+  (data.areas||[]).forEach(area => {
+    container.appendChild(h("h3",{style:"font-size:13.5px;margin:18px 0 6px;color:#1a6b4a"},area.area));
+    const wrap = h("div",{style:"overflow-x:auto"});
+    const t = document.createElement("table");
+    t.setAttribute("style","border-collapse:collapse;width:100%;font-size:13px");
+
+    const hr = t.createTHead().insertRow();
+    ["Funksjon","Brukt","Brukere","Sist brukt"].forEach(label => {
+      const th = document.createElement("th");
+      th.setAttribute("style", thStyle);
+      th.textContent = label;
+      hr.appendChild(th);
+    });
+
+    const tbody = t.createTBody();
+    area.surfaces.forEach((s, i) => {
+      const tr = tbody.insertRow();
+      // Declared a fortnight ago and never once seen is more likely an unwired
+      // emit call than a genuinely unloved feature — and for browser-emitted
+      // features this is the only drift signal there is.
+      if(s.never_observed) tr.setAttribute("style","background:#fff6e5");
+      else if(i % 2 === 1) tr.setAttribute("style","background:#f9f9f9");
+
+      const name = tr.insertCell();
+      name.setAttribute("style", tdStyle);
+      name.appendChild(document.createTextNode(s.label));
+      name.appendChild(h("div",{style:"color:#aaa;font-size:11px;font-family:ui-monospace,monospace"}, s.id));
+
+      const uses = tr.insertCell();
+      uses.setAttribute("style", tdStyle + (s.uses ? "" : ";color:#bbb"));
+      uses.textContent = String(s.uses);
+
+      const users = tr.insertCell();
+      users.setAttribute("style", tdStyle + (s.distinct_users ? "" : ";color:#bbb"));
+      users.textContent = String(s.distinct_users);
+
+      const last = tr.insertCell();
+      last.setAttribute("style", tdStyle + (s.last_used ? "" : ";color:#bbb"));
+      last.textContent = dt(s.last_used);
+      if(s.last_used_is_derived){
+        last.appendChild(h("span",{style:"color:#888;font-size:11px;margin-left:6px"},"(utledet)"));
+      }
+      if(s.never_observed){
+        last.appendChild(h("div",{style:"color:#b8860b;font-size:11px;margin-top:2px"},
+          `registrert ${new Date(s.registered_on).toLocaleDateString("no")}, aldri observert`));
+      }
+    });
+
+    wrap.appendChild(t);
+    container.appendChild(wrap);
+  });
+
+  // Accept-and-flag: types that arrived without a registry entry are kept and
+  // shown here rather than discarded, so a missing registration is visible
+  // instead of lossy.
+  if((data.unknown_types||[]).length){
+    container.appendChild(h("h3",{style:"font-size:13.5px;margin:22px 0 6px;color:#b8860b"},
+      `Ukjente hendelsestyper (${data.unknown_types.length})`));
+    container.appendChild(h("p",{style:"color:#888;font-size:12px;margin:0 0 8px"},
+      "Registrert, men ikke deklarert i koden — sannsynligvis en funksjon som mangler oppføring."));
+    container.appendChild(buildAdminTable(h,
+      ["Type","Brukt","Sist sett"],
+      data.unknown_types.map(u => [u.event_type, u.uses, dt(u.last_seen)])
+    ));
+  }
+}
+
+// ── AI failure log (019) ──────────────────────────────────────────────────
+// Counts answer "is this widespread"; the recent list answers "what actually
+// happened". Both are needed: a learner reporting "the AI didn't work" is
+// otherwise unanswerable without reproducing it.
+function renderFailureLog(container, data){
+  const h = (tag, attrs, ...children) => {
+    const el = document.createElement(tag);
+    Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+    children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return el;
+  };
+
+  container.appendChild(h("h2",{style:"font-size:16px;margin:32px 0 6px"},"⚠️ AI-feil"));
+  container.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:0 0 12px"},
+    `Siste ${data.days} dager.`
+    + (data.excluded_test_users ? ` ${data.excluded_test_users} testkonto(er) holdt utenfor.` : "")));
+
+  if(!(data.by_reason||[]).length){
+    container.appendChild(h("p",{style:"color:#1a6b4a;font-size:13px"},"Ingen registrerte feil i perioden."));
+    return;
+  }
+
+  container.appendChild(buildAdminTable(h,
+    ["Årsak","Antall","Brukere"],
+    data.by_reason.map(r => [r.reason, r.count, r.distinct_users])
+  ));
+
+  container.appendChild(h("h3",{style:"font-size:13.5px;margin:18px 0 6px;color:#1a6b4a"},"Siste feil"));
+  container.appendChild(buildAdminTable(h,
+    ["Tid","Flate","Årsak","Oppdaget","HTTP","stop_reason","Tokens inn/ut","Lengder sys/bruker/svar","Svarhale"],
+    (data.recent||[]).map(f => [
+      new Date(f.created_at).toLocaleString("no"),
+      f.surface,
+      f.reason,
+      f.detected_by,
+      f.http_status == null ? "—" : f.http_status,
+      f.stop_reason || "—",
+      `${f.input_tokens ?? "—"}/${f.output_tokens ?? "—"}`,
+      `${f.system_len ?? "—"}/${f.user_len ?? "—"}/${f.response_len ?? "—"}`,
+      // The model's own answer, never the prompt or the learner's writing.
+      f.response_excerpt || "—",
+    ])
+  ));
+}
 
 function renderAdminDashboard(container, data){
   const users = data.users || [];
