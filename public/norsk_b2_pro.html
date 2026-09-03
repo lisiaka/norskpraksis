@@ -756,7 +756,7 @@ function resolveSourceText(w){
 }
 
 // Word-sort game state
-const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selectedAnswerIdx:null};
+const ws = {started:false, sentences:[], idx:0, score:0, topicFilter:"", selectedAnswerIdx:null, tracked:false};
 
 // Study plan state (persisted to localStorage per user)
 const planState = { weeks:[], viewWeek:0, setup:null }; // setup: {months, sessionsPerWeek, startDate}
@@ -4953,7 +4953,12 @@ async function startWordSort(){
     const tokens = orig.split(/\s+/);
     return { original:orig, tokens, pool:shuffle([...tokens]), answer:[], checked:false, correct:null };
   });
-  ws.idx = 0; ws.score = 0; ws.started = true;
+  ws.idx = 0; ws.score = 0; ws.started = true; ws.tracked = false;
+  // Completing the game emits `wordsort_session`, but a learner who plays five
+  // of ten sentences and leaves has still used the feature — and used to
+  // register as nothing at all. Adoption asks whether a feature is touched, so
+  // starting is the honest signal; the completion event still measures finishing.
+  trackEvent("setningsbygging.session_started",{count:ws.sentences.length,topicFilter:ws.topicFilter||null});
   renderContent();
 }
 
@@ -5115,8 +5120,15 @@ function buildOrdstilling(){
     // Done screen
     const total = ws.sentences.length;
     const pct = total ? Math.round(ws.score/total*100) : 0;
-    trackEvent("wordsort_session",{correct:ws.score,total,pct,topicFilter:ws.topicFilter||null,
-      sentences:ws.sentences.map(s=>({original:s.original,correct:s.correct,given:s.answer.join(" ")}))});
+    // ⚠️ This sits in a render path: renderContent() runs on every tab switch,
+    // so an unguarded emit counts *views of the done screen*, not games played.
+    // Flashcards already guards its own session event with fc.tracked; this one
+    // never did, and 019 is what made the inflation visible.
+    if(!ws.tracked){
+      ws.tracked = true;
+      trackEvent("wordsort_session",{correct:ws.score,total,pct,topicFilter:ws.topicFilter||null,
+        sentences:ws.sentences.map(s=>({original:s.original,correct:s.correct,given:s.answer.join(" ")}))});
+    }
     const emoji = pct>=80?"🎉":pct>=60?"👍":"💪";
     const msg = pct>=80?"Utmerket!":pct>=60?"Bra jobbet!":"Øv mer – du klarer det!";
     const done = el("div",{class:"ws-done"});
