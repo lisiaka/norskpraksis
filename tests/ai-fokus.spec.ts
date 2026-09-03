@@ -12,8 +12,14 @@ import { test, expect } from '@playwright/test';
 // redirects those calls to a local FastAPI instance (`ENVIRONMENT=development`
 // allows CORS from anywhere) so it can exercise the real backend, including
 // the real GET /api/me/ai-context endpoint, end to end. Only the Claude call
-// itself (/api/proxy/claude) is mocked, since we don't want a live LLM call
+// itself (/api/ai/feedback) is mocked, since we don't want a live LLM call
 // gating a deterministic test.
+//
+// ⚠️ That mock must stay registered *after* the Railway redirect above it.
+// Since feature 015 the AI call goes to the backend host too, so both globs
+// match it — and Playwright gives the last-registered route priority. Swap the
+// order and the redirect wins, the test makes a real Claude call, and
+// capturedBody never fills.
 
 const LOCAL_BACKEND = 'http://localhost:8000';
 const RUN_ID = Date.now();
@@ -72,13 +78,16 @@ test('teacher AI-fokus instructions appear in the Claude system prompt', async (
   });
 
   // Mock the Claude call itself — capture what the frontend actually sent.
+  // `system` is still top-level in the 015 body ({surface, system, messages}),
+  // so the assertion below is unchanged.
   let capturedBody: any = null;
-  await page.route('**/api/proxy/claude', (route) => {
+  await page.route('**/api/ai/feedback', (route) => {
     capturedBody = route.request().postDataJSON();
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ content: [{ type: 'text', text: '{}' }] }),
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ content: [{ type: 'text', text: '{}' }], stop_reason: 'end_turn' }),
     });
   });
 

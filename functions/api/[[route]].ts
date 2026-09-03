@@ -2,7 +2,6 @@
  * Cloudflare Pages Function — handles all /api/* routes.
  *
  * Secrets required (set via `wrangler secret put`):
- *   ANTHROPIC_API_KEY      — Anthropic Claude API key
  *   VIPPS_CLIENT_ID        — Vipps Recurring API client ID
  *   VIPPS_CLIENT_SECRET    — Vipps Recurring API client secret
  *   VIPPS_SUBSCRIPTION_KEY — Vipps Ocp-Apim-Subscription-Key
@@ -23,7 +22,6 @@
 
 export interface Env {
   USER_DATA: KVNamespace;
-  ANTHROPIC_API_KEY: string;
   JWT_SECRET_KEY?: string;
   // Subscription env vars
   APP_BASE_URL: string;
@@ -41,8 +39,6 @@ export interface Env {
   PAYPAL_WEBHOOK_ID?: string;
 }
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-
 // ── Auth ────────────────────────────────────────────────────────────────────
 
 /**
@@ -54,8 +50,9 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
  * A `btoa(userId + ':' + DEMO_PASSWORD)` form was also accepted until 2026-08-27. It was
  * minted only by a local /api/login handler the frontend had stopped calling, and its
  * shared password had been served publicly in the .dev.vars leak — so it was an
- * unauthenticated route to the Claude proxy below, which passes no expectedUserId and so
- * never checked the userId half. Both were deleted rather than rotated.
+ * unauthenticated route to the Claude proxy this file used to carry, which passed no
+ * expectedUserId and so never checked the userId half. Both were deleted rather than
+ * rotated; the proxy itself followed in feature 015.
  */
 async function validateToken(request: Request, env: Env, expectedUserId: string | null = null): Promise<boolean> {
   const token = request.headers.get("X-Auth-Token") ?? "";
@@ -103,7 +100,7 @@ function unauthorized(): Response {
 
 /**
  * Parse the URL path into route parts.
- * /api/{type}/{userId}  or  /api/proxy/claude
+ * /api/{type}/{userId}
  * /api/subscription/{userId}/cancel  → type="subscription", sub="userId/cancel"
  */
 function parseRoute(url: string): { type: string; sub: string | null; rest: string[] } {
@@ -130,26 +127,6 @@ export async function kvPut(env: Env, userId: string, type: string, value: strin
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────────
-
-async function handleClaudeProxy(request: Request, env: Env): Promise<Response> {
-  if (!await validateToken(request, env)) return unauthorized();
-  const payload = await request.json<Record<string, unknown>>();
-  delete payload["__api_key__"];
-  const resp = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  const data = await resp.arrayBuffer();
-  return new Response(data, {
-    status: resp.status,
-    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-  });
-}
 
 async function handleGetUserData(
   request: Request,
@@ -220,9 +197,6 @@ export async function onRequest(context: EventContext<Env, string, unknown>): Pr
   }
 
   const { type, sub, rest } = parseRoute(url);
-
-  // POST /api/proxy/claude
-  if (type === "proxy" && method === "POST") return handleClaudeProxy(request, env);
 
   // ── Subscription routes ───────────────────────────────────────────────────
   // Lazy import handlers to keep this file lean

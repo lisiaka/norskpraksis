@@ -1,8 +1,9 @@
 # Copy this file to .dev.vars for local Wrangler development.
 # NEVER commit .dev.vars — it contains real secrets.
 
-# Existing secrets
-ANTHROPIC_API_KEY=your-anthropic-api-key-here
+# No ANTHROPIC_API_KEY here. Feature 015 moved every AI call to the FastAPI
+# backend, so the credential lives on Railway and nowhere else — including local
+# dev, where the app talks to a backend rather than to this Pages Function.
 
 # JWT_SECRET_KEY must match the FastAPI backend — the Pages Function verifies the
 # backend's tokens with it, and rejects every request when it is unset.

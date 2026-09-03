@@ -111,7 +111,7 @@ E-mail + password registration. Login returns a **JWT** (default 30-day expiry) 
 | Backend | FastAPI (`../backend/`) deployed to **Railway** via Docker |
 | Database | PostgreSQL (asyncpg + SQLAlchemy 2.0) |
 | Auth | JWT (PyJWT) + bcrypt |
-| AI | Claude (Haiku 4.5) — backend proxies `/api/proxy/claude` |
+| AI | Claude (Haiku 4.5) — via the backend at `POST /api/ai/feedback` |
 
 **State** lives in a single `state` object. Notably:
 
