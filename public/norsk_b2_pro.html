@@ -7684,7 +7684,13 @@ function buildClassQuickSelect(students, onPick){
     row.appendChild(el("button",{type:"button",
       style:{fontSize:"12px",padding:"3px 10px",borderRadius:"12px",
         border:"1px solid #ccc",background:"#fff",cursor:"pointer"},
-      click:(e)=>{ e.preventDefault(); e.stopPropagation(); onPick(ids); }},
+      click:(e)=>{ e.preventDefault(); e.stopPropagation();
+        // The one teacher feature with no server call site: "Hele klassen"
+        // ticks checkboxes and sends nothing, by design — membership resolves
+        // when the assignment is created, from the same explicit student_ids
+        // list. So the browser is the only place it can be observed.
+        trackEvent("laerer.whole_class_selected",{studentCount:ids.length});
+        onPick(ids); }},
       `${c.name} (${ids.length})`));
   });
   return row;
