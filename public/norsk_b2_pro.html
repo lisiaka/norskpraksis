@@ -8973,8 +8973,11 @@ function renderAdoption(container, data){
         last.appendChild(h("span",{style:"color:#888;font-size:11px;margin-left:6px"},"(utledet)"));
       }
       if(s.never_observed){
+        // A hint, not a verdict. Only browser-emitted features reach here —
+        // server ones are proved wired by a test, so guessing from traffic
+        // would only produce false positives on the rare-by-nature ones.
         last.appendChild(h("div",{style:"color:#b8860b;font-size:11px;margin-top:2px"},
-          `registrert ${new Date(s.registered_on).toLocaleDateString("no")}, aldri observert`));
+          `registrert ${new Date(s.registered_on).toLocaleDateString("no")}, aldri observert — sjekk om den er koblet opp`));
       }
     });
 
