@@ -8929,11 +8929,19 @@ function buildLaererBankPrompts(){
     get("/api/admin/overview"),
     get("/api/admin/adoption").catch(() => null),
     get("/api/admin/failures").catch(() => null),
+    get("/api/admin/calls").catch(() => null),
+    get("/api/admin/templates").catch(() => null),
   ])
-    .then(([overview, adoption, failures]) => {
+    .then(([overview, adoption, failures, calls, templates]) => {
       renderAdminDashboard(screen, overview);
       if(adoption) renderAdoption(screen, adoption);
       if(failures) renderFailureLog(screen, failures);
+      // Calls need the templates to show a prompt body: the calls endpoint
+      // carries only the template's hash, because the alternative is repeating
+      // the same long Norwegian prompt on every single row. Joining the two
+      // here is the whole reason the registry is deduplicated.
+      if(calls) renderAiCalls(screen, calls, templates);
+      if(templates) renderPromptTemplates(screen, templates);
     })
     .catch(err => {
       screen.innerHTML = `<p style='color:#c0392b;font-weight:600'>Feil: ${err.message}</p>`;
@@ -9083,6 +9091,145 @@ function renderFailureLog(container, data){
       f.response_excerpt || "—",
     ])
   ));
+}
+
+// ── AI-kall: hva ble spurt om, og hva kom tilbake (020) ───────────────────
+//
+// ⚠️ **This cannot show one literal prompt string, and must not pretend to.**
+// A prompt has three layers and only one is stored word for word:
+//
+//   * the base template — kept in full, and shown here;
+//   * the teacher's steering block — only a reference and a hash are kept, so
+//     what is shown is the *current* instruction text, flagged when it no
+//     longer matches what was sent;
+//   * the learner's own writing — never stored, only hashed.
+//
+// The panel says so in Norwegian rather than leaving the operator to infer it,
+// because a view that looks complete but silently omits a layer is worse than
+// one that admits the gap.
+function renderAiCalls(container, data, templates){
+  const h = (tag, attrs, ...children) => {
+    const el = document.createElement(tag);
+    Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+    children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return el;
+  };
+  const PRE = "white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;"
+    + "background:#fbfbfa;border:1px solid #e8e8e4;border-radius:6px;padding:10px;margin:4px 0 12px;max-height:340px;overflow:auto";
+  const LABEL = "font-size:12px;font-weight:700;color:#1a6b4a;margin:10px 0 2px";
+
+  // Join on the hash: the calls endpoint carries the template's fingerprint,
+  // the registry carries its text.
+  const bodyByHash = {};
+  (templates && templates.templates || []).forEach(t => { bodyByHash[t.content_hash] = t; });
+
+  container.appendChild(h("h2",{style:"font-size:16px;margin:32px 0 6px"},"🤖 AI-kall"));
+  container.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:0 0 12px"},
+    `Vellykkede kall siste ${data.days} dager.`
+    + (data.excluded_test_users ? ` ${data.excluded_test_users} testkonto(er) holdt utenfor.` : "")
+    + " Feilede kall står under AI-feil."));
+
+  if(!(data.recent||[]).length){
+    container.appendChild(h("p",{style:"color:#888;font-size:13px"},"Ingen registrerte kall i perioden."));
+    return;
+  }
+
+  if((data.by_site||[]).length){
+    container.appendChild(buildAdminTable(h,
+      ["Kallsted","Antall","Brukere","Tokens inn","Tokens ut"],
+      data.by_site.map(s => [s.call_site, s.count, s.distinct_users, s.input_tokens, s.output_tokens])
+    ));
+  }
+
+  container.appendChild(h("h3",{style:"font-size:13.5px;margin:18px 0 6px;color:#1a6b4a"},"Siste kall — klikk for å se prompt og svar"));
+
+  data.recent.forEach(c => {
+    const tpl = bodyByHash[c.template && c.template.content_hash];
+    const when = new Date(c.created_at).toLocaleString("no");
+    const head = `${when} · ${c.call_site}${c.surface ? " / " + c.surface : ""}`
+      + ` · ${c.input_tokens ?? "—"}/${c.output_tokens ?? "—"} tokens`
+      + (c.template && c.template.verified ? "" : " · ⚠️ uverifisert mal");
+
+    const box = h("details",{style:"border:1px solid #e8e8e4;border-radius:8px;padding:8px 12px;margin-bottom:8px"});
+    box.appendChild(h("summary",{style:"cursor:pointer;font-size:13px"}, head));
+
+    const meta = [
+      ["Modell", c.model],
+      ["Mal", c.template ? `${c.template.declared_id} v${c.template.declared_version}` : "—"],
+      ["Variant", c.variant],
+      ["Lærerinstruks", c.steering_applied
+        ? (c.steering_drifted ? "ja — ⚠️ endret siden kallet" : "ja")
+        : "nei"],
+      ["Innhold", c.content_ref
+        ? `${c.content_ref.kind} ${c.content_ref.id}`
+          + (c.content_ref.present === false ? " (slettet)" : "")
+          + (c.content_ref.changed_since_call ? " — ⚠️ endret siden kallet" : "")
+        : `${c.content_kind} (ikke lagret da kallet ble gjort)`],
+    ];
+    box.appendChild(buildAdminTable(h, ["Felt","Verdi"], meta));
+
+    box.appendChild(h("div",{style:LABEL},"Prompt — grunnmal (nøyaktig som sendt)"));
+    if(tpl && tpl.body){
+      box.appendChild(h("pre",{style:PRE}, tpl.body));
+    }else if(c.template && !c.template.verified){
+      box.appendChild(h("p",{style:"color:#a06000;font-size:12.5px;margin:2px 0 12px"},
+        "Dette kallet kom fra en nettleser som sendte prompten ferdig sammensatt, "
+        + "før 020. Grunnmalen kan derfor ikke skilles ut og er ikke lagret."));
+    }else{
+      box.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:2px 0 12px"},"Malen er ikke funnet."));
+    }
+
+    // The honest part. Two layers of the prompt are deliberately absent, and
+    // the panel says which and why rather than showing the base template as
+    // though it were everything that was sent.
+    box.appendChild(h("div",{style:LABEL},"Resten av prompten"));
+    box.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:2px 0 12px"},
+      "Lærerinstruksen lagres ikke ordrett — bare hvilken instruks som gjaldt, "
+      + "og en sjekksum som avslører om den er endret etterpå. Elevens egen tekst "
+      + "lagres aldri. Den fullstendige prompten er derfor ikke gjenskapbar, "
+      + "med vilje."));
+
+    box.appendChild(h("div",{style:LABEL},"Svar fra modellen (ordrett)"));
+    box.appendChild(h("pre",{style:PRE}, c.response_text || "—"));
+
+    container.appendChild(box);
+  });
+}
+
+// ── Promptmaler: én rad per distinkt prompttekst (020) ────────────────────
+// Two rows sharing a name and version but differing in checksum is **template
+// drift** — a build declaring a version it is no longer running. Seeing that
+// is the point of this table, not a fault in it.
+function renderPromptTemplates(container, data){
+  const h = (tag, attrs, ...children) => {
+    const el = document.createElement(tag);
+    Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+    children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return el;
+  };
+  const PRE = "white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;"
+    + "background:#fbfbfa;border:1px solid #e8e8e4;border-radius:6px;padding:10px;margin:4px 0 0;max-height:340px;overflow:auto";
+
+  const rows = data.templates || [];
+  container.appendChild(h("h2",{style:"font-size:16px;margin:32px 0 6px"},"📝 Promptmaler"));
+  container.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:0 0 12px"},
+    "Én rad per distinkt promptekst. To rader med samme navn og versjon, men "
+    + "ulik sjekksum, betyr at teksten er endret uten at versjonen ble satt opp — "
+    + "det er nettopp det denne tabellen skal avsløre."));
+
+  if(!rows.length){
+    container.appendChild(h("p",{style:"color:#888;font-size:13px"},"Ingen maler registrert ennå."));
+    return;
+  }
+
+  rows.forEach(t => {
+    const box = h("details",{style:"border:1px solid #e8e8e4;border-radius:8px;padding:8px 12px;margin-bottom:8px"});
+    box.appendChild(h("summary",{style:"cursor:pointer;font-size:13px"},
+      `${t.declared_id} v${t.declared_version} · ${t.call_count} kall · ${t.content_hash.slice(0,12)}…`
+      + (t.verified ? "" : " · ⚠️ uverifisert")));
+    box.appendChild(h("pre",{style:PRE}, t.body || "(tom — eldre prompt sendt ferdig sammensatt)"));
+    container.appendChild(box);
+  });
 }
 
 function renderAdminDashboard(container, data){
