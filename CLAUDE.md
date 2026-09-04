@@ -219,9 +219,22 @@ near-identical copies is what the helper replaced.
   loudly rather than silently borrowing another surface's token budget.
 - **Do not send `model` or `max_tokens`.** The backend picks both from `surface` and ignores
   anything the caller sends. Sending them is harmless but pointless.
-- **We still compose the wording.** The three long Norwegian prompts and
-  `buildTeacherSteeringBlock()` stay here by design — 015 moved the cost decision, not the
-  prompt. Moving the prompts server-side is a named follow-up.
+- **We still compose the wording — but no longer the steering block.** The three long
+  Norwegian prompt bodies stay here by design; 015 moved the cost decision, not the prompt.
+  **Feature 020 moved the teacher steering block**, which the backend now appends itself.
+  Send the body as `system_base` and do **not** append steering, or it lands in the prompt
+  twice. Moving the three bodies server-side is still a named follow-up.
+- **The signature is `requestAiFeedback(surface, systemBase, userMsg, truncatedHint, meta)`.**
+  `meta` carries `templateId` (from `AI_TEMPLATE`, mirroring `TemplateId` in
+  `backend/app/schemas/ai_record.py`), `contentKind`, and a content reference where one
+  exists. ⚠️ A content **id** usually does not exist: all three surfaces ask for feedback
+  before the thing being assessed is saved, so `contentKind` with no id is the ordinary case,
+  not a gap. Only the sentence surface has a real reference (`wordId`).
+- **Bump `AI_TEMPLATE_VERSION` when you edit one of the three prompt bodies.** It is not
+  trusted — the backend hashes the body it actually received — so a stale value degrades the
+  operator's drift report rather than corrupting data.
+- ⚠️ **This request shape needs a backend from 2026-09-04 or later.** Deploy the backend
+  first; an older one answers 422 because it has nowhere to put `system_base`.
 - Errors arrive as `{detail:{reason}}`; `aiFailureMessage()` turns a status and reason into
   one Bokmål sentence. A `401` is an expired session, never an AI failure.
 
@@ -237,8 +250,15 @@ Text cards in `lesing-tekster.json` have an optional `questions` array. Each que
 
 A teacher can set per-student "AI-fokus" instructions and rate individual AI feedback blocks; both are automatically woven into that student's future Claude calls.
 
-- `state.aiSteeringContext` — `{ instructions, recent_ratings } | null`, fetched once per session by `fetchAiSteeringContext()` (`GET /api/me/ai-context`) and cached — not re-fetched per feedback call.
-- `buildTeacherSteeringBlock()` — returns the `INSTRUKSJONER FRA LÆREREN...` / `NYLIGE VURDERINGER...` text block to append to a `systemPrompt`, or `""` if the student has no teacher/instructions. Called from all three of `checkWithClaude`, `checkEssayWithClaude`, `checkGjenfortellWithClaude` — always call `await fetchAiSteeringContext()` immediately before building `systemPrompt` in any new feedback function.
+- ⚠️ **The student half of this is no longer in the frontend.** `state.aiSteeringContext`,
+  `fetchAiSteeringContext()` and `buildTeacherSteeringBlock()` were **removed in feature
+  020**. The backend composes the block (`app/services/ai_steering.py`) and appends it to
+  the `system_base` a feedback call sends, so a new feedback function needs to do nothing
+  at all to pick up a teacher's instructions — and must **not** append a block of its own.
+  A backend test pins the Python against the deleted JavaScript as byte-identical, so no
+  learner's feedback changed when it moved.
+- `GET /api/me/ai-context` still exists and still works; nothing in the SPA calls it today.
+  The planned "Tilpasset av læreren din" badge is what would call it again.
 - Teacher-facing UI lives in `buildLaererAiFokus()` (`teacherState.view === "ai-fokus"`, reached via a KPI card in `buildLaererProgress()`): textarea + save/clear (`PUT`/`DELETE /api/teacher/students/{id}/ai-instructions`), plus a "✨ Utform med Claude" refinement chat panel (`POST /api/teacher/students/{id}/ai-chat`, capped at 10 turns — the backend rejects turn 11 with a 429 `chat_limit_reached`).
 - `buildAiRatingWidget(sourceType, sourceId)` — shared 👍/👎 + comment widget, attached under AI feedback blocks in `buildLaererEssayDetail` and `buildLaererSummaries` (`POST /api/teacher/ai-ratings`). Distinct from the existing teacher→student comment/Like widget on the same essay card — this one is teacher→AI.
 - `teacherState.aiInstructions` / `aiChatMessages` / `aiChatTurnCount` / `aiRatings` — cached state for the above, scoped to `teacherState.selectedStudent`.

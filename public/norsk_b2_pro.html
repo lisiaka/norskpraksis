@@ -640,7 +640,7 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
   loadedEssayReview: null, // teacher review for the currently loaded essay
   userRole: "student", // "student" | "teacher" — set from JWT after login
-  aiSteeringContext: null, // { instructions, recent_ratings } | null — fetched once per session, see fetchAiSteeringContext()
+  // aiSteeringContext removed in 020 — the backend composes the steering block now.
 }; // sentences: {wordId: "written sentence"}
 
 // Flashcard game state (separate from main state so it survives tab switches)
@@ -914,6 +914,18 @@ function appendClaudeDiag(container, diag){
 // with a 422 rather than defaulting, so a typo here fails loudly.
 const AI_SURFACE={SENTENCE:"sentence",ESSAY:"essay",READING_SUMMARY:"reading_summary"};
 
+// Which prompt body each surface sends, mirroring `TemplateId` in
+// `backend/app/schemas/ai_record.py`. The backend refuses an unregistered id
+// rather than guessing, so a typo here fails loudly.
+const AI_TEMPLATE={SENTENCE:"sentence_feedback",ESSAY:"essay_feedback",READING_SUMMARY:"reading_summary_feedback"};
+
+// ⚠️ **Bump this whenever one of the three prompt bodies below is edited.** It is
+// what the operator sees against a recorded call. It is *not* trusted — the backend
+// hashes the body it actually received, so a stale cached build declaring an old
+// version is detected rather than believed. Leaving it stale therefore does not
+// corrupt the data; it just makes the drift report harder to read.
+const AI_TEMPLATE_VERSION="2026-09-04";
+
 // A learner cannot act on the difference between a missing credential, a rejected
 // one and an exhausted quota — all three mean "carry on without it". The operator
 // gets the distinction from the backend log; the learner gets one honest sentence.
@@ -969,10 +981,34 @@ function reportAiFailure(surface, reason, diag){
 // Throws an Error whose message is already learner-ready Norwegian, flagged with
 // `aiHandled` so the catch block prints it as-is instead of wrapping a raw
 // technical string in "❌ Feil: ...".
-async function requestAiFeedback(surface, systemPrompt, userMsg, truncatedHint){
+// `systemBase` is the prompt body **without** the teacher steering block — the
+// backend resolves that itself and composes the two (feature 020). `meta` carries
+// the template identity and, where one exists, a reference to the content the call
+// is about.
+//
+// ⚠️ `meta.contentKind` is required by convention; a content **id** is not, and
+// usually cannot be given. All three surfaces ask for feedback before the thing
+// being assessed is saved — an essay lives in localStorage until after the reply
+// arrives — so "essay, no id" is the ordinary case, not a gap to fill in.
+//
+// ⚠️ This shape needs a backend from 2026-09-04 or later. Deploy the backend
+// first; an older one answers 422 because it has nowhere to put `system_base`.
+async function requestAiFeedback(surface, systemBase, userMsg, truncatedHint, meta){
+  meta = meta || {};
   const res=await api("/api/ai/feedback",{
     method:"POST",
-    body:JSON.stringify({surface, system:systemPrompt, messages:[{role:"user",content:userMsg}]}),
+    body:JSON.stringify({
+      surface,
+      template_id: meta.templateId,
+      template_version: AI_TEMPLATE_VERSION,
+      system_base: systemBase,
+      content_kind: meta.contentKind,
+      essay_id: meta.essayId || null,
+      sentence_id: meta.sentenceId || null,
+      word_id: meta.wordId || null,
+      reading_text_id: meta.readingTextId || null,
+      messages:[{role:"user",content:userMsg}],
+    }),
   });
   if(!res.ok){
     const body=await res.json().catch(()=>({}));
@@ -984,24 +1020,25 @@ async function requestAiFeedback(surface, systemPrompt, userMsg, truncatedHint){
 }
 
 // ── AI STEERING (teacher AI-fokus instructions + feedback ratings) ─────────
-// Fetched once per session and injected into every Claude feedback call.
-// See specs/012-teacher-ai-steering/research.md for why this lives client-side.
-async function fetchAiSteeringContext(){
-  if(state.aiSteeringContext) return state.aiSteeringContext;
-  try{
-    const res = await api("/api/me/ai-context");
-    if(!res.ok){ state.aiSteeringContext = {instructions:null, recent_ratings:[]}; return state.aiSteeringContext; }
-    state.aiSteeringContext = await res.json();
-  }catch(e){
-    state.aiSteeringContext = {instructions:null, recent_ratings:[]};
-  }
-  return state.aiSteeringContext;
-}
+//
+// ⚠️ **Nothing to do here any more.** Feature 012 fetched the teacher's steering
+// context and composed it into every Claude prompt from the browser. Feature 020
+// moved both halves to the backend (`app/services/ai_steering.py`), which owns the
+// instructions and can therefore be trusted about them — until then a client could
+// send back any steering text it liked.
+//
+// `fetchAiSteeringContext()` and `buildTeacherSteeringBlock()` are both gone, along
+// with `state.aiSteeringContext`. **Do not reintroduce the block**: the backend
+// appends it, so a client-side copy would send it twice.
+//
+// `GET /api/me/ai-context` still exists and still works. The planned
+// "Tilpasset av læreren din" badge is what would call it again — ten lines, and
+// nothing in this file depends on them today.
 
 // ── Word sharing between classmates (feature 018) ──────────────────────────
 //
-// Both of these are fetched once per session, following fetchAiSteeringContext()
-// above: one request at login, refreshed after any inbox action. No polling — a
+// Both of these are fetched once per session: one request at login, refreshed
+// after any inbox action. No polling — a
 // word arriving while the app is open shows up on the next navigation, which is
 // the right trade for an occasional, asynchronous suggestion between classmates.
 const MAX_SHARE_WORDS = 50;   // must match MAX_WORDS_PER_SEND in the backend
@@ -1028,16 +1065,10 @@ async function refreshSharing(){
   await Promise.all([fetchMyClass(true), fetchSharedInbox(true)]);
 }
 
-function buildTeacherSteeringBlock(){
-  const ctx = state.aiSteeringContext;
-  if(!ctx || !ctx.instructions) return "";
-  let block = `\n\nINSTRUKSJONER FRA LÆREREN (følg disse nøye):\n${ctx.instructions}`;
-  if(ctx.recent_ratings && ctx.recent_ratings.length){
-    const ratingsText = ctx.recent_ratings.map(r=>`- ${r.comment}`).join("\n");
-    block += `\n\nNYLIGE VURDERINGER FRA LÆREREN AV DINE TIDLIGERE TILBAKEMELDINGER:\n${ratingsText}`;
-  }
-  return block;
-}
+// `buildTeacherSteeringBlock()` lived here until feature 020. Its wording moved
+// verbatim to `app/services/ai_steering.py`, where the backend composes it — see
+// the AI STEERING note above. A backend test pins the Python and the old
+// JavaScript as byte-identical, so no learner's feedback changed when it moved.
 
 // Show a banner if served from file:// (Claude API won't work)
 if(window.location.protocol==="file:"){
@@ -2569,7 +2600,7 @@ function buildSetninger(){
   },sentWords.some((w,i)=>i!==state.wordIdx&&!state.sentences[w.id]?.trim())?"Lagre og neste ord →":"Lagre"));
 
   actions.appendChild(el("button",{class:"btn-sec",title:"Grammatikksjekk via Claude AI",
-    click:()=>checkGrammar(word.word, $("sent-ta")?.value||currentSentence)},"🤖 Sjekk med Claude"));
+    click:()=>checkGrammar(word.word, $("sent-ta")?.value||currentSentence, word.id)},"🤖 Sjekk med Claude"));
 
   if(currentSentence.trim()){
     actions.appendChild(el("button",{class:"btn-skip",
@@ -2611,7 +2642,7 @@ function buildSetninger(){
   return frag;
 }
 
-async function checkGrammar(word, sentence){
+async function checkGrammar(word, sentence, wordId){
   if(!sentence.trim()){toast("Skriv en setning først.");return;}
   const grammarDiv=$("grammar-result");
   if(!grammarDiv)return;
@@ -2622,11 +2653,11 @@ async function checkGrammar(word, sentence){
   const loading=el("div",{style:{color:"#888",fontSize:"13px",padding:"8px 0"}},"🤖 Spør Claude…");
   grammarDiv.appendChild(loading);
 
-  await checkWithClaude(word, sentence, grammarDiv);
+  await checkWithClaude(word, sentence, grammarDiv, wordId);
 }
 
 // ── Claude API grammar check ──────────────────────────────────────────
-async function checkWithClaude(word, sentence, container){
+async function checkWithClaude(word, sentence, container, wordId){
   // Claude API is blocked from file:// by browser CORS rules.
   // Must be served via localhost — run start_server.py.
   if(window.location.protocol==="file:"){
@@ -2644,7 +2675,7 @@ async function checkWithClaude(word, sentence, container){
     container.appendChild(box);
     return;
   }
-  await fetchAiSteeringContext();
+  // No steering block appended here any more — the backend composes it (020).
   const systemPrompt=`Du er en norsklærer som vurderer setninger skrevet av en elev på B2-nivå. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "correct": boolean,
@@ -2653,14 +2684,17 @@ async function checkWithClaude(word, sentence, container){
   "errors": [{"text":"problematisk ord eller uttrykk","issue":"kort forklaring på norsk","fix":"korrigert form"}],
   "improved": "full forbedret setning på norsk, eller null om den allerede er korrekt og naturlig",
   "tip": "ett kort pedagogisk tips på norsk, eller null"
-}${buildTeacherSteeringBlock()}`;
+}`;
 
   const userMsg=`Jeg er en norsk-elev på B2-nivå og øver på ordet/uttrykket: "${word}"\n\nVennligst vurder denne setningen:\n"${sentence}"`;
 
   let diag=null;
   try{
     const data=await requestAiFeedback(AI_SURFACE.SENTENCE, systemPrompt, userMsg,
-      "Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere setning.");
+      "Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere setning.",
+      // The one surface where a real reference exists at call time: the word is
+      // already in the bank. The sentence itself is not saved by this flow.
+      {templateId:AI_TEMPLATE.SENTENCE, contentKind:"sentence", wordId});
     diag=claudeDiag(data,systemPrompt,userMsg);
     // Truncated responses produce invalid JSON — report it as a length problem, not a parse error
     if(data.stop_reason==="max_tokens") throw new Error("Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere setning.");
@@ -3182,7 +3216,6 @@ async function checkEssayWithClaude(essay, container){
     return;
   }
 
-  await fetchAiSteeringContext();
   const systemPrompt=`Du er en norsklærer som vurderer et essay skrevet av en elev på B2-nivå. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "level": "A1|A2|B1|B2|C1|C2",
@@ -3192,14 +3225,18 @@ async function checkEssayWithClaude(essay, container){
   "improvements": ["forbedringsforslag 1 på norsk","forbedringsforslag 2 på norsk"],
   "overall": "2-3 setningers helhetsvurdering på norsk"
 }
-Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements til 2-4 elementer hver.${buildTeacherSteeringBlock()}`;
+Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements til 2-4 elementer hver.`;
 
   const userMsg=`Please evaluate this Norwegian essay written by a B2-level learner:\n\n${essay}`;
 
   let diag=null;
   try{
     const data=await requestAiFeedback(AI_SURFACE.ESSAY, systemPrompt, userMsg,
-      "Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere tekst.");
+      "Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere tekst.",
+      // No essay id: the essay is still a draft in localStorage at this point and
+      // is only PATCHed to the server *after* this reply arrives. The kind alone
+      // is the honest record.
+      {templateId:AI_TEMPLATE.ESSAY, contentKind:"essay"});
     diag=claudeDiag(data,systemPrompt,userMsg);
     // Truncated responses produce invalid JSON — report it as a length problem, not a parse error
     if(data.stop_reason==="max_tokens") throw new Error("Svaret ble avkuttet fordi det ble for langt. Prøv med en kortere tekst.");
@@ -3311,7 +3348,6 @@ async function checkGjenfortellWithClaude(text, summary, container){
     return;
   }
 
-  await fetchAiSteeringContext();
   const systemPrompt=`Du er en norsklærer som vurderer et sammendrag skrevet av en elev på B2-nivå. Eleven har lest en tekst og skrevet et sammendrag på 100–150 ord. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "level": "A1|A2|B1|B2|C1|C2",
@@ -3322,14 +3358,18 @@ async function checkGjenfortellWithClaude(text, summary, container){
   "overall": "2-3 setningers helhetsvurdering på norsk"
 }
 Hold grammarErrors til maks 5 oppføringer — aldri flere, uansett hvor lang originalteksten er. Hvis det ikke er grammatikkfeil, bruk en tom array [].
-VIKTIG: Svaret skal ha samme lengde uansett hvor lang originalteksten er. Respekter setningsgrensene over for hvert felt, og hold hver grammarErrors-oppføring på én kort setning. Ikke gjengi deler av originalteksten.${buildTeacherSteeringBlock()}`;
+VIKTIG: Svaret skal ha samme lengde uansett hvor lang originalteksten er. Respekter setningsgrensene over for hvert felt, og hold hver grammarErrors-oppføring på én kort setning. Ikke gjengi deler av originalteksten.`;
 
   const userMsg=`Originaltekst:\n${text.text}\n\nElevens sammendrag:\n${summary}\n\nVurder sammendraget med tanke på: tekstforståelse, bruk av ord fra originalteksten, grammatikk og språknivå.`;
 
   let diag=null;
   try{
     const data=await requestAiFeedback(AI_SURFACE.READING_SUMMARY, systemPrompt, userMsg,
-      "Svaret ble avkuttet fordi det ble for langt. Prøv med et kortere sammendrag.");
+      "Svaret ble avkuttet fordi det ble for langt. Prøv med et kortere sammendrag.",
+      // `text.id` is a reading-corpus id like `lesing_sprak_01` — a static asset
+      // key with no table behind it, so it is recorded as a plain identifier
+      // rather than a foreign key. The summary row itself is written afterwards.
+      {templateId:AI_TEMPLATE.READING_SUMMARY, contentKind:"reading_summary", readingTextId:text.id});
     // Captured so the catch below can report what actually came back
     diag=claudeDiag(data,systemPrompt,userMsg);
     // Truncated responses produce invalid JSON — report it as a length problem, not a parse error
