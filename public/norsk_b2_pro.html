@@ -9172,9 +9172,20 @@ function renderAiCalls(container, data, templates){
     if(tpl && tpl.body){
       box.appendChild(h("pre",{style:PRE}, tpl.body));
     }else if(c.template && !c.template.verified){
-      box.appendChild(h("p",{style:"color:#a06000;font-size:12.5px;margin:2px 0 12px"},
-        "Dette kallet kom fra en nettleser som sendte prompten ferdig sammensatt, "
-        + "før 020. Grunnmalen kan derfor ikke skilles ut og er ikke lagret."));
+      // Actionable, not just descriptive. The overwhelmingly common cause of a
+      // legacy row is a browser tab opened before the frontend deploy — the HTML
+      // is `must-revalidate`, so a reload fixes it, but an already-open tab keeps
+      // running the old build indefinitely. Saying only "this is pre-020" leaves
+      // the operator to work that out at exactly the wrong moment.
+      const warn = h("p",{style:"color:#a06000;font-size:12.5px;margin:2px 0 12px"},
+        "Dette kallet sendte prompten ferdig sammensatt, slik appen gjorde før 020. "
+        + "Grunnmalen kan derfor ikke skilles ut, og er ikke lagret.");
+      warn.appendChild(h("br"));
+      warn.appendChild(h("span",{style:"color:#666"},
+        "Er kallet nyere enn frontend-deployen? Da kjørte fanen fortsatt den gamle "
+        + "bygningen. Last siden på nytt (Cmd/Ctrl+Shift+R) og prøv igjen — nye kall "
+        + "lagrer malen."));
+      box.appendChild(warn);
     }else{
       box.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:2px 0 12px"},"Malen er ikke funnet."));
     }
