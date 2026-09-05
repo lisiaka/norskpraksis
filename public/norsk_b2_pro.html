@@ -924,7 +924,7 @@ const AI_TEMPLATE={SENTENCE:"sentence_feedback",ESSAY:"essay_feedback",READING_S
 // hashes the body it actually received, so a stale cached build declaring an old
 // version is detected rather than believed. Leaving it stale therefore does not
 // corrupt the data; it just makes the drift report harder to read.
-const AI_TEMPLATE_VERSION="2026-09-04";
+const AI_TEMPLATE_VERSION="2026-09-05";
 
 // A learner cannot act on the difference between a missing credential, a rejected
 // one and an exhausted quota — all three mean "carry on without it". The operator
@@ -2676,7 +2676,7 @@ async function checkWithClaude(word, sentence, container, wordId){
     return;
   }
   // No steering block appended here any more — the backend composes it (020).
-  const systemPrompt=`Du er en norsklærer som vurderer setninger skrevet av en elev på B2-nivå. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
+  const systemPrompt=`Du er en norsklærer som vurderer setninger skrevet av en norsk-elev. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "correct": boolean,
   "natural": boolean,
@@ -2686,7 +2686,7 @@ async function checkWithClaude(word, sentence, container, wordId){
   "tip": "ett kort pedagogisk tips på norsk, eller null"
 }`;
 
-  const userMsg=`Jeg er en norsk-elev på B2-nivå og øver på ordet/uttrykket: "${word}"\n\nVennligst vurder denne setningen:\n"${sentence}"`;
+  const userMsg=`Jeg er en norsk-elev og øver på ordet/uttrykket: "${word}"\n\nVennligst vurder denne setningen:\n"${sentence}"`;
 
   let diag=null;
   try{
@@ -3216,7 +3216,7 @@ async function checkEssayWithClaude(essay, container){
     return;
   }
 
-  const systemPrompt=`Du er en norsklærer som vurderer et essay skrevet av en elev på B2-nivå. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
+  const systemPrompt=`Du er en norsklærer som vurderer et essay skrevet av en norsk-elev. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "level": "A1|A2|B1|B2|C1|C2",
   "levelComment": "1-2 setninger som forklarer nivåvurderingen på norsk",
@@ -3225,9 +3225,10 @@ async function checkEssayWithClaude(essay, container){
   "improvements": ["forbedringsforslag 1 på norsk","forbedringsforslag 2 på norsk"],
   "overall": "2-3 setningers helhetsvurdering på norsk"
 }
+Vurder språknivået (level) utelukkende ut fra teksten som er skrevet — ikke anta et nivå på forhånd.
 Hold grammarErrors til de 3-5 viktigste feilene. Hold strengths og improvements til 2-4 elementer hver.`;
 
-  const userMsg=`Please evaluate this Norwegian essay written by a B2-level learner:\n\n${essay}`;
+  const userMsg=`Please evaluate this Norwegian essay:\n\n${essay}`;
 
   let diag=null;
   try{
@@ -3348,7 +3349,7 @@ async function checkGjenfortellWithClaude(text, summary, container){
     return;
   }
 
-  const systemPrompt=`Du er en norsklærer som vurderer et sammendrag skrevet av en elev på B2-nivå. Eleven har lest en tekst og skrevet et sammendrag på 100–150 ord. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
+  const systemPrompt=`Du er en norsklærer som vurderer et sammendrag skrevet av en norsk-elev. Eleven har lest en tekst og skrevet et sammendrag på 100–150 ord. Svar KUN med gyldig JSON — ingen prosa, ingen markdown — i nøyaktig denne strukturen:
 {
   "level": "A1|A2|B1|B2|C1|C2",
   "levelComment": "1-2 setninger som forklarer nivåvurderingen på norsk",
@@ -3357,6 +3358,7 @@ async function checkGjenfortellWithClaude(text, summary, container){
   "grammarErrors": [{"text":"problematisk ord eller uttrykk fra sammendraget","issue":"kort forklaring på norsk","fix":"korrigert form"}],
   "overall": "2-3 setningers helhetsvurdering på norsk"
 }
+Vurder språknivået (level) utelukkende ut fra teksten som er skrevet — ikke anta et nivå på forhånd.
 Hold grammarErrors til maks 5 oppføringer — aldri flere, uansett hvor lang originalteksten er. Hvis det ikke er grammatikkfeil, bruk en tom array [].
 VIKTIG: Svaret skal ha samme lengde uansett hvor lang originalteksten er. Respekter setningsgrensene over for hvert felt, og hold hver grammarErrors-oppføring på én kort setning. Ikke gjengi deler av originalteksten.`;
 
