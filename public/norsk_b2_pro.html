@@ -9190,15 +9190,37 @@ function renderAiCalls(container, data, templates){
       box.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:2px 0 12px"},"Malen er ikke funnet."));
     }
 
-    // The honest part. Two layers of the prompt are deliberately absent, and
-    // the panel says which and why rather than showing the base template as
-    // though it were everything that was sent.
-    box.appendChild(h("div",{style:LABEL},"Resten av prompten"));
+    // The steering block is not stored, but it is *resolvable* — the record
+    // points at a real instruction row. The hash decides what we may claim:
+    // matching means this text is provably what was sent, differing means it is
+    // only the current wording. Showing the text without that distinction would
+    // be exactly the confident lie the drift flag exists to prevent.
+    if(c.steering_applied){
+      box.appendChild(h("div",{style:LABEL},
+        c.steering_drifted === false
+          ? "Prompt — lærerinstruks (nøyaktig som sendt)"
+          : "Prompt — lærerinstruks"));
+      if(c.steering_text && c.steering_drifted === false){
+        box.appendChild(h("p",{style:"color:#1a6b4a;font-size:12px;margin:2px 0 4px"},
+          "Sjekksummen stemmer, så dette er ordrett teksten som ble sendt."));
+        box.appendChild(h("pre",{style:PRE}, c.steering_text));
+      }else if(c.steering_text){
+        box.appendChild(h("p",{style:"color:#a06000;font-size:12.5px;margin:2px 0 4px"},
+          "⚠️ Instruksen er endret etter kallet. Teksten under er den som gjelder "
+          + "nå — ikke den som ble sendt. Originalen er ikke lagret."));
+        box.appendChild(h("pre",{style:PRE}, c.steering_text));
+      }else{
+        box.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:2px 0 12px"},
+          "Instruksen som gjaldt er slettet, så teksten kan ikke hentes fram."));
+      }
+    }
+
+    // What genuinely cannot be shown, and why.
+    box.appendChild(h("div",{style:LABEL},"Elevens egen tekst"));
     box.appendChild(h("p",{style:"color:#888;font-size:12.5px;margin:2px 0 12px"},
-      "Lærerinstruksen lagres ikke ordrett — bare hvilken instruks som gjaldt, "
-      + "og en sjekksum som avslører om den er endret etterpå. Elevens egen tekst "
-      + "lagres aldri. Den fullstendige prompten er derfor ikke gjenskapbar, "
-      + "med vilje."));
+      "Lagres aldri — bare en sjekksum, slik at det er mulig å se om teksten er "
+      + "endret etterpå. Det er derfor prompten ikke kan gjenskapes ord for ord i "
+      + "sin helhet, og det er med vilje."));
 
     box.appendChild(h("div",{style:LABEL},"Svar fra modellen (ordrett)"));
     box.appendChild(h("pre",{style:PRE}, c.response_text || "—"));
