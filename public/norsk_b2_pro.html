@@ -9168,6 +9168,24 @@ function renderAiCalls(container, data, templates){
     ];
     box.appendChild(buildAdminTable(h, ["Felt","Verdi"], meta));
 
+    // Lead with the whole thing. The layers are shown below for anyone who
+    // needs to see which part came from where, but the first question is
+    // almost always "what did the model actually read", and answering that
+    // with three separate fragments and a disclaimer was not answering it.
+    if(c.system_composed){
+      const exact = c.template && c.template.verified && c.steering_drifted !== true;
+      box.appendChild(h("div",{style:LABEL},
+        exact ? "📄 Hele prompten — nøyaktig som modellen fikk den"
+              : "📄 Hele prompten — satt sammen på nytt"));
+      box.appendChild(h("p",{style:`font-size:12px;margin:2px 0 4px;color:${exact ? "#1a6b4a" : "#a06000"}`},
+        exact
+          ? "Grunnmal + lærerinstruks, satt sammen slik serveren gjorde det. Sjekksummene stemmer, så dette er ordrett."
+          : "⚠️ Noe har endret seg siden kallet, så dette er dagens deler satt sammen — ikke et referat av selve kallet."));
+      box.appendChild(h("pre",{style:PRE}, c.system_composed));
+      box.appendChild(h("p",{style:"color:#888;font-size:12px;margin:-6px 0 12px"},
+        "Elevens egen tekst kommer i tillegg til dette, som en egen melding. Den lagres aldri."));
+    }
+
     box.appendChild(h("div",{style:LABEL},"Prompt — grunnmal (nøyaktig som sendt)"));
     if(tpl && tpl.body){
       box.appendChild(h("pre",{style:PRE}, tpl.body));
