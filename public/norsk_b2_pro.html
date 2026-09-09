@@ -1424,6 +1424,8 @@ function renderTabs(){
     c.appendChild(el("div",{class:"nav-section-label"},"Lærer"));
     const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts"].includes(teacherState.view);
     c.appendChild(el("button",{class:"tab-btn"+(isRoster?" active":""),click(){teacherState.view="roster";setTab("laerer");}}, "👩‍\u200d🏫 Klassen min"));
+    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="ai-fokus-hub"?" active":""),
+      click(){teacherState.aiFokusDefaultInstructions=null;teacherState.aiFokusDefaultReportConfigs={essay:null,reading_summary:null};teacherState.view="ai-fokus-hub";setTab("laerer");}}, "🤖 AI-fokus"));
     c.appendChild(el("div",{class:"nav-section-label"},"Mine banker"));
     c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="bank-texts"?" active":""),click(){teacherState.view="bank-texts";setTab("laerer");}}, "📖 Tekstbank"));
     c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="bank-prompts"?" active":""),click(){teacherState.view="bank-prompts";setTab("laerer");}}, "✍\ufe0f Oppgavebank"));
@@ -6450,6 +6452,13 @@ const teacherState = {
   reportConfigs: {essay:null, reading_summary:null}, // cached GET .../report-config per surface (021)
   reportConfigSurface: "essay", // which surface tab is open in the AI-fokus screen
   promptTestResults: [], // session-scoped list of {source, reply} from "Test mot essay" (021, US2)
+  // ── AI-fokus hub (021 teacher/class scope) ──────────────────────────────
+  aiFokusDefaultInstructions: null,   // cached GET /api/teacher/ai-defaults/instructions
+  aiFokusDefaultReportConfigs: {essay:null, reading_summary:null}, // per-surface, same shape as reportConfigs
+  aiFokusDefaultSurface: "essay",     // which surface tab is open for the default report layout
+  aiFokusBulkTargetType: "class",     // "class" | "students" — who a bulk apply targets
+  aiFokusBulkClassId: null,
+  aiFokusBulkStudentIds: new Set(),
 };
 
 function buildLaerer(){
@@ -6472,6 +6481,7 @@ function buildLaerer(){
   else if(teacherState.view === "bank-texts")  wrap.appendChild(buildLaererBankTexts());
   else if(teacherState.view === "bank-prompts") wrap.appendChild(buildLaererBankPrompts());
   else if(teacherState.view === "ai-fokus")    wrap.appendChild(buildLaererAiFokus());
+  else if(teacherState.view === "ai-fokus-hub") wrap.appendChild(buildLaererAiFokusHub());
 
   frag.appendChild(wrap);
   return frag;
@@ -7208,6 +7218,367 @@ function buildPromptTestPanel(student, getDraft){
   }
 
   return wrap;
+}
+
+// ── AI-fokus hub (021 teacher/class scope) ──────────────────────────────
+// Reached from the main teacher sidebar, not nested under a student. A
+// teacher's default cascades live to every student with no override of
+// their own — resolved server-side (ai_steering.py / routers/ai.py) the
+// same way for a real feedback call. Applying to a class or to particular
+// students is a bulk write into each of those students' own per-student
+// rows instead, resolved once when the teacher acts — same precedent as
+// "Hele klassen" already set for assignments elsewhere in this app: a
+// student who joins that class afterward is unaffected until the teacher
+// applies again.
+function buildLaererAiFokusHub(){
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("h2",{style:{marginBottom:"4px"}},"🤖 AI-fokus"));
+  frag.appendChild(el("p",{style:{color:"#888",fontSize:"13px",marginBottom:"16px"}},
+    "Sett en standard som gjelder alle elevene dine automatisk, eller bruk en instruks eller rapportlayout på en hel klasse eller utvalgte elever. En elevs egen innstilling — satt fra Klassen min → eleven → AI-fokus — går alltid foran."));
+
+  frag.appendChild(buildAiFokusDefaultCard());
+  frag.appendChild(buildAiFokusBulkApplyCard());
+
+  return frag;
+}
+
+function buildAiFokusDefaultCard(){
+  const card = el("div",{class:"card",style:{padding:"16px",marginBottom:"16px"}});
+  card.appendChild(el("h3",{style:{marginBottom:"4px"}},"Standard for alle elever"));
+  card.appendChild(el("p",{style:{color:"#888",fontSize:"13px",marginBottom:"12px"}},
+    "Gjelder automatisk for enhver elev som ikke har sin egen innstilling."));
+
+  const textarea = el("textarea",{rows:"5", maxlength:"1500",
+    style:{width:"100%",padding:"8px",boxSizing:"border-box",border:"1px solid #ccc",
+      borderRadius:"6px",fontSize:"14px",resize:"vertical"},
+    placeholder:"F.eks: Vær streng på verbbøyning for alle elevene mine."});
+  card.appendChild(textarea);
+  const err = el("div",{style:{color:"#c0392b",fontSize:"13px",marginTop:"6px",display:"none"}});
+  const btnRow = el("div",{style:{display:"flex",gap:"10px",marginTop:"10px",marginBottom:"20px"}});
+
+  const saveBtn = el("button",{class:"btn-primary",
+    click: async ()=>{
+      const value = textarea.value.trim();
+      if(!value){ err.textContent="Instruksjoner kan ikke være tomme"; err.style.display=""; return; }
+      err.style.display="none"; saveBtn.disabled=true; saveBtn.textContent="Lagrer…";
+      const r = await api("/api/teacher/ai-defaults/instructions",{
+        method:"PUT", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({instructions:value}),
+      });
+      if(r.ok){
+        teacherState.aiFokusDefaultInstructions = await r.json();
+        toast("✓ Standard AI-fokus lagret");
+        clearBtn.disabled=false;
+      }else{
+        const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
+        err.textContent = typeof d.detail==="string" ? d.detail : "Kunne ikke lagre";
+        err.style.display="";
+      }
+      saveBtn.disabled=false; saveBtn.textContent="Lagre";
+    }
+  },"Lagre");
+  btnRow.appendChild(saveBtn);
+
+  const clearBtn = el("button",{class:"btn-secondary",
+    click: async ()=>{
+      clearBtn.disabled=true;
+      const r = await api("/api/teacher/ai-defaults/instructions",{method:"DELETE"});
+      if(r.ok){
+        teacherState.aiFokusDefaultInstructions = {instructions:null, updated_at:null, source:"none"};
+        textarea.value="";
+        toast("✓ Standard fjernet");
+      }
+      clearBtn.disabled=false;
+    }
+  },"Fjern");
+  btnRow.appendChild(clearBtn);
+
+  card.appendChild(err);
+  card.appendChild(btnRow);
+
+  async function loadInstructions(){
+    if(!teacherState.aiFokusDefaultInstructions){
+      const r = await api("/api/teacher/ai-defaults/instructions").catch(()=>null);
+      teacherState.aiFokusDefaultInstructions = r?.ok ? await r.json() : {instructions:null, updated_at:null, source:"none"};
+    }
+    textarea.value = teacherState.aiFokusDefaultInstructions.instructions || "";
+    clearBtn.disabled = !teacherState.aiFokusDefaultInstructions.instructions;
+  }
+  loadInstructions();
+
+  card.appendChild(el("hr",{style:{border:"none",borderTop:"1px solid #eee",margin:"4px 0 16px"}}));
+  card.appendChild(el("h4",{style:{marginBottom:"4px"}},"Standard rapportlayout"));
+
+  const tabRow = el("div",{style:{display:"flex",gap:"8px",marginBottom:"12px"}});
+  card.appendChild(tabRow);
+  const bodyHost = el("div",{});
+  card.appendChild(bodyHost);
+
+  [["essay","Essay"],["reading_summary","Gjenfortelling"]].forEach(([surface,label])=>{
+    tabRow.appendChild(el("button",{
+      class: teacherState.aiFokusDefaultSurface===surface ? "btn-primary" : "btn-secondary",
+      style:{fontSize:"13px"},
+      click: ()=>{ teacherState.aiFokusDefaultSurface=surface; renderDefaultBlocks(); }
+    }, label));
+  });
+
+  function renderDefaultBlocks(){
+    bodyHost.innerHTML="";
+    const surface = teacherState.aiFokusDefaultSurface;
+    bodyHost.appendChild(el("div",{style:{color:"#888",fontSize:"13px"}},"Laster…"));
+
+    (async ()=>{
+      if(!teacherState.aiFokusDefaultReportConfigs[surface]){
+        const r = await api(`/api/teacher/ai-defaults/report-config?surface=${surface}`).catch(()=>null);
+        teacherState.aiFokusDefaultReportConfigs[surface] = r?.ok ? await r.json() : null;
+      }
+      const cfg = teacherState.aiFokusDefaultReportConfigs[surface];
+      bodyHost.innerHTML="";
+      if(!cfg){
+        bodyHost.appendChild(el("div",{style:{color:"#c0392b",fontSize:"13px"}},"Kunne ikke laste rapportlayout."));
+        return;
+      }
+
+      const draft = cfg.blocks.map(b=>({type:b.type, params:b.params||{}, instruction:b.instruction||null}));
+      bodyHost.appendChild(el("div",{style:{fontSize:"12px",color: cfg.source==="student" ? "#1a6b4a" : "#888", marginBottom:"8px"}},
+        cfg.source==="student" ? "Standard lagret." : "Bruker appens standardrapport."));
+
+      const listEl = el("div",{});
+      bodyHost.appendChild(listEl);
+      function renderList(){
+        listEl.innerHTML="";
+        draft.forEach((block,i)=>{
+          const row = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",
+            background:"#f8f9fa",borderRadius:"6px",marginBottom:"6px"}});
+          row.appendChild(el("span",{style:{flex:"1",fontSize:"13px",fontWeight:"600"}}, REPORT_BLOCK_LABELS[block.type]||block.type));
+          row.appendChild(el("button",{class:"btn-secondary",disabled:i===0,style:{padding:"2px 8px"},
+            click:()=>{ [draft[i-1],draft[i]]=[draft[i],draft[i-1]]; renderList(); }},"↑"));
+          row.appendChild(el("button",{class:"btn-secondary",disabled:i===draft.length-1,style:{padding:"2px 8px"},
+            click:()=>{ [draft[i+1],draft[i]]=[draft[i],draft[i+1]]; renderList(); }},"↓"));
+          row.appendChild(el("button",{class:"btn-secondary",style:{padding:"2px 8px",color:"#c0392b"},
+            click:()=>{ draft.splice(i,1); renderList(); }},"✕"));
+          listEl.appendChild(row);
+        });
+      }
+      renderList();
+
+      const addRow = el("div",{style:{display:"flex",gap:"8px",marginTop:"8px",marginBottom:"12px"}});
+      const addSelect = el("select",{style:{flex:"1",padding:"6px",borderRadius:"6px",border:"1px solid #ccc"}},
+        ...REPORT_BLOCK_TYPES.map(t=>el("option",{value:t},REPORT_BLOCK_LABELS[t])));
+      addRow.appendChild(addSelect);
+      addRow.appendChild(el("button",{class:"btn-secondary",
+        click:()=>{ draft.push({type:addSelect.value, params:{}, instruction:null}); renderList(); }
+      },"+ Legg til blokk"));
+      bodyHost.appendChild(addRow);
+
+      const rcErr = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
+      bodyHost.appendChild(rcErr);
+
+      const rcBtnRow = el("div",{style:{display:"flex",gap:"10px"}});
+      rcBtnRow.appendChild(el("button",{class:"btn-primary",
+        click: async ()=>{
+          if(!draft.length){
+            rcErr.textContent="Rapporten må ha minst én seksjon.";
+            rcErr.style.display=""; return;
+          }
+          rcErr.style.display="none";
+          const r = await api(`/api/teacher/ai-defaults/report-config?surface=${surface}`,{
+            method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({blocks:draft}),
+          });
+          if(r.ok){
+            teacherState.aiFokusDefaultReportConfigs[surface] = await r.json();
+            toast("✓ Standard rapportlayout lagret");
+            renderDefaultBlocks();
+          }else{
+            const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
+            rcErr.textContent = typeof d.detail==="string" ? d.detail : "Kunne ikke lagre";
+            rcErr.style.display="";
+          }
+        }
+      },"Lagre rapportlayout"));
+
+      if(cfg.source==="student"){
+        rcBtnRow.appendChild(el("button",{class:"btn-secondary",
+          click: async ()=>{
+            const r = await api(`/api/teacher/ai-defaults/report-config?surface=${surface}`,{method:"DELETE"});
+            if(r.ok){
+              teacherState.aiFokusDefaultReportConfigs[surface] = null;
+              toast("✓ Tilbakestilt til appens standard");
+              renderDefaultBlocks();
+            }
+          }
+        },"Tilbakestill til appens standard"));
+      }
+      bodyHost.appendChild(rcBtnRow);
+    })();
+  }
+  renderDefaultBlocks();
+
+  return card;
+}
+
+function buildAiFokusBulkApplyCard(){
+  const card = el("div",{class:"card",style:{padding:"16px"}});
+  card.appendChild(el("h3",{style:{marginBottom:"4px"}},"Bruk på en klasse eller utvalgte elever"));
+  card.appendChild(el("p",{style:{color:"#888",fontSize:"13px",marginBottom:"12px"}},
+    "Skriver direkte inn i hver av de valgte elevenes egne innstillinger — akkurat som å redigere dem én og én, bare på flere samtidig. Påvirker ikke elever som blir med i klassen senere."));
+
+  const targetHost = el("div",{style:{marginBottom:"16px"}});
+  card.appendChild(targetHost);
+
+  const typeRow = el("div",{style:{display:"flex",gap:"8px",marginBottom:"10px"}});
+  targetHost.appendChild(typeRow);
+  [["class","En klasse"],["students","Utvalgte elever"]].forEach(([type,label])=>{
+    typeRow.appendChild(el("button",{
+      class: teacherState.aiFokusBulkTargetType===type ? "btn-primary" : "btn-secondary",
+      style:{fontSize:"13px"},
+      click: ()=>{ teacherState.aiFokusBulkTargetType=type; renderTargetPicker(); }
+    }, label));
+  });
+
+  const pickerHost = el("div",{});
+  targetHost.appendChild(pickerHost);
+
+  function currentTarget(){
+    if(teacherState.aiFokusBulkTargetType==="class"){
+      if(!teacherState.aiFokusBulkClassId) return null;
+      return {type:"class", class_id:teacherState.aiFokusBulkClassId};
+    }
+    if(!teacherState.aiFokusBulkStudentIds.size) return null;
+    return {type:"students", student_ids:[...teacherState.aiFokusBulkStudentIds]};
+  }
+
+  function renderTargetPicker(){
+    pickerHost.innerHTML="";
+    if(teacherState.aiFokusBulkTargetType==="class"){
+      const select = el("select",{style:{width:"100%",padding:"6px",borderRadius:"6px",border:"1px solid #ccc"}},
+        el("option",{value:""},"Velg en klasse…"),
+        ...(teacherState.classes||[]).map(c=>el("option",{value:c.id},`${c.name} (${c.student_count} elever)`)),
+      );
+      select.value = teacherState.aiFokusBulkClassId || "";
+      select.addEventListener("change",()=>{ teacherState.aiFokusBulkClassId = select.value || null; });
+      pickerHost.appendChild(select);
+      if(!(teacherState.classes||[]).length){
+        pickerHost.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginTop:"6px"}},"Du har ingen klasser ennå — lag en fra Klassen min."));
+      }
+    }else{
+      const list = el("div",{style:{maxHeight:"220px",overflowY:"auto",border:"1px solid #eee",borderRadius:"6px",padding:"8px"}});
+      (teacherState.students||[]).forEach(s=>{
+        const row = el("label",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"4px 0",fontSize:"13px",cursor:"pointer"}});
+        const cb = el("input",{type:"checkbox",checked:teacherState.aiFokusBulkStudentIds.has(s.id)});
+        cb.addEventListener("change",()=>{
+          if(cb.checked) teacherState.aiFokusBulkStudentIds.add(s.id);
+          else teacherState.aiFokusBulkStudentIds.delete(s.id);
+        });
+        row.appendChild(cb);
+        row.appendChild(el("span",{},s.name));
+        list.appendChild(row);
+      });
+      if(!(teacherState.students||[]).length){
+        list.appendChild(el("div",{style:{fontSize:"12px",color:"#888"}},"Ingen elever på lista ennå."));
+      }
+      pickerHost.appendChild(list);
+    }
+  }
+
+  const instrTextarea = el("textarea",{rows:"3", maxlength:"1500",
+    style:{width:"100%",padding:"8px",boxSizing:"border-box",border:"1px solid #ccc",
+      borderRadius:"6px",fontSize:"14px",resize:"vertical",marginBottom:"8px"},
+    placeholder:"Instruksjon å bruke på de valgte elevene"});
+  const instrErr = el("div",{style:{color:"#c0392b",fontSize:"13px",marginBottom:"8px",display:"none"}});
+  const instrBtn = el("button",{class:"btn-primary",
+    click: async ()=>{
+      const target = currentTarget();
+      const value = instrTextarea.value.trim();
+      if(!target){ instrErr.textContent="Velg en klasse eller minst én elev først."; instrErr.style.display=""; return; }
+      if(!value){ instrErr.textContent="Instruksjoner kan ikke være tomme."; instrErr.style.display=""; return; }
+      instrErr.style.display="none"; instrBtn.disabled=true; instrBtn.textContent="Bruker…";
+      const r = await api("/api/teacher/ai-defaults/instructions/apply",{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({target, instructions:value}),
+      });
+      if(r.ok){
+        const data = await r.json();
+        toast(`✓ Brukt på ${data.student_count} elev(er)`);
+        instrTextarea.value="";
+      }else{
+        const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
+        instrErr.textContent = typeof d.detail==="string" ? d.detail : "Kunne ikke bruke instruksjonen";
+        instrErr.style.display="";
+      }
+      instrBtn.disabled=false; instrBtn.textContent="Bruk instruksjon";
+    }
+  },"Bruk instruksjon");
+
+  const rcDraft = [{type:"strengths", params:{}, instruction:null}];
+  const rcErr = el("div",{style:{color:"#c0392b",fontSize:"13px",margin:"8px 0",display:"none"}});
+  const rcListEl = el("div",{style:{marginBottom:"8px"}});
+  function renderRcList(){
+    rcListEl.innerHTML="";
+    rcDraft.forEach((block,i)=>{
+      const row = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",
+        background:"#f8f9fa",borderRadius:"6px",marginBottom:"6px"}});
+      row.appendChild(el("span",{style:{flex:"1",fontSize:"13px",fontWeight:"600"}}, REPORT_BLOCK_LABELS[block.type]||block.type));
+      row.appendChild(el("button",{class:"btn-secondary",disabled:i===0,style:{padding:"2px 8px"},
+        click:()=>{ [rcDraft[i-1],rcDraft[i]]=[rcDraft[i],rcDraft[i-1]]; renderRcList(); }},"↑"));
+      row.appendChild(el("button",{class:"btn-secondary",disabled:i===rcDraft.length-1,style:{padding:"2px 8px"},
+        click:()=>{ [rcDraft[i+1],rcDraft[i]]=[rcDraft[i],rcDraft[i+1]]; renderRcList(); }},"↓"));
+      row.appendChild(el("button",{class:"btn-secondary",style:{padding:"2px 8px",color:"#c0392b"},
+        click:()=>{ rcDraft.splice(i,1); renderRcList(); }},"✕"));
+      rcListEl.appendChild(row);
+    });
+  }
+  renderRcList();
+  const rcAddRow = el("div",{style:{display:"flex",gap:"8px",marginBottom:"8px"}});
+  const rcSurfaceSelect = el("select",{style:{padding:"6px",borderRadius:"6px",border:"1px solid #ccc"}},
+    el("option",{value:"essay"},"Essay"), el("option",{value:"reading_summary"},"Gjenfortelling"));
+  const rcAddSelect = el("select",{style:{flex:"1",padding:"6px",borderRadius:"6px",border:"1px solid #ccc"}},
+    ...REPORT_BLOCK_TYPES.map(t=>el("option",{value:t},REPORT_BLOCK_LABELS[t])));
+  rcAddRow.appendChild(rcSurfaceSelect);
+  rcAddRow.appendChild(rcAddSelect);
+  rcAddRow.appendChild(el("button",{class:"btn-secondary",
+    click:()=>{ rcDraft.push({type:rcAddSelect.value, params:{}, instruction:null}); renderRcList(); }
+  },"+ Legg til blokk"));
+  const rcBtn = el("button",{class:"btn-primary",
+    click: async ()=>{
+      const target = currentTarget();
+      if(!target){ rcErr.textContent="Velg en klasse eller minst én elev først."; rcErr.style.display=""; return; }
+      if(!rcDraft.length){ rcErr.textContent="Rapporten må ha minst én seksjon."; rcErr.style.display=""; return; }
+      rcErr.style.display="none"; rcBtn.disabled=true; rcBtn.textContent="Bruker…";
+      const r = await api(`/api/teacher/ai-defaults/report-config/apply?surface=${rcSurfaceSelect.value}`,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({target, blocks:rcDraft}),
+      });
+      if(r.ok){
+        const data = await r.json();
+        toast(`✓ Brukt på ${data.student_count} elev(er)`);
+      }else{
+        const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
+        rcErr.textContent = typeof d.detail==="string" ? d.detail : "Kunne ikke bruke rapportlayouten";
+        rcErr.style.display="";
+      }
+      rcBtn.disabled=false; rcBtn.textContent="Bruk rapportlayout";
+    }
+  },"Bruk rapportlayout");
+
+  card.appendChild(el("h4",{style:{marginBottom:"6px"}},"Instruksjon"));
+  card.appendChild(instrTextarea);
+  card.appendChild(instrErr);
+  card.appendChild(instrBtn);
+
+  card.appendChild(el("hr",{style:{border:"none",borderTop:"1px solid #eee",margin:"16px 0"}}));
+  card.appendChild(el("h4",{style:{marginBottom:"6px"}},"Rapportlayout"));
+  card.appendChild(rcListEl);
+  card.appendChild(rcAddRow);
+  card.appendChild(rcErr);
+  card.appendChild(rcBtn);
+
+  (async ()=>{
+    await ensureTeacherRoster();
+    renderTargetPicker();
+  })();
+
+  return card;
 }
 
 // Rating widget attached under an AI feedback block (essay/retell/sentence).
