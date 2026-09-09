@@ -6964,7 +6964,7 @@ function buildReportLayoutCard(student){
 
   const err = el("div",{style:{color:"#c0392b",fontSize:"13px",marginTop:"6px",display:"none"}});
 
-  [["essay","Essay"],["reading_summary","Gjenfortelling"]].forEach(([surface,label])=>{
+  [["essay","Stil"],["reading_summary","Gjenfortelling"]].forEach(([surface,label])=>{
     const active = teacherState.reportConfigSurface===surface;
     tabRow.appendChild(el("button",{
       class: active?"btn-primary":"btn-secondary", style:{fontSize:"13px"},
@@ -7153,9 +7153,9 @@ function buildPromptTestPanel(student, getDraft){
         sourceLabel = "Innlimt tekst";
       }else if(essayId){
         source = {kind:"essay", essay_id:essayId};
-        sourceLabel = essaySelect.selectedOptions[0]?.textContent || "Essay";
+        sourceLabel = essaySelect.selectedOptions[0]?.textContent || "Stil";
       }else{
-        err.textContent="Velg et essay eller lim inn en tekst.";
+        err.textContent="Velg en stil eller lim inn en tekst.";
         err.style.display=""; return;
       }
       err.style.display="none";
@@ -7202,7 +7202,7 @@ function buildPromptTestPanel(student, getDraft){
     }
     essaySelect.innerHTML="";
     essaySelect.appendChild(el("option",{value:""},
-      teacherState.studentEssays.length ? "Velg et essay…" : "Ingen stiler levert ennå"));
+      teacherState.studentEssays.length ? "Velg en stil…" : "Ingen stiler levert ennå"));
     teacherState.studentEssays.forEach(essay=>{
       essaySelect.appendChild(el("option",{value:essay.id},
         `${essay.title} (${new Date(essay.created_at).toLocaleDateString("nb-NO")})`));
@@ -7387,7 +7387,7 @@ function buildLaererAiFokusHub(){
 
   const rcTabRow = el("div",{style:{display:"flex",gap:"8px",marginBottom:"12px"}});
   rcCard.appendChild(rcTabRow);
-  [["essay","Essay"],["reading_summary","Gjenfortelling"]].forEach(([surface,label])=>{
+  [["essay","Stil"],["reading_summary","Gjenfortelling"]].forEach(([surface,label])=>{
     rcTabRow.appendChild(el("button",{
       class: activeSurface===surface ? "btn-primary" : "btn-secondary", style:{fontSize:"13px"},
       click: ()=>{
@@ -7493,7 +7493,7 @@ function buildLaererAiFokusHub(){
   const previewCard = el("div",{class:"card",style:{padding:"16px"}});
   previewCard.appendChild(el("h3",{style:{marginBottom:"4px"}},"🧪 Forhåndsvis"));
   previewCard.appendChild(el("p",{style:{color:"#888",fontSize:"13px",marginBottom:"12px"}},
-    "Kjør instruksjonen og essay-rapportlayouten over — slik de står nå, ulagret — mot en ekte elevtekst. Påvirker ingenting før du trykker Lagre/Bruk over."));
+    "Kjør instruksjonen og rapportlayouten for stiler over — slik de står nå, ulagret — mot en ekte elevtekst. Påvirker ingenting før du trykker Lagre/Bruk over."));
 
   const previewStudentSelect = el("select",{class:"sel",style:{marginBottom:"8px"}});
   previewCard.appendChild(previewStudentSelect);
@@ -7514,10 +7514,10 @@ function buildLaererAiFokusHub(){
       const essayId = previewEssaySelect.value;
       let source, sourceLabel;
       if(pasted){ source={kind:"pasted",text:pasted}; sourceLabel="Innlimt tekst"; }
-      else if(essayId){ source={kind:"essay",essay_id:essayId}; sourceLabel=previewEssaySelect.selectedOptions[0]?.textContent||"Essay"; }
-      else{ previewErr.textContent="Velg et essay eller lim inn en tekst."; previewErr.style.display=""; return; }
+      else if(essayId){ source={kind:"essay",essay_id:essayId}; sourceLabel=previewEssaySelect.selectedOptions[0]?.textContent||"Stil"; }
+      else{ previewErr.textContent="Velg en stil eller lim inn en tekst."; previewErr.style.display=""; return; }
       if(!blocksDraft.essay){ blocksDraft.essay = await fetchDefaultBlocks("essay"); }
-      if(!blocksDraft.essay.length){ previewErr.textContent="Essay-rapportlayouten må ha minst én seksjon."; previewErr.style.display=""; return; }
+      if(!blocksDraft.essay.length){ previewErr.textContent="Rapportlayouten for stiler må ha minst én seksjon."; previewErr.style.display=""; return; }
       previewErr.style.display="none"; previewBtn.disabled=true; previewBtn.textContent="Kjører…";
       const r = await api(`/api/teacher/students/${encodeURIComponent(studentId)}/prompt-test`,{
         method:"POST", headers:{"Content-Type":"application/json"},
@@ -7575,7 +7575,7 @@ function buildLaererAiFokusHub(){
     const r = await api(`/api/teacher/students/${encodeURIComponent(studentId)}/essays`).catch(()=>null);
     const essays = r?.ok ? await r.json() : [];
     previewEssaySelect.innerHTML="";
-    previewEssaySelect.appendChild(el("option",{value:""}, essays.length?"Velg et essay…":"Ingen stiler levert ennå"));
+    previewEssaySelect.appendChild(el("option",{value:""}, essays.length?"Velg en stil…":"Ingen stiler levert ennå"));
     essays.forEach(e=>previewEssaySelect.appendChild(el("option",{value:e.id},`${e.title} (${new Date(e.created_at).toLocaleDateString("nb-NO")})`)));
   }
   previewStudentSelect.addEventListener("change", loadPreviewEssayOptions);
