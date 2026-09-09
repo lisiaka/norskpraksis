@@ -1432,10 +1432,11 @@ function renderTabs(){
 
   if(state.userRole==="teacher"){
     c.appendChild(el("div",{class:"nav-section-label"},"Lærer"));
-    const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts"].includes(teacherState.view);
+    const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts","word-aggregate"].includes(teacherState.view);
     c.appendChild(el("button",{class:"tab-btn"+(isRoster?" active":""),click(){teacherState.view="roster";setTab("laerer");}}, "👩‍\u200d🏫 Klassen min"));
     c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="ai-fokus-hub"?" active":""),
       click(){teacherState.view="ai-fokus-hub";setTab("laerer");}}, "🤖 AI-fokus"));
+    c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="word-aggregate"?" active":""),click(){teacherState.view="word-aggregate";setTab("laerer");}}, "☁️ Ordsky"));
     c.appendChild(el("div",{class:"nav-section-label"},"Mine banker"));
     c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="bank-texts"?" active":""),click(){teacherState.view="bank-texts";setTab("laerer");}}, "📖 Tekstbank"));
     c.appendChild(el("button",{class:"tab-btn"+(state.tab==="laerer"&&teacherState.view==="bank-prompts"?" active":""),click(){teacherState.view="bank-prompts";setTab("laerer");}}, "✍\ufe0f Oppgavebank"));
@@ -6440,7 +6441,7 @@ function buildInnstillinger(){
 // ── LÆRER DASHBOARD ───────────────────────────────────────────────────────
 
 const teacherState = {
-  view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences" | "summaries" | "assignments" | "bank-texts" | "bank-prompts" | "ai-fokus"
+  view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences" | "summaries" | "assignments" | "bank-texts" | "bank-prompts" | "ai-fokus" | "word-aggregate"
   students: null,        // cached list from API
   selectedStudent: null, // { id, name, email, assigned_at }
   studentProgress: null, // progress response from API
@@ -6477,7 +6478,7 @@ function buildLaerer(){
   const frag = document.createDocumentFragment();
   // Bank views put a sticky assign panel beside the list, so they need the extra width;
   // the reading views stay narrower to keep line length comfortable.
-  const isWide = teacherState.view==="bank-texts" || teacherState.view==="bank-prompts";
+  const isWide = teacherState.view==="bank-texts" || teacherState.view==="bank-prompts" || teacherState.view==="word-aggregate";
   const wrap = el("div", {style:{maxWidth:isWide?"1500px":"1100px",margin:"0 auto",padding:"16px"}});
 
   if(teacherState.view === "roster")          wrap.appendChild(buildLaererRoster());
@@ -6494,12 +6495,251 @@ function buildLaerer(){
   else if(teacherState.view === "bank-prompts") wrap.appendChild(buildLaererBankPrompts());
   else if(teacherState.view === "ai-fokus")    wrap.appendChild(buildLaererAiFokus());
   else if(teacherState.view === "ai-fokus-hub") wrap.appendChild(buildLaererAiFokusHub());
+  else if(teacherState.view === "word-aggregate") wrap.appendChild(buildLaererWordAggregate());
 
   frag.appendChild(wrap);
   return frag;
 }
 
 function laererSetView(view){ teacherState.view=view; renderContent(); }
+
+// ── Word aggregate view (feature 022) ───────────────────────────────────────
+//
+// Cross-student, deduplicated view of the teacher's own roster vocabulary — the
+// opposite direction from every other teacher view here, which shows one student
+// at a time. See specs/022-teacher-word-cloud/. Backend does all the aggregation
+// (GET /api/teacher/words/aggregate, GET /api/teacher/words/sources); this is
+// display + filter wiring only.
+
+const WORD_CLOUD_MAX_WORDS = 150; // spec SC-004: degrade to "less complete", never illegible
+const WORD_CLOUD_MIN_FONT = 14;
+const WORD_CLOUD_MAX_FONT = 64;
+const WORD_CLOUD_WIDTH = 900;
+const WORD_CLOUD_HEIGHT = 480;
+const WORD_CLOUD_PALETTE = ["#2c7a4b","#1f6fa8","#a8531f","#7a3b9e","#c0392b","#16897a"];
+
+function measureTextWidth(text, fontSize, fontFamily){
+  measureTextWidth._ctx = measureTextWidth._ctx || document.createElement("canvas").getContext("2d");
+  const ctx = measureTextWidth._ctx;
+  ctx.font = `700 ${fontSize}px ${fontFamily}`;
+  return ctx.measureText(text).width;
+}
+
+// research.md D4: hand-rolled rectangular spiral placement (the technique behind
+// d3-cloud, reimplemented directly — this project has no bundler, so no npm
+// dependency to reach for), sqrt(count) sizing so one very-popular word cannot
+// crowd out everything else.
+function buildWordCloudSvg(words){
+  const top = words.slice(0, WORD_CLOUD_MAX_WORDS);
+  if(!top.length) return null;
+
+  const counts = top.map(w=>w.count);
+  const maxCount = Math.max(...counts), minCount = Math.min(...counts);
+  const fontFamily = "system-ui, -apple-system, sans-serif";
+  const scale = c => {
+    if(maxCount===minCount) return (WORD_CLOUD_MIN_FONT+WORD_CLOUD_MAX_FONT)/2;
+    const t = Math.sqrt(c-minCount+1)/Math.sqrt(maxCount-minCount+1);
+    return WORD_CLOUD_MIN_FONT + t*(WORD_CLOUD_MAX_FONT-WORD_CLOUD_MIN_FONT);
+  };
+
+  const cx = WORD_CLOUD_WIDTH/2, cy = WORD_CLOUD_HEIGHT/2;
+  const placed = [];
+  function overlaps(box){
+    return placed.some(p => !(box.x+box.w<p.x || p.x+p.w<box.x || box.y+box.h<p.y || p.y+p.h<box.y));
+  }
+
+  const nodes = top.map(w=>{
+    const fontSize = scale(w.count);
+    const width = measureTextWidth(w.word, fontSize, fontFamily);
+    const height = fontSize*1.15;
+    let x=cx-width/2, y=cy-height/2, box={x,y,w:width,h:height};
+    let angle=0, radius=0, tries=0;
+    while(overlaps(box) && tries<2000){
+      angle += 0.35; radius += 2.2;
+      x = cx + radius*Math.cos(angle) - width/2;
+      y = cy + radius*Math.sin(angle) - height/2;
+      box = {x,y,w:width,h:height};
+      tries++;
+    }
+    placed.push(box);
+    return {word:w.word, count:w.count, fontSize, x:x+width/2, y:y+height*0.78};
+  });
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS,"svg");
+  svg.setAttribute("viewBox", `0 0 ${WORD_CLOUD_WIDTH} ${WORD_CLOUD_HEIGHT}`);
+  svg.setAttribute("width","100%");
+  svg.style.maxHeight = "520px";
+  nodes.forEach((n,i)=>{
+    const t = document.createElementNS(svgNS,"text");
+    t.setAttribute("x", n.x); t.setAttribute("y", n.y);
+    t.setAttribute("text-anchor","middle");
+    t.setAttribute("font-size", n.fontSize);
+    t.setAttribute("font-weight","700");
+    t.setAttribute("font-family", fontFamily);
+    t.setAttribute("fill", WORD_CLOUD_PALETTE[i % WORD_CLOUD_PALETTE.length]);
+    t.textContent = n.word;
+    const titleEl = document.createElementNS(svgNS,"title");
+    titleEl.textContent = `${n.word} — ${n.count} elev${n.count===1?"":"er"}`;
+    t.appendChild(titleEl);
+    svg.appendChild(t);
+  });
+  return svg;
+}
+
+function buildLaererWordAggregate(){
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("h2",{style:{marginBottom:"4px"}},"☁️ Ordsky"));
+  frag.appendChild(el("p",{style:{color:"#888",fontSize:"13px",margin:"0 0 16px"}},
+    "Alle ord elevene dine har i ordbanken, samlet på tvers av elever."));
+
+  const filterRow = el("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"12px"}});
+  const selStyle = {minWidth:"180px",padding:"6px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"};
+  const classSel = el("select",{style:selStyle});
+  const studentSel = el("select",{style:selStyle});
+  const sourceSel = el("select",{style:selStyle});
+  filterRow.appendChild(classSel);
+  filterRow.appendChild(studentSel);
+  filterRow.appendChild(sourceSel);
+  frag.appendChild(filterRow);
+
+  const modeRow = el("div",{style:{display:"flex",gap:"0",marginBottom:"16px",borderRadius:"8px",overflow:"hidden",border:"1.5px solid #dde",width:"fit-content"}});
+  const listBtn = el("button",{style:{border:"none",padding:"7px 16px",fontSize:"13px",cursor:"pointer"}},"📋 Liste");
+  const cloudBtn = el("button",{style:{border:"none",padding:"7px 16px",fontSize:"13px",cursor:"pointer"}},"☁️ Ordsky");
+  modeRow.appendChild(listBtn);
+  modeRow.appendChild(cloudBtn);
+  frag.appendChild(modeRow);
+
+  const resultWrap = el("div",{});
+  frag.appendChild(resultWrap);
+
+  let mode = "list";
+  let currentWords = [];
+  let viewedTracked = false;
+  let cloudTracked = false;
+
+  function paintModeButtons(){
+    listBtn.style.background = mode==="list" ? "#2c5f9e" : "#fff";
+    listBtn.style.color = mode==="list" ? "#fff" : "#333";
+    cloudBtn.style.background = mode==="cloud" ? "#2c5f9e" : "#fff";
+    cloudBtn.style.color = mode==="cloud" ? "#fff" : "#333";
+  }
+  paintModeButtons();
+
+  function renderResult(){
+    resultWrap.innerHTML = "";
+    if(!currentWords.length){
+      resultWrap.appendChild(el("p",{style:{color:"#888",marginTop:"16px"}},
+        "Ingen ord funnet — elevene dine har ingen ord i ordbanken ennå, eller filteret over er for smalt."));
+      return;
+    }
+    if(mode==="list"){
+      const table = el("div",{style:{display:"grid",gridTemplateColumns:"1fr auto",gap:"6px 20px",fontSize:"14px",maxWidth:"600px"}});
+      currentWords.forEach(w=>{
+        table.appendChild(el("div",{},$esc(w.word)));
+        table.appendChild(el("div",{style:{color:"#666",textAlign:"right"}}, `${w.count} elev${w.count===1?"":"er"}`));
+      });
+      resultWrap.appendChild(table);
+    } else {
+      if(!cloudTracked){ cloudTracked=true; trackEvent("teacher.word_cloud_viewed",{word_count:currentWords.length}); }
+      const svg = buildWordCloudSvg(currentWords);
+      resultWrap.appendChild(svg || el("p",{style:{color:"#888"}},"Ingen ord å vise."));
+    }
+  }
+
+  listBtn.addEventListener("click",()=>{ mode="list"; paintModeButtons(); renderResult(); });
+  cloudBtn.addEventListener("click",()=>{ mode="cloud"; cloudTracked=false; paintModeButtons(); renderResult(); });
+
+  // builtin source-text titles come from the already-loaded reading-text catalog —
+  // resolving them here avoids the backend duplicating that catalog (research.md D3).
+  let builtinTitles = null;
+  async function resolveBuiltinTitles(){
+    if(builtinTitles) return builtinTitles;
+    const texts = await loadLesingTexts().catch(()=>[]);
+    builtinTitles = Object.fromEntries((texts||[]).map(t=>[t.id, t.title]));
+    return builtinTitles;
+  }
+
+  function activeScopeParams(){
+    const params = new URLSearchParams();
+    if(classSel.value) params.set("class_id", classSel.value);
+    if(studentSel.value) params.set("student_id", studentSel.value);
+    return params;
+  }
+
+  async function loadSources(){
+    const params = activeScopeParams();
+    const r = await api("/api/teacher/words/sources?"+params.toString()).catch(()=>null);
+    const sources = r?.ok ? (await r.json()).sources : [];
+    const titles = await resolveBuiltinTitles();
+    const prevValue = sourceSel.value;
+    sourceSel.innerHTML = "";
+    sourceSel.appendChild(el("option",{value:""},"Alle kildetekster"));
+    sources.forEach(s=>{
+      const label = s.source_text_id==="none" ? "Ingen kildetekst"
+        : s.source_text_kind==="custom" ? (s.title||"Egen tekst")
+        : (titles[s.source_text_id] || s.source_text_id);
+      const value = s.source_text_id==="none" ? "none" : `${s.source_text_id}|${s.source_text_kind}`;
+      sourceSel.appendChild(el("option",{value}, `${label} (${s.count})`));
+    });
+    // Re-select the previous choice if it still exists after a class/student change;
+    // otherwise fall back to "all" rather than silently keeping a now-invalid filter.
+    if([...sourceSel.options].some(o=>o.value===prevValue)) sourceSel.value = prevValue;
+  }
+
+  async function loadAggregate(){
+    resultWrap.innerHTML = "";
+    resultWrap.appendChild(el("p",{style:{color:"#888"}},"Laster…"));
+    const params = activeScopeParams();
+    if(sourceSel.value === "none"){
+      params.set("source_text_id","none");
+    } else if(sourceSel.value){
+      const [id,kind] = sourceSel.value.split("|");
+      params.set("source_text_id", id);
+      params.set("source_text_kind", kind);
+    }
+    const r = await api("/api/teacher/words/aggregate?"+params.toString()).catch(()=>null);
+    if(!r?.ok){
+      resultWrap.innerHTML = "";
+      resultWrap.appendChild(el("p",{style:{color:"#c0392b"}},"Kunne ikke laste ord."));
+      return;
+    }
+    const data = await r.json();
+    currentWords = data.words;
+    if(!viewedTracked){ viewedTracked=true; trackEvent("teacher.word_aggregate_viewed",{word_count:currentWords.length}); }
+    renderResult();
+  }
+
+  function trackFilterChange(filterType){
+    trackEvent("teacher.word_aggregate_filtered",{filter_type:filterType, word_count:currentWords.length});
+  }
+
+  classSel.addEventListener("change",()=>{
+    if(classSel.value) studentSel.value = "";
+    loadSources().then(loadAggregate).then(()=>trackFilterChange(classSel.value?"class":"none"));
+  });
+  studentSel.addEventListener("change",()=>{
+    if(studentSel.value) classSel.value = "";
+    loadSources().then(loadAggregate).then(()=>trackFilterChange(studentSel.value?"student":"none"));
+  });
+  sourceSel.addEventListener("change",()=>{
+    loadAggregate().then(()=>trackFilterChange("source_text"));
+  });
+
+  (async ()=>{
+    await ensureTeacherRoster();
+    classSel.innerHTML = "";
+    classSel.appendChild(el("option",{value:""},"Alle klasser"));
+    (teacherState.classes||[]).forEach(c=>classSel.appendChild(el("option",{value:c.id}, c.name)));
+    studentSel.innerHTML = "";
+    studentSel.appendChild(el("option",{value:""},"Alle elever"));
+    (teacherState.students||[]).forEach(s=>studentSel.appendChild(el("option",{value:s.id}, s.name)));
+    await loadSources();
+    await loadAggregate();
+  })();
+
+  return frag;
+}
 
 // ── Roster view ────────────────────────────────────────────────────────────
 function buildLaererRoster(){
