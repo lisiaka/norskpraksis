@@ -3258,6 +3258,64 @@ async function checkEssayWithClaude(essay, container){
   }
 }
 
+// ── Report blocks (feature 021) ─────────────────────────────────────────
+// A teacher-configured student's reply carries an ordered `blocks` array
+// instead of the fixed grammarErrors/strengths/improvements keys — see
+// backend/app/services/report_prompts.py. Older stored feedback (FR-011)
+// and an unconfigured student's live reply never carry this key, so both
+// renderers keep their original flat-key rendering unchanged and only fall
+// into this path when `blocks` is present (FR-012, dual shape forever).
+const REPORT_BLOCK_META={
+  errors:{icon:"✗",label:"Grammatikkfeil",color:"#e05c5c"},
+  rules:{icon:"📐",label:"Regler",color:"#4f6ef7"},
+  strengths:{icon:"✓",label:"Styrker",color:"#1a6b4a",bg:"#edfaf3"},
+  improvements:{icon:"💡",label:"Forbedring",color:"#b8860b",bg:"#fffdf0"},
+};
+
+function renderReportBlock(block, body){
+  const meta=REPORT_BLOCK_META[block.type];
+  if(block.type==="errors"||block.type==="rules"){
+    const items=block.items||[];
+    if(!items.length||!meta) return;
+    const sec=el("div",{});
+    sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:meta.color,textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},`${meta.icon} ${meta.label}`));
+    if(block.type==="errors"){
+      items.forEach(e=>{
+        const card=el("div",{class:"claude-error-card"});
+        if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
+        if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
+        if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
+        sec.appendChild(card);
+      });
+    }else{
+      items.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"12px",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},"• "+s)));
+    }
+    body.appendChild(sec);
+  }else if(block.type==="strengths"||block.type==="improvements"){
+    const items=block.items||[];
+    if(!items.length||!meta) return;
+    const sec=el("div",{style:{background:meta.bg,borderRadius:"8px",padding:"10px 12px"}});
+    sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:meta.color,textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},`${meta.icon} ${meta.label}`));
+    const bullet=block.type==="strengths"?"• ":"→ ";
+    items.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"12px",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},bullet+s)));
+    body.appendChild(sec);
+  }else if(block.type==="prose"){
+    const p=block.items||{};
+    if(!p.text) return;
+    const sec=el("div",{style:{background:"#f8f9fa",borderRadius:"8px",padding:"10px 12px"}});
+    if(p.title) sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#666",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"5px"}},p.title));
+    sec.appendChild(el("div",{style:{fontSize:"13px",color:"#333",lineHeight:"1.6"}},p.text));
+    body.appendChild(sec);
+  }
+  // An unrecognised type is silently skipped rather than dumped raw — the
+  // registry is closed (FR-003); a reply naming anything else is a bug
+  // upstream of this function, not a shape to guess at rendering.
+}
+
+function renderReportBlocks(blocks, body){
+  (blocks||[]).forEach(b=>renderReportBlock(b, body));
+}
+
 function renderEssayClaudeResult(r, container){
   container.innerHTML="";
 
@@ -3279,35 +3337,41 @@ function renderEssayClaudeResult(r, container){
   // Overall
   if(r.overall) body.appendChild(el("div",{class:"claude-overall",style:{background:"#f8f9fa",borderRadius:"8px",padding:"10px 12px"}},r.overall));
 
-  // Grammar errors
-  if(r.grammarErrors&&r.grammarErrors.length){
-    const errSec=el("div",{});
-    errSec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#e05c5c",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"✗ Grammatikkfeil"));
-    r.grammarErrors.forEach(e=>{
-      const card=el("div",{class:"claude-error-card"});
-      if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
-      if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
-      if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
-      errSec.appendChild(card);
-    });
-    body.appendChild(errSec);
-  }
+  if(Array.isArray(r.blocks)){
+    // A teacher has configured this student's report (feature 021) — the
+    // reply's shape is the ordered blocks array, not the flat keys below.
+    renderReportBlocks(r.blocks, body);
+  }else{
+    // Grammar errors
+    if(r.grammarErrors&&r.grammarErrors.length){
+      const errSec=el("div",{});
+      errSec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#e05c5c",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"✗ Grammatikkfeil"));
+      r.grammarErrors.forEach(e=>{
+        const card=el("div",{class:"claude-error-card"});
+        if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
+        if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
+        if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
+        errSec.appendChild(card);
+      });
+      body.appendChild(errSec);
+    }
 
-  // Two-column: strengths + improvements
-  const twoCol=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}});
-  if(r.strengths&&r.strengths.length){
-    const sec=el("div",{style:{background:"#edfaf3",borderRadius:"8px",padding:"10px 12px"}});
-    sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#1a6b4a",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"✓ Styrker"));
-    r.strengths.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"12px",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},"• "+s)));
-    twoCol.appendChild(sec);
+    // Two-column: strengths + improvements
+    const twoCol=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}});
+    if(r.strengths&&r.strengths.length){
+      const sec=el("div",{style:{background:"#edfaf3",borderRadius:"8px",padding:"10px 12px"}});
+      sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#1a6b4a",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"✓ Styrker"));
+      r.strengths.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"12px",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},"• "+s)));
+      twoCol.appendChild(sec);
+    }
+    if(r.improvements&&r.improvements.length){
+      const sec=el("div",{style:{background:"#fffdf0",borderRadius:"8px",padding:"10px 12px"}});
+      sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#b8860b",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"💡 Forbedring"));
+      r.improvements.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"12px",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},"→ "+s)));
+      twoCol.appendChild(sec);
+    }
+    if(twoCol.children.length) body.appendChild(twoCol);
   }
-  if(r.improvements&&r.improvements.length){
-    const sec=el("div",{style:{background:"#fffdf0",borderRadius:"8px",padding:"10px 12px"}});
-    sec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#b8860b",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"💡 Forbedring"));
-    r.improvements.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"12px",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},"→ "+s)));
-    twoCol.appendChild(sec);
-  }
-  if(twoCol.children.length) body.appendChild(twoCol);
 
   box.appendChild(body);
   container.appendChild(box);
@@ -3404,18 +3468,26 @@ function renderGjenfortellResult(r, container){
     body.appendChild(sec);
   }
 
-  // Grammar errors
-  if(r.grammarErrors&&r.grammarErrors.length){
-    const errSec=el("div",{});
-    errSec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#e05c5c",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"✗ Grammatikkfeil"));
-    r.grammarErrors.forEach(e=>{
-      const card=el("div",{class:"claude-error-card"});
-      if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
-      if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
-      if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
-      errSec.appendChild(card);
-    });
-    body.appendChild(errSec);
+  if(Array.isArray(r.blocks)){
+    // A teacher has configured this student's reading-summary report
+    // (feature 021) — comprehension/vocabulary above stay fixed fields;
+    // only the grammar section is reconfigurable, and arrives here instead
+    // of as the flat `grammarErrors` key below.
+    renderReportBlocks(r.blocks, body);
+  }else{
+    // Grammar errors
+    if(r.grammarErrors&&r.grammarErrors.length){
+      const errSec=el("div",{});
+      errSec.appendChild(el("div",{style:{fontSize:"11px",fontWeight:"700",color:"#e05c5c",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},"✗ Grammatikkfeil"));
+      r.grammarErrors.forEach(e=>{
+        const card=el("div",{class:"claude-error-card"});
+        if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
+        if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
+        if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
+        errSec.appendChild(card);
+      });
+      body.appendChild(errSec);
+    }
   }
 
   // Overall
@@ -6375,6 +6447,8 @@ const teacherState = {
   aiChatTurnCount: 0,    // number of user turns sent this chat session
   aiRatings: null,       // cached list of ai_feedback_ratings for selectedStudent
   classes: null,         // cached [{id,name,student_count,created_at}] — feature 018
+  reportConfigs: {essay:null, reading_summary:null}, // cached GET .../report-config per surface (021)
+  reportConfigSurface: "essay", // which surface tab is open in the AI-fokus screen
 };
 
 function buildLaerer(){
@@ -6632,7 +6706,7 @@ function buildLaererProgress(){
       ["💬","Setninger",p.sentences_written,()=>{teacherState.studentSentences=null;laererSetView("sentences");}],
       ["✍️","Stiler levert",p.essays_submitted,p.essays_submitted>0?()=>{teacherState.studentEssays=null;laererSetView("essays");}:null],
       ["📝","Gjenfortellinger",(p.summaries_written||0),()=>{teacherState.studentSummaries=null;laererSetView("summaries");}],
-      ["🤖","AI-fokus",null,()=>{teacherState.aiInstructions=null;laererSetView("ai-fokus");}],
+      ["🤖","AI-fokus",null,()=>{teacherState.aiInstructions=null;teacherState.reportConfigs={essay:null,reading_summary:null};laererSetView("ai-fokus");}],
     ].forEach(([icon,label,val,onClick])=>{
       const card=el("div",{class:"card",style:{padding:"16px",textAlign:"center",cursor:onClick?"pointer":"default",border:onClick?"1px solid #cce0f5":""},
         ...(onClick?{click:onClick}:{})});
@@ -6836,7 +6910,167 @@ function buildLaererAiFokus(){
   }
   loadInstructions();
 
+  frag.appendChild(buildReportLayoutCard(s));
+
   return frag;
+}
+
+// ── Report layout (feature 021, US1) ─────────────────────────────────────
+// Which sections appear in this student's essay/reading-summary feedback,
+// and in what order. A separate card from the free-text instruction above —
+// different mechanism (structural, not a sentence the model reads), same
+// screen. Config is per (student, surface): essay and reading-summary have
+// different default shapes, so the two are edited independently via tabs.
+const REPORT_BLOCK_TYPES = ["errors","rules","strengths","improvements","prose"];
+const REPORT_BLOCK_LABELS = {
+  errors:"Grammatikkfeil", rules:"Regler", strengths:"Styrker",
+  improvements:"Forbedring", prose:"Fritekst",
+};
+
+function buildReportLayoutCard(student){
+  const card = el("div",{class:"card",style:{padding:"16px",marginTop:"16px"}});
+  card.appendChild(el("h3",{style:{marginBottom:"4px"}},"📋 Rapportlayout"));
+  card.appendChild(el("p",{style:{color:"#888",fontSize:"13px",marginBottom:"12px"}},
+    "Velg hvilke seksjoner denne eleven får i tilbakemeldingen, og i hvilken rekkefølge. Uten endringer her ser eleven akkurat det samme som før."));
+
+  const tabRow = el("div",{style:{display:"flex",gap:"8px",marginBottom:"12px"}});
+  card.appendChild(tabRow);
+
+  const bodyHost = el("div",{});
+  card.appendChild(bodyHost);
+
+  const err = el("div",{style:{color:"#c0392b",fontSize:"13px",marginTop:"6px",display:"none"}});
+
+  [["essay","Essay"],["reading_summary","Gjenfortelling"]].forEach(([surface,label])=>{
+    const active = teacherState.reportConfigSurface===surface;
+    tabRow.appendChild(el("button",{
+      class: active?"btn-primary":"btn-secondary", style:{fontSize:"13px"},
+      click: ()=>{ teacherState.reportConfigSurface=surface; renderBody(); }
+    }, label));
+  });
+
+  // The draft being edited — starts from whatever is loaded (saved config or
+  // default), and is only sent to the server on "Lagre". Nothing here writes
+  // until then, so switching tabs or reloading discards an unsaved change.
+  let draft = null;
+
+  async function loadConfig(surface){
+    if(!teacherState.reportConfigs[surface]){
+      const r = await api(`/api/teacher/students/${encodeURIComponent(student.id)}/report-config?surface=${surface}`).catch(()=>null);
+      teacherState.reportConfigs[surface] = r?.ok ? await r.json() : null;
+    }
+    return teacherState.reportConfigs[surface];
+  }
+
+  function renderBlockRow(list, index, container){
+    const block = list[index];
+    const row = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",
+      background:"#f8f9fa",borderRadius:"6px",marginBottom:"6px"}});
+    row.appendChild(el("span",{style:{flex:"1",fontSize:"13px",fontWeight:"600"}},
+      REPORT_BLOCK_LABELS[block.type]||block.type));
+    row.appendChild(el("button",{class:"btn-secondary",disabled:index===0,style:{padding:"2px 8px"},
+      click:()=>{ [list[index-1],list[index]]=[list[index],list[index-1]]; container(); }},"↑"));
+    row.appendChild(el("button",{class:"btn-secondary",disabled:index===list.length-1,style:{padding:"2px 8px"},
+      click:()=>{ [list[index+1],list[index]]=[list[index],list[index+1]]; container(); }},"↓"));
+    row.appendChild(el("button",{class:"btn-secondary",style:{padding:"2px 8px",color:"#c0392b"},
+      click:()=>{ list.splice(index,1); container(); }},"✕"));
+    return row;
+  }
+
+  function renderBody(){
+    bodyHost.innerHTML="";
+    err.style.display="none";
+    const surface = teacherState.reportConfigSurface;
+    bodyHost.appendChild(el("div",{style:{color:"#888",fontSize:"13px"}},"Laster…"));
+
+    loadConfig(surface).then(cfg=>{
+      bodyHost.innerHTML="";
+      if(!cfg){
+        bodyHost.appendChild(el("div",{style:{color:"#c0392b",fontSize:"13px"}},"Kunne ikke laste rapportlayout."));
+        return;
+      }
+      draft = cfg.blocks.map(b=>({type:b.type, params:b.params||{}, instruction:b.instruction||null}));
+
+      if(cfg.is_default){
+        bodyHost.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"8px"}},
+          "Standard rapport — ingen endringer lagret for denne eleven."));
+      }else{
+        bodyHost.appendChild(el("div",{style:{fontSize:"12px",color:"#1a6b4a",marginBottom:"8px"}},
+          "Tilpasset rapport lagret."+ (cfg.updated_at ? " Sist endret "+new Date(cfg.updated_at).toLocaleDateString("nb-NO")+"." : "")));
+      }
+
+      const listEl = el("div",{});
+      bodyHost.appendChild(listEl);
+
+      function renderList(){
+        listEl.innerHTML="";
+        draft.forEach((_,i)=>listEl.appendChild(renderBlockRow(draft, i, renderList)));
+      }
+      renderList();
+
+      const addRow = el("div",{style:{display:"flex",gap:"8px",marginTop:"8px",marginBottom:"12px"}});
+      const addSelect = el("select",{style:{flex:"1",padding:"6px",borderRadius:"6px",border:"1px solid #ccc"}},
+        ...REPORT_BLOCK_TYPES.map(t=>el("option",{value:t},REPORT_BLOCK_LABELS[t])));
+      addRow.appendChild(addSelect);
+      addRow.appendChild(el("button",{class:"btn-secondary",
+        click:()=>{ draft.push({type:addSelect.value, params:{}, instruction:null}); renderList(); }
+      },"+ Legg til blokk"));
+      bodyHost.appendChild(addRow);
+
+      bodyHost.appendChild(err);
+
+      const btnRow = el("div",{style:{display:"flex",gap:"10px"}});
+      const saveBtn = el("button",{class:"btn-primary",
+        click: async ()=>{
+          if(!draft.length){
+            err.textContent="Rapporten må ha minst én seksjon.";
+            err.style.display="";
+            return;
+          }
+          err.style.display="none";
+          saveBtn.disabled=true; saveBtn.textContent="Lagrer…";
+          try{
+            const r = await api(`/api/teacher/students/${encodeURIComponent(student.id)}/report-config?surface=${surface}`,{
+              method:"PUT",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({blocks:draft}),
+            });
+            if(r.ok){
+              teacherState.reportConfigs[surface] = await r.json();
+              toast("✓ Rapportlayout lagret");
+              renderBody();
+            }else{
+              const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
+              err.textContent = typeof d.detail==="string" ? d.detail : "Kunne ikke lagre";
+              err.style.display="";
+            }
+          }catch(e){
+            err.textContent="Nettverksfeil";
+            err.style.display="";
+          }
+          saveBtn.disabled=false; saveBtn.textContent="Lagre rapportlayout";
+        }
+      },"Lagre rapportlayout");
+      btnRow.appendChild(saveBtn);
+
+      if(!cfg.is_default){
+        btnRow.appendChild(el("button",{class:"btn-secondary",
+          click: async ()=>{
+            const r = await api(`/api/teacher/students/${encodeURIComponent(student.id)}/report-config?surface=${surface}`,{method:"DELETE"});
+            if(r.ok){
+              teacherState.reportConfigs[surface] = null;
+              toast("✓ Tilbakestilt til standard");
+              renderBody();
+            }
+          }
+        },"Tilbakestill til standard"));
+      }
+      bodyHost.appendChild(btnRow);
+    });
+  }
+
+  renderBody();
+  return card;
 }
 
 // Rating widget attached under an AI feedback block (essay/retell/sentence).
