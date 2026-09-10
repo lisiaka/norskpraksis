@@ -645,6 +645,11 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   // seeded from. Changing a filter re-seeds (the new filter is a new intention);
   // toggling individual words refines within it.
   shareSelected:null, shareSeedKey:null,
+  // Feature 023. Tag labels picked (or freshly typed) for the send currently open
+  // in the share bar — teacher role only. Reset whenever a send completes, same as
+  // shareSelected — a new send starts from no tags picked, not the last send's.
+  shareTagSelection:new Set(), shareNewTagInput:"",
+  tagFilter:"", // Setninger tag-chip filter, mirrors topicFilter's shape
   wordIdx:0, sentences:{}, sentTopicFilter:"", openWordId:null,
   subscription: null, // loaded after login: { status, provider, renewalDate, ... } | null
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
@@ -657,7 +662,7 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
 // `includeLearnt` is off by default: practice excludes learnt words unless the learner
 // asks for them back (FR-032). The bank view is unaffected — exclusion is the default
 // for practice only.
-const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, learningFilter:"", includeLearnt:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false, autoLearnt:[]};
+const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, learningFilter:"", tagFilter:"", includeLearnt:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false, autoLearnt:[]};
 
 // Words the learner is done with. `not_learnt_manual` is deliberately absent: it is a
 // learner saying "not learnt", so it stays in the practice pool.
@@ -1395,11 +1400,22 @@ function getEssayRelevantTopics(){
   return ESSAY_TOPIC_TO_WORD_TOPICS[state.currentTopic]||[];
 }
 
-// Returns words for the sentence tab, respecting topic filter
+// Returns words for the sentence tab, respecting topic + tag filters (feature 023:
+// AND, same as every other filter-chip combination in this app)
 function getSentWords(){
-  return state.sentTopicFilter
+  let words = state.sentTopicFilter
     ? state.words.filter(w=>w.topic===state.sentTopicFilter)
     : state.words;
+  if(state.tagFilter) words = words.filter(w=>(w.tags||[]).includes(state.tagFilter));
+  return words;
+}
+
+// All tag labels present on at least one word — chips only render for tags that
+// actually have a match, mirroring the topic-chip visibility rule.
+function allWordTags(words){
+  const tags = new Set();
+  (words||state.words).forEach(w=>(w.tags||[]).forEach(t=>tags.add(t)));
+  return Array.from(tags).sort();
 }
 
 // ── HEADER ────────────────────────────────────────────────────────────
@@ -1700,7 +1716,9 @@ function shareModeConfig(){
 
 // Both senders return {ok, message} so buildShareBar never has to know which endpoint
 // it just called.
-async function shareWordsWithClassmates(words, recipientIds){
+async function shareWordsWithClassmates(words, recipientIds, _includeTranslation, _tagLabels){
+  // Tags are teacher-only (spec Assumptions) — a classmate share ignores the 4th
+  // argument buildShareBar's send button now always passes.
   const r = await api("/api/me/shared-words",{method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({word_ids:words.map(w=>w.id), recipient_ids:recipientIds})
@@ -1721,7 +1739,7 @@ async function shareWordsWithClassmates(words, recipientIds){
 // The words travel with the category and topic they already carry in the teacher's own
 // bank, so one send can span several topics. The form this replaced could not: it
 // stamped a single topic onto every word in the send.
-async function sendWordsAsTeacher(words, studentIds, includeTranslation){
+async function sendWordsAsTeacher(words, studentIds, includeTranslation, tagLabels){
   const payload = words.map(w=>({
     word: w.word,
     meaning: w.meaning || "",
@@ -1735,7 +1753,8 @@ async function sendWordsAsTeacher(words, studentIds, includeTranslation){
   const r = await api("/api/teacher/students/words/bulk",{method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({student_ids:studentIds, all_students:false,
-      include_translation:includeTranslation, words:payload})
+      include_translation:includeTranslation, words:payload,
+      tag_labels: tagLabels||[]})
   }).catch(()=>null);
   if(!r?.ok){
     const d = await r?.json().catch(()=>null);
@@ -1744,6 +1763,9 @@ async function sendWordsAsTeacher(words, studentIds, includeTranslation){
   const d = await r.json();
   let msg = `Ord sendt til ${d.student_count} elev${d.student_count===1?"":"er"} (${d.inserted} nye)`;
   if(d.skipped_duplicates) msg += ` · ${d.skipped_duplicates} hadde dem fra før`;
+  // Feature 023. Names the tag in the confirmation so the teacher can tell a tagged
+  // send from an ordinary one without opening the student's bank.
+  if(tagLabels && tagLabels.length) msg += ` · merket «${tagLabels.join(", ")}»`;
   return {ok:true, message:msg};
 }
 
@@ -1772,7 +1794,12 @@ function buildShareBar(){
   bar.appendChild(el("button",{class:"topic-chip"+(state.shareOpen?" active":""),
     click(){
       state.shareOpen=!state.shareOpen;
-      if(state.shareOpen) shareSeedIfNeeded();
+      if(state.shareOpen){
+        shareSeedIfNeeded();
+        // Feature 023. Tags are teacher-only (per spec Assumptions) — a classmate
+        // share never needs the picker, so only fetch when this role can use it.
+        if(cfg.teacher) ensureWordTags().then(renderWordList);
+      }
       renderWordList();
     }},
     state.shareOpen ? cfg.closeLabel : cfg.openLabel));
@@ -1833,6 +1860,46 @@ function buildShareBar(){
     transRow.appendChild(el("label",{for:"share-trans",style:{fontSize:"13px",cursor:"pointer"}},
       "Inkluder oversettelse"));
     panel.appendChild(transRow);
+
+    // Feature 023. A brand-new label is not created here — it's collected and sent
+    // to bulk_push_words as tag_labels, which resolves (get-or-create) it as part
+    // of the same send. See specs/023-word-tags/research.md D4.
+    const tagPanel = el("div",{style:{marginBottom:"10px"}});
+    tagPanel.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"6px"}},
+      "Merk med tagg (valgfritt):"));
+    const chipRow = el("div",{style:{display:"flex",flexWrap:"wrap",gap:"6px",marginBottom:"6px"}});
+    (teacherState.wordTags||[]).forEach(t=>{
+      chipRow.appendChild(el("button",{class:"topic-chip"+(state.shareTagSelection.has(t.label)?" active":""),
+        click(){
+          if(state.shareTagSelection.has(t.label)) state.shareTagSelection.delete(t.label);
+          else state.shareTagSelection.add(t.label);
+          renderWordList();
+        }},t.label));
+    });
+    tagPanel.appendChild(chipRow);
+
+    const newTagRow = el("div",{style:{display:"flex",gap:"6px",alignItems:"center"}});
+    const newTagInput = el("input",{type:"text",placeholder:"Ny tagg, f.eks. Uke 36",value:state.shareNewTagInput,
+      style:{padding:"6px 10px",border:"1px solid #ccc",borderRadius:"6px",fontSize:"13px",flex:"1"},
+      input(e){state.shareNewTagInput=e.target.value;}});
+    function addTypedTag(){
+      const label=state.shareNewTagInput.trim();
+      if(!label) return;
+      state.shareTagSelection.add(label);
+      state.shareNewTagInput="";
+      renderWordList();
+    }
+    newTagInput.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addTypedTag();}});
+    newTagRow.appendChild(newTagInput);
+    newTagRow.appendChild(el("button",{class:"btn-sec",style:{padding:"6px 12px",fontSize:"13px"},
+      click:addTypedTag},"+ Legg til"));
+    tagPanel.appendChild(newTagRow);
+
+    if(state.shareTagSelection.size){
+      tagPanel.appendChild(el("div",{style:{marginTop:"6px",fontSize:"12px",color:"#1a6b4a"}},
+        "Merkes med: "+Array.from(state.shareTagSelection).join(", ")));
+    }
+    panel.appendChild(tagPanel);
   }
 
   panel.appendChild(el("div",{style:{fontWeight:"600",fontSize:"13px",marginBottom:"6px"}},"Send til:"));
@@ -1885,7 +1952,8 @@ function buildShareBar(){
       const words = shareSelectedVisible();
       if(!words.length) return;
       sendBtn.disabled=true; sendBtn.textContent="Sender…";
-      const res = await cfg.send(words, recipients, transCb ? transCb.checked : true);
+      const tagLabels = cfg.teacher ? Array.from(state.shareTagSelection) : [];
+      const res = await cfg.send(words, recipients, transCb ? transCb.checked : true, tagLabels);
       sendBtn.textContent=cfg.sendLabel;
       if(!res.ok){
         toast(res.message);
@@ -1895,6 +1963,8 @@ function buildShareBar(){
       toast(res.message);
       state.shareOpen=false;
       state.shareSelected=null; state.shareSeedKey=null;   // next open re-seeds
+      state.shareTagSelection=new Set(); state.shareNewTagInput="";
+      teacherState.wordTags=null; // a newly-typed tag may now exist server-side
       renderContent(); renderWordList();
     }},cfg.sendLabel);
   panel.appendChild(sendBtn);
@@ -2730,10 +2800,33 @@ function buildSetninger(){
     frag.appendChild(filterBar);
   }
 
+  // ── Tag filter bar (feature 023) ── only rendered when at least one word in the
+  // bank carries a tag, mirroring the topic-chip visibility rule above.
+  const sentTags=allWordTags(state.words);
+  if(sentTags.length>0){
+    const tagBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"14px"}});
+    tagBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TAGG:"));
+    tagBar.appendChild(el("button",{class:"topic-chip"+(state.tagFilter===""?" active":""),
+      click(){state.tagFilter="";state.wordIdx=0;renderContent();}},"Alle"));
+    sentTags.forEach(tag=>{
+      tagBar.appendChild(el("button",{class:"topic-chip"+(state.tagFilter===tag?" active":""),
+        click(){
+          state.tagFilter=tag; state.wordIdx=0;
+          trackEvent("setninger.tag_filter_used",{tag});
+          renderContent();
+        }},tag));
+    });
+    frag.appendChild(tagBar);
+  }
+
   const sentWords=getSentWords();
   if(sentWords.length===0){
+    const parts=[];
+    if(state.sentTopicFilter) parts.push(`tema "${state.sentTopicFilter}"`);
+    if(state.tagFilter) parts.push(`tagg "${state.tagFilter}"`);
     frag.appendChild(el("div",{class:"empty-state"},
-      el("p",{style:{fontSize:"15px"}},`Ingen ord med tema "${state.sentTopicFilter}".`)));
+      el("p",{style:{fontSize:"15px"}},
+        parts.length ? `Ingen ord med ${parts.join(" og ")}.` : "Ingen ord.")));
     return frag;
   }
 
@@ -3842,6 +3935,21 @@ function buildFcSetup(frag){
           click(){fc.topicFilter=val;renderContent();}},label)));
       card.appendChild(tBar);
     }
+    // Tag filter (feature 023) — only rendered when the bank has ≥1 tagged word,
+    // mirroring the topic-chip visibility rule above.
+    const fcTags=allWordTags(state.words);
+    if(fcTags.length>0){
+      const gBar=el("div",{class:"fc-filter-bar"});
+      gBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"TAGG: "));
+      [["","Alle"],...fcTags.map(t=>[t,t])].forEach(([val,label])=>
+        gBar.appendChild(el("button",{class:"topic-chip"+(fc.tagFilter===val?" active":""),
+          click(){
+            fc.tagFilter=val;
+            if(val) trackEvent("flashcards.tag_filter_used",{tag:val});
+            renderContent();
+          }},label)));
+      card.appendChild(gBar);
+    }
     const dBar=el("div",{class:"fc-filter-bar"});
     dBar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"TID: "));
     [[0,"Alle"],[7,"Siste 7 dager"],[30,"Siste 30 dager"],[90,"Siste 3 måneder"]].forEach(([val,label])=>
@@ -4116,6 +4224,7 @@ function getNetMissedWords(){
 function getFcWords(){
   let w=state.words.slice();
   if(fc.topicFilter) w=w.filter(x=>x.topic===fc.topicFilter);
+  if(fc.tagFilter) w=w.filter(x=>(x.tags||[]).includes(fc.tagFilter));
   if(fc.timeFilter){const cut=Date.now()-fc.timeFilter*24*60*60*1000;w=w.filter(x=>(x.createdAt||0)>=cut);}
   // Learnt words are excluded by default (FR-032). This reads the stored flag rather
   // than inferring learnt status from the most recent answer, which was the previous
@@ -6213,7 +6322,7 @@ function buildStatistik(){
         click(){
           const errorWords = shuffle(missedWords).slice(0,10);
           if(errorWords.length<2){toast("Trenger minst 2 feilord for å spille.");return;}
-          fc.topicFilter=""; fc.timeFilter=0; fc.maxWords=0; fc.learningFilter="";
+          fc.topicFilter=""; fc.timeFilter=0; fc.maxWords=0; fc.learningFilter=""; fc.tagFilter="";
           fc.queue=errorWords.map(w=>{
             const type=Math.random()<0.5?"write":"choice";
             return {...w,_type:type,_options:type==="choice"?fcGetOptions(w):null};
@@ -6338,7 +6447,8 @@ async function onLoginSuccess(token, user){
   state.myClass = null; state.sharedInbox = null;
   state.shareOpen = false;
   state.shareSelected = null; state.shareSeedKey = null;
-  teacherState.students = null; teacherState.classes = null;
+  state.shareTagSelection = new Set(); state.shareNewTagInput = "";
+  teacherState.students = null; teacherState.classes = null; teacherState.wordTags = null;
   if(state.userRole !== "teacher"){
     refreshSharing().then(()=>renderContent());
   }
@@ -6751,6 +6861,9 @@ const teacherState = {
   aiFokusScopeClassId: null,
   aiFokusScopeStudentIds: new Set(),
   aiFokusPreviewResults: [],    // session-scoped, same pattern as promptTestResults
+
+  wordTags: null,        // feature 023 — cached [{id,label,created_at}] from GET
+                          // /api/teacher/word-tags, null = not loaded yet
 };
 
 function buildLaerer(){
@@ -8737,6 +8850,15 @@ async function ensureTeacherRoster(){
   if(teacherState.classes===null){
     const rc = await api("/api/teacher/classes").catch(()=>null);
     teacherState.classes = rc?.ok ? await rc.json() : [];
+  }
+}
+
+// Feature 023. Separate from ensureTeacherRoster() — only the Ordbank share bar
+// needs tags, unlike students/classes which four surfaces need.
+async function ensureWordTags(){
+  if(teacherState.wordTags===null){
+    const r = await api("/api/teacher/word-tags").catch(()=>null);
+    teacherState.wordTags = r?.ok ? (await r.json()).tags : [];
   }
 }
 
