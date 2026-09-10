@@ -1906,6 +1906,18 @@ function buildShareBar(){
 function buildOrdbank(){
   const frag=document.createDocumentFragment();
 
+  // Feature 022: a teacher's Ordbank toggles between their own bank ("Mine ord",
+  // unchanged below) and a roster-wide, deduplicated view of their students'
+  // words ("Elevenes ord") — not a separate sidebar tab. Students never see
+  // this toggle; teacherState.ordbankMode only matters when userRole is teacher.
+  if(state.userRole==="teacher"){
+    frag.appendChild(buildOrdbankModeToggle());
+    if(teacherState.ordbankMode==="elever"){
+      frag.appendChild(buildTeacherWordAggregatePanel());
+      return frag;
+    }
+  }
+
   const inboxPanel = buildSharedInboxPanel();
   if(inboxPanel) frag.appendChild(inboxPanel);
 
@@ -2076,6 +2088,187 @@ function buildOrdbank(){
   const wlDiv=el("div",{id:"word-list"});
   frag.appendChild(wlDiv);
   requestAnimationFrame(()=>renderWordList());
+
+  return frag;
+}
+
+// ── "Elevenes ord" — teacher's roster-wide word aggregate, in Ordbank (022) ──
+
+function buildOrdbankModeToggle(){
+  const mode = teacherState.ordbankMode || "mine";
+  const row = el("div",{style:{display:"flex",gap:"0",marginBottom:"16px",borderRadius:"8px",overflow:"hidden",border:"1.5px solid #dde",width:"fit-content"}});
+  const mineBtn = el("button",{style:{border:"none",padding:"8px 18px",fontSize:"14px",fontWeight:"600",cursor:"pointer",
+    background:mode==="mine"?"#2c5f9e":"#fff", color:mode==="mine"?"#fff":"#333"},
+    click(){ teacherState.ordbankMode="mine"; renderContent(); }}, "📚 Mine ord");
+  const eleverBtn = el("button",{style:{border:"none",padding:"8px 18px",fontSize:"14px",fontWeight:"600",cursor:"pointer",
+    background:mode==="elever"?"#2c5f9e":"#fff", color:mode==="elever"?"#fff":"#333"},
+    click(){ teacherState.ordbankMode="elever"; renderContent(); }}, "👥 Elevenes ord");
+  row.appendChild(mineBtn); row.appendChild(eleverBtn);
+  return row;
+}
+
+// Same chip-row look as "Mine ord"'s topic/learnt/time filters (`.topic-filter-bar` /
+// `.topic-chip`) — the point of this view is to reuse that filter bar, not build a
+// second one that merely resembles it.
+function _aggFilterChipRow(label, options, currentValue, onPick){
+  const bar = el("div",{class:"topic-filter-bar",style:{marginBottom:"8px"}});
+  bar.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},label));
+  options.forEach(([val,text])=>{
+    bar.appendChild(el("button",{class:"topic-chip"+(currentValue===val?" active":""),
+      click(e){
+        onPick(val);
+        e.currentTarget.parentNode.querySelectorAll(".topic-chip").forEach(b=>b.classList.remove("active"));
+        e.currentTarget.classList.add("active");
+      }}, text));
+  });
+  return bar;
+}
+
+function buildTeacherWordAggregatePanel(){
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p",{style:{color:"#888",fontSize:"13px",margin:"0 0 14px"}},
+    "Alle ord elevene dine har i ordbanken, samlet på tvers av elever."));
+
+  const filterSection = el("div",{style:{marginBottom:"14px"}});
+  filterSection.appendChild(_aggFilterChipRow("TEMA:", [["","Alle"],...VALID_TOPIC_LIST.map(t=>[t,t])],
+    teacherState.aggTopicFilter, v=>{ teacherState.aggTopicFilter=v; loadAggregate().then(()=>trackFilterChange("topic")); }));
+  filterSection.appendChild(_aggFilterChipRow("LÆRT:", [["","Alle ord"],["hide_learnt","Skjul lærte"]],
+    teacherState.aggLearntFilter, v=>{ teacherState.aggLearntFilter=v; loadAggregate().then(()=>trackFilterChange("learnt")); }));
+  filterSection.appendChild(_aggFilterChipRow("TID:", [[0,"Alle"],[7,"Siste 7 dager"],[30,"Siste 30 dager"],[90,"Siste 3 måneder"]],
+    teacherState.aggTimeFilter, v=>{ teacherState.aggTimeFilter=v; loadAggregate().then(()=>trackFilterChange("time")); }));
+
+  const classBarWrap = el("div",{});
+  filterSection.appendChild(classBarWrap);
+
+  const sourceRow = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}});
+  sourceRow.appendChild(el("span",{style:{fontSize:"11px",color:"#aaa",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px"}},"TEKST:"));
+  const sourceSel = el("select",{style:{padding:"5px 8px",borderRadius:"6px",border:"1.5px solid #dde",fontSize:"13px"},
+    change(){ teacherState.aggSourceFilter = sourceSel.value; loadAggregate().then(()=>trackFilterChange("source_text")); }});
+  sourceRow.appendChild(sourceSel);
+  filterSection.appendChild(sourceRow);
+  frag.appendChild(filterSection);
+
+  // Print bar — same buttons and labels as "Mine ord" (printWords), wired to the
+  // aggregate-specific print function: cloud sizing is student count, not random.
+  const printBar = el("div",{class:"io-bar",style:{marginBottom:"14px"}});
+  printBar.appendChild(el("button",{class:"btn-io",click(){
+    printAggregateWords("cloud",currentWords,filterDesc());
+    trackEvent("teacher.word_cloud_viewed",{word_count:currentWords.length});
+  }},"🖨️ Skriv ut ordsky"));
+  printBar.appendChild(el("button",{class:"btn-io",click(){printAggregateWords("list",currentWords,filterDesc());}},"🖨️ Skriv ut ordliste"));
+  frag.appendChild(printBar);
+
+  const resultWrap = el("div",{});
+  frag.appendChild(resultWrap);
+
+  let currentWords = [];
+  let viewedTracked = false;
+
+  function trackFilterChange(filterType){
+    trackEvent("teacher.word_aggregate_filtered",{filter_type:filterType, word_count:currentWords.length});
+  }
+
+  function filterDesc(){
+    const parts=[];
+    if(teacherState.aggTopicFilter) parts.push("Tema: "+teacherState.aggTopicFilter);
+    if(teacherState.aggLearntFilter==="hide_learnt") parts.push("Skjuler lærte ord");
+    if(teacherState.aggTimeFilter) parts.push("Siste "+teacherState.aggTimeFilter+" dager");
+    return parts.length ? parts.join(" · ") : "Alle ord";
+  }
+
+  function renderResult(){
+    resultWrap.innerHTML = "";
+    if(!currentWords.length){
+      resultWrap.appendChild(el("p",{style:{color:"#888",marginTop:"8px"}},
+        "Ingen ord funnet — elevene dine har ingen ord som passer filteret over."));
+      return;
+    }
+    const table = el("div",{style:{display:"grid",gridTemplateColumns:"1fr auto",gap:"6px 20px",fontSize:"14px",maxWidth:"600px"}});
+    currentWords.forEach(w=>{
+      table.appendChild(el("div",{},$esc(w.word)));
+      table.appendChild(el("div",{style:{color:"#666",textAlign:"right"}}, `${w.count} elev${w.count===1?"":"er"}`));
+    });
+    resultWrap.appendChild(table);
+  }
+
+  // builtin source-text titles come from the already-loaded reading-text catalog —
+  // resolving them here avoids the backend duplicating that catalog (research.md D3).
+  let builtinTitles = null;
+  async function resolveBuiltinTitles(){
+    if(builtinTitles) return builtinTitles;
+    const texts = await loadLesingTexts().catch(()=>[]);
+    builtinTitles = Object.fromEntries((texts||[]).map(t=>[t.id, t.title]));
+    return builtinTitles;
+  }
+
+  function scopeParams(){
+    const params = new URLSearchParams();
+    if(teacherState.aggClassFilter) params.set("class_id", teacherState.aggClassFilter);
+    return params;
+  }
+
+  async function loadSources(){
+    const params = scopeParams();
+    const r = await api("/api/teacher/words/sources?"+params.toString()).catch(()=>null);
+    const sources = r?.ok ? (await r.json()).sources : [];
+    const titles = await resolveBuiltinTitles();
+    const prevValue = sourceSel.value;
+    sourceSel.innerHTML = "";
+    sourceSel.appendChild(el("option",{value:""},"Alle kildetekster"));
+    sources.forEach(s=>{
+      const label = s.source_text_id==="none" ? "Ingen kildetekst"
+        : s.source_text_kind==="custom" ? (s.title||"Egen tekst")
+        : (titles[s.source_text_id] || s.source_text_id);
+      const value = s.source_text_id==="none" ? "none" : `${s.source_text_id}|${s.source_text_kind}`;
+      sourceSel.appendChild(el("option",{value}, `${label} (${s.count})`));
+    });
+    if([...sourceSel.options].some(o=>o.value===prevValue)) sourceSel.value = prevValue;
+    else teacherState.aggSourceFilter = "";
+  }
+
+  async function loadAggregate(){
+    resultWrap.innerHTML = "";
+    resultWrap.appendChild(el("p",{style:{color:"#888"}},"Laster…"));
+    const params = scopeParams();
+    if(teacherState.aggTopicFilter) params.set("topic", teacherState.aggTopicFilter);
+    if(teacherState.aggLearntFilter==="hide_learnt") params.set("hide_learnt","true");
+    if(teacherState.aggTimeFilter) params.set("days", teacherState.aggTimeFilter);
+    if(teacherState.aggSourceFilter === "none"){
+      params.set("source_text_id","none");
+    } else if(teacherState.aggSourceFilter){
+      const [id,kind] = teacherState.aggSourceFilter.split("|");
+      params.set("source_text_id", id);
+      params.set("source_text_kind", kind);
+    }
+    const r = await api("/api/teacher/words/aggregate?"+params.toString()).catch(()=>null);
+    if(!r?.ok){
+      resultWrap.innerHTML = "";
+      resultWrap.appendChild(el("p",{style:{color:"#c0392b"}},"Kunne ikke laste ord."));
+      return;
+    }
+    const data = await r.json();
+    currentWords = data.words;
+    if(!viewedTracked){ viewedTracked=true; trackEvent("teacher.word_aggregate_viewed",{word_count:currentWords.length}); }
+    renderResult();
+  }
+
+  function renderClassBar(){
+    classBarWrap.innerHTML = "";
+    if(!(teacherState.classes||[]).length) return;
+    classBarWrap.appendChild(_aggFilterChipRow(
+      "KLASSE:",
+      [["","Alle klasser"],...teacherState.classes.map(c=>[c.id,c.name])],
+      teacherState.aggClassFilter,
+      v=>{ teacherState.aggClassFilter=v; teacherState.aggSourceFilter=""; loadSources().then(loadAggregate).then(()=>trackFilterChange("class")); }
+    ));
+  }
+
+  (async ()=>{
+    await ensureTeacherRoster();
+    renderClassBar();
+    await loadSources();
+    await loadAggregate();
+  })();
 
   return frag;
 }
@@ -4075,6 +4268,71 @@ function printMissedWords(mode, words){
 <h1>❌ Vanskelige ord</h1>
 <div class="sub">${subtitle}</div>
 <table><thead><tr><th>Norsk ord / uttrykk</th><th>Betydning</th></tr></thead><tbody>${rows}</tbody></table>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`);
+    win.document.close();
+  }
+}
+
+// Same print output as printWords(), for the teacher's "Elevenes ord" aggregate
+// (feature 022) — `words` here are `{word, count}`, not full bank entries, so there
+// is no `.meaning` to show. Per the same convention this mirrors — printWords for
+// "Mine ord", printMissedWords for flashcard errors — this is a third sibling
+// rather than a shared abstraction across three different word shapes.
+//
+// The one deliberate difference from both: cloud font size is driven by `count`
+// (how many students hold the word), not random — the size is the information.
+function printAggregateWords(mode, words, filterDesc){
+  if(!words || !words.length){toast("Ingen ord å skrive ut med gjeldende filter.");return;}
+  const win=window.open("","_blank");
+  if(!win){toast("Popup ble blokkert – tillat popup for å skrive ut.");return;}
+
+  if(mode==="cloud"){
+    const colors=["#1a6b4a","#4f6ef7","#e8901a","#7c4dff","#e05c5c","#2d9e6b","#1a9ec4","#b8860b","#c0392b","#16a085"];
+    const counts=words.map(w=>w.count);
+    const maxC=Math.max(...counts), minC=Math.min(...counts);
+    const sizeFor=c=>{
+      if(maxC===minC) return 30;
+      const t=Math.sqrt(c-minC)/Math.sqrt(maxC-minC);
+      return Math.round(16 + t*(50-16));
+    };
+    const wordsHtml=words.map((w,i)=>{
+      const size=sizeFor(w.count);
+      const color=colors[i%colors.length];
+      const rot=Math.floor(Math.random()*26)-13;
+      return `<span style="font-size:${size}px;color:${color};transform:rotate(${rot}deg);display:inline-block;font-weight:700;margin:8px 14px;line-height:1.2;white-space:nowrap" title="${w.count} elev${w.count===1?"":"er"}">${w.word}</span>`;
+    }).join("");
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordsky</title>
+<style>
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
+  h1{text-align:center;color:#1a6b4a;font-size:26px;margin-bottom:6px;}
+  .sub{text-align:center;color:#aaa;font-size:13px;margin-bottom:30px;}
+  .cloud{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;padding:20px 10px;max-width:720px;margin:0 auto;}
+  @media print{@page{margin:1.5cm;}body{padding:10px;}}
+</style></head><body>
+<h1>🇳🇴 Norsk Ordsky — elevenes ord</h1>
+<div class="sub">${filterDesc} &nbsp;·&nbsp; ${words.length} ord &nbsp;·&nbsp; størrelse = antall elever</div>
+<div class="cloud">${wordsHtml}</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`);
+    win.document.close();
+  } else {
+    const rows=words.map(w=>{
+      return `<tr><td style="font-weight:700;color:#1a6b4a;padding:9px 14px;border-bottom:1px solid #eee;font-size:14px">${w.word}</td><td style="color:#555;padding:9px 14px;border-bottom:1px solid #eee;font-size:14px">${w.count} elev${w.count===1?"":"er"}</td></tr>`;
+    }).join("");
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordliste</title>
+<style>
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
+  h1{text-align:center;color:#1a6b4a;font-size:26px;margin-bottom:6px;}
+  .sub{text-align:center;color:#aaa;font-size:13px;margin-bottom:24px;}
+  table{width:100%;border-collapse:collapse;}
+  th{background:#1a6b4a;color:#fff;padding:10px 14px;text-align:left;font-size:13px;font-weight:700;}
+  tr:nth-child(even) td{background:#f9fdf9;}
+  @media print{@page{margin:1.5cm;}body{padding:0;}}
+</style></head><body>
+<h1>🇳🇴 Norsk Ordliste — elevenes ord</h1>
+<div class="sub">${filterDesc} &nbsp;·&nbsp; ${words.length} ord</div>
+<table><thead><tr><th>Norsk ord / uttrykk</th><th>Antall elever</th></tr></thead><tbody>${rows}</tbody></table>
 <script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
 </body></html>`);
     win.document.close();
@@ -6441,6 +6699,8 @@ function buildInnstillinger(){
 
 const teacherState = {
   view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences" | "summaries" | "assignments" | "bank-texts" | "bank-prompts" | "ai-fokus"
+  // ordbankMode / aggXxxFilter (feature 022) live below, near the other Ordbank-related
+  // fields — the "Elevenes ord" toggle lives in Ordbank, not this sidebar's own views.
   students: null,        // cached list from API
   selectedStudent: null, // { id, name, email, assigned_at }
   studentProgress: null, // progress response from API
@@ -6459,6 +6719,18 @@ const teacherState = {
   aiChatTurnCount: 0,    // number of user turns sent this chat session
   aiRatings: null,       // cached list of ai_feedback_ratings for selectedStudent
   classes: null,         // cached [{id,name,student_count,created_at}] — feature 018
+
+  // ── "Elevenes ord" in Ordbank (feature 022) ───────────────────────────────
+  // A toggle within Ordbank, not a sidebar view — a teacher's roster-wide,
+  // deduplicated word aggregate, filtered the same way "Mine ord" is (topic /
+  // learnt / time), plus class and source-text. See buildTeacherWordAggregatePanel().
+  ordbankMode: "mine",   // "mine" | "elever"
+  aggTopicFilter: "",
+  aggLearntFilter: "",   // "" | "hide_learnt"
+  aggTimeFilter: 0,      // 0 | 7 | 30 | 90 (days)
+  aggClassFilter: "",    // class id, or "" for all classes
+  aggSourceFilter: "",   // "" | "none" | "<source_text_id>|<source_text_kind>"
+
   reportConfigs: {essay:null, reading_summary:null}, // cached GET .../report-config per surface (021)
   reportConfigSurface: "essay", // which surface tab is open in the AI-fokus screen
   promptTestResults: [], // session-scoped list of {source, reply} from "Test mot essay" (021, US2)
