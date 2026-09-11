@@ -872,6 +872,33 @@ app, not from code review):
     game never touches, so a user report asking for "the same filters" here was
     answered by explaining the architecture rather than bolting on filters with
     nothing to filter — confirmed with the user as "nothing to change."
+- **`loadEssayIntoEditor()` never switched to the "skriv" tab — a regression from
+  surfacing the essay bank on the Oppgaver landing screen.** Reported as: clicking a
+  saved stil shows the "Stil lastet inn!" toast but nothing changes on screen. Before
+  that panel existed on `buildOppgaver()`, this function was only ever reachable from
+  *inside* an already-open Skriv editor, where updating `state.essay` and re-rendering
+  the same tab was enough — it never needed to switch tabs itself. Once the panel also
+  rendered on the Oppgaver screen, clicking a row there called the same function, which
+  updated state correctly but left `state.tab` on `"oppgaver"` — the success toast
+  fired, the render just redrew the screen the click came from. Fixed with an explicit
+  `setTab("skriv")`. Two more bugs surfaced once this path actually ran end to end:
+  - `buildSkriv()` unconditionally read `TOPICS[state.currentTopic].name`, which threw
+    for any essay with no topic (an old or custom entry) — previously unreachable
+    because a topic was always already set by the time this screen could render.
+    `meta` now falls back to `{name:"Ingen tema"}`.
+  - The prompt-matching fallback (`else if(prompts.length) state.currentPrompt=
+    prompts[0]`) substituted the topic's first built-in prompt whenever an essay's
+    saved prompt couldn't be found in `PROMPTS[topic]` — showing the wrong assignment
+    text above a correctly-loaded essay. Replaced with reconstructing the prompt from
+    what was actually saved (`entry.title`/`entry.promptText`) instead of guessing.
+- **Tekstbank and Oppgavebank cards were missing tema colour entirely.** Both share
+  `renderPickCard()`, which had no topic-tag rendering at all — `renderTextCard()`/
+  `renderPromptCard()` were folding the topic into the plain-text `.card__note` meta
+  line instead of the coloured `.tag` every other card in the app uses. `renderPickCard()`
+  now takes `topic` (the lowercase key/string that drives the colour lookup — CSS
+  variables are lowercase, so this must not be the display label) and `topicLabel`
+  (what's actually printed, which Oppgavebank capitalizes via `PROMPT_TOPIC_LABELS`
+  while Tekstbank just prints the topic string as-is, same as Lesing's cards).
 
 **Deliberately not done yet**, in priority order a future pass should pick up:
 1. The full sharing redesign (one-click send + confirm-strip-with-Angre + optional

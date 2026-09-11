@@ -1227,15 +1227,25 @@ async function loadEssayIntoEditor(entry){
   state.essay=entry.text;
   state.loadedEssayReview=entry.teacherReview||null;
   const ta=$("essay-ta"); if(ta) ta.value=entry.text;
-  // Restore topic/prompt if different
+  // Restore topic/prompt if different. A custom essay — no topic, or a topic
+  // whose built-in prompt list doesn't contain the one this essay was written
+  // for — has no library entry to look up, so its prompt is reconstructed from
+  // what was actually saved (title/promptText) instead of substituting the
+  // topic's first built-in prompt, which used to show the wrong assignment
+  // text above an essay that was written for a different one entirely.
   if(entry.topic && TOPICS[entry.topic]){
     state.currentTopic=entry.topic;
     const prompts=PROMPTS[entry.topic]||[];
     const found=prompts.find(p=>p.id===entry.promptId||p.text===entry.promptText);
-    if(found) state.currentPrompt=found; else if(prompts.length) state.currentPrompt=prompts[0];
+    state.currentPrompt = found || {title:entry.title||"Egendefinert oppgave",text:entry.promptText||"",custom:true};
+  } else {
+    state.currentPrompt = {title:entry.title||"Egendefinert oppgave",text:entry.promptText||"",custom:true};
   }
-  updateWritePanel();
-  renderTabs(); renderContent();
+  // This panel is reachable from the Oppgaver landing screen now, not only from
+  // inside an already-open Skriv editor — setTab("skriv") is what actually shows
+  // the essay; without it, "Stil lastet inn!" fires but the editor never appears
+  // and the click just re-renders whichever screen the panel was clicked from.
+  setTab("skriv");
 
   // Restore saved Claude feedback if available
   if(entry.claudeFeedback){
@@ -2360,12 +2370,12 @@ function buildOrdbank(){
   const actions=el("div",{class:"actions",style:{flexWrap:"wrap",justifyContent:"flex-end"}});
   if(state.words.length>0){
     actions.appendChild(el("button",{class:"btn",click(){printWords("list");}},icon("printer"),"Skriv ut"));
-    actions.appendChild(el("button",{class:"btn",click:exportWords},icon("download"),"Eksporter"));
+    actions.appendChild(el("button",{class:"btn",click:exportWords},icon("upload"),"Eksporter"));
   }
   const fileIn=el("input",{id:"import-file",type:"file",accept:".json,.csv,.txt",style:{display:"none"},
     change(e){const f=e.target.files[0];if(f)importWords(f);e.target.value="";}});
   actions.appendChild(fileIn);
-  actions.appendChild(el("button",{class:"btn",click(){$("import-file").click();}},icon("upload"),"Importer"));
+  actions.appendChild(el("button",{class:"btn",click(){$("import-file").click();}},icon("download"),"Importer"));
   actions.appendChild(el("button",{class:"btn btn--primary",click:openNewWordDialog},icon("plus"),"Nytt ord"));
   topbar.appendChild(actions);
   frag.appendChild(topbar);
@@ -3813,7 +3823,11 @@ function buildSkriv(){
   // being true, not a real screen (the "no prompt yet" screen is buildOppgaver()).
   if(!state.currentPrompt){ setTab("oppgaver"); return document.createDocumentFragment(); }
 
-  const meta=TOPICS[state.currentTopic];
+  // A loaded essay can genuinely have no topic (an old or custom entry) — TOPICS[]
+  // has nothing to key it by, and this crashed on the ` — ${meta.name}` line below
+  // once loadEssayIntoEditor() started actually opening this screen for such an
+  // essay instead of silently leaving it unrendered.
+  const meta=TOPICS[state.currentTopic]||{name:"Ingen tema"};
   const tema=topicTema(state.currentTopic);
   const used=detectUsed(state.essay,state.words);
   const wc=wcCount(state.essay);
@@ -10097,7 +10111,7 @@ function attachWordCounter(textarea, max){
 // target — no checkbox, no expand chevron. The body is clamped to two lines and the
 // "Vis mer" link only appears when the text actually overflows, so most items need
 // no click at all to read.
-function renderPickCard({item, title, meta, body, selectedItems, onChange, onDelete}){
+function renderPickCard({item, title, meta, topic, topicLabel, body, selectedItems, onChange, onDelete}){
   // Reuses the app's established "selected card" language (`.card[aria-selected]`
   // border+tint) instead of the bespoke `.pick-*` classes this used to carry — the
   // circular ✓ badge is the one addition, since a dense list of many selectable
@@ -10114,7 +10128,15 @@ function renderPickCard({item, title, meta, body, selectedItems, onChange, onDel
   };
 
   card.appendChild(checkBadge);
-  card.appendChild(el("div",{class:"card__title",style:{fontSize:"14.5px"}},$esc(title)));
+  card.appendChild(el("div",{class:"card__title",style:{fontSize:"14.5px",marginBottom:topic?"var(--s-1)":null}},$esc(title)));
+  // Topic tag, same colour treatment as every other card in the app — the two
+  // banks that use this shared card were missing it entirely (plain-text topic
+  // buried in the .card__note meta line instead), reported as "not marked with
+  // tema color." `topic` drives the colour lookup and must be the lowercase
+  // canonical key/string (topicTema()'s CSS variables are lowercase); `topicLabel`
+  // is what's actually printed and may be a differently-cased display label
+  // (Oppgavebank's PROMPT_TOPIC_LABELS capitalizes, e.g. "Miljø" for key "miljo").
+  if(topic) card.appendChild(el("span",{class:"tag",style:{background:topicTema(topic).bg,color:topicTema(topic).fg,display:"inline-block",marginBottom:"var(--s-1)"}},$esc(topicLabel||topic)));
   if(meta) card.appendChild(el("p",{class:"card__note"},$esc(meta)));
 
   if(body){
@@ -10275,11 +10297,11 @@ function buildLaererBankTexts(){
 
   function renderTextCard(txt,isCustom){
     const meta=[];
-    if(txt.topic) meta.push(txt.topic);
     if(txt.level) meta.push(txt.level);
     return renderPickCard({
       item: makeTextItem(txt,isCustom),
       title: txt.title||txt.id,
+      topic: txt.topic||"",
       meta: meta.join(" · "),
       body: txt.body||txt.content||txt.text||"",
       selectedItems,
@@ -10512,10 +10534,12 @@ function buildLaererBankPrompts(){
   }
 
   function renderPromptCard(p,topicKey,isCustom){
+    const topicRaw = isCustom ? (p.topic||"") : topicKey;
     return renderPickCard({
       item: makePromptItem(p,topicKey,isCustom),
       title: p.title,
-      meta: isCustom?(p.topic||""):(PROMPT_TOPIC_LABELS[topicKey]||topicKey),
+      topic: topicRaw,
+      topicLabel: isCustom ? topicRaw : (PROMPT_TOPIC_LABELS[topicKey]||topicKey),
       body: isCustom?(p.prompt_text||""):(p.text||""),
       selectedItems,
       onChange: renderAssignPanel,
