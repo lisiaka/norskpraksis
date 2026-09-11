@@ -170,10 +170,6 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .claude-error-text{font-weight:700;color:var(--color-danger);font-size:var(--font-xs);margin-bottom:2px;}
 .claude-error-issue{font-size:var(--font-xs);color:#666;margin-bottom:3px;}
 .claude-error-fix{font-size:var(--font-xs);color:#2d9e6b;font-weight:600;}
-.claude-improved{background:#f0f8f4;border-left:3px solid #2d9e6b;border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;}
-.claude-improved-label{font-size:var(--font-xs);color:#2d9e6b;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;}
-.claude-improved-text{font-size:var(--font-base);color:#222;font-style:italic;line-height:1.5;}
-.claude-tip{background:#fffdf0;border-left:3px solid #f0c040;border-radius:var(--radius-sm);padding:8px 12px;margin-top:8px;font-size:var(--font-xs);color:#776;line-height:1.5;}
 .grammar-error .sug{color:#2d9e6b;margin-left:4px;}
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:11px 24px;border-radius:var(--radius-md);font-size:var(--font-base);font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;}
 .toast.show{opacity:1;}
@@ -346,75 +342,36 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .lookup-status{font-size:var(--font-xs);margin-top:5px;min-height:16px;line-height:1.5;}
 .lookup-status a{color:#1a6b4a;text-decoration:none;font-weight:600;}
 .lookup-status a:hover{text-decoration:underline;}
-/* ── Sentence practice ── */
-.sent-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
-.sent-progress{font-size:var(--font-sm);color:var(--color-text-muted);}
-.sent-progress strong{color:#444;}
-/* Feature 025: color/border/typography now come from .btn-secondary (added at every
-   call site alongside this class) — .btn-nav only supplies its own padding and its
-   fully-inert disabled state (pointer-events:none blocks stray clicks on prev/next
-   arrows; .btn-secondary:disabled alone does not). */
-.btn-nav{padding:8px 18px;}
-.btn-nav:disabled{opacity:.3;cursor:default;pointer-events:none;}
-.sent-card{background:#fff;border-radius:var(--radius-md);padding:30px 28px 24px;border:1px solid #e8ecf0;margin-bottom:14px;}
-.sent-word{font-size:34px;font-weight:800;color:#1a6b4a;margin-bottom:10px;word-break:break-word;line-height:1.2;}
-.sent-meta{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+/* ── Sentence practice ──
+   Setninger itself is redesigned onto the b2-norsk.css component system —
+   only the two classes still shared with (not yet redesigned) Flashcards
+   remain here. See app/CLAUDE.md's design-system note. */
 .sent-cat{display:inline-block;padding:3px 12px;border-radius:var(--radius-lg);font-size:var(--font-xs);font-weight:700;}
 .sent-topic-badge{display:inline-block;padding:4px 10px;border-radius:var(--radius-lg);font-size:var(--font-xs);font-weight:700;background:#f0e68c;color:#776;}
-.sent-meaning{font-size:var(--font-base);color:#777;font-style:italic;}
-.sent-prompt{font-size:var(--font-base);font-weight:600;color:#333;margin-bottom:8px;}
-.sent-area{width:100%;padding:14px 16px;border-radius:var(--radius-md);border:1.5px solid #dde;font-size:var(--font-base);line-height:1.6;resize:none;min-height:88px;background:#fff;font-family:inherit;}
-.sent-area:focus{border-color:#2d9e6b!important;box-shadow:0 0 0 3px rgba(45,158,107,.13);}
-.sent-feedback{font-size:var(--font-sm);margin-top:10px;min-height:20px;display:flex;align-items:center;gap:8px;}
-.sent-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center;}
-.btn-next-sent{padding:10px 22px;background:#1a6b4a;border:none;border-radius:var(--radius-md);font-size:var(--font-base);color:#fff;font-weight:700;}
 .btn-skip{padding:10px 16px;background:#f5f7fa;border:1.5px solid #e0e4ec;border-radius:var(--radius-md);font-size:var(--font-sm);color:#666;font-weight:500;}
-.sent-badge{background:#edfaf3;color:#2d9e6b;font-size:var(--font-xs);font-weight:700;padding:3px 10px;border-radius:var(--radius-lg);}
-.sent-saved-label{font-size:var(--font-xs);color:var(--color-text-muted);}
-.sent-done-box{background:#fff;border-radius:var(--radius-md);padding:50px 30px;text-align:center;border:1px solid #e8ecf0;}
-.prev-sentences{margin-top:20px;}
-.prev-sentences h3{font-size:var(--font-sm);color:var(--color-text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:12px;}
-.prev-sent-item{background:#f8fdf9;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:8px;border-left:3px solid #2d9e6b;}
-.prev-sent-word{font-size:var(--font-xs);color:#1a6b4a;font-weight:700;margin-bottom:3px;}
-.prev-sent-text{font-size:var(--font-base);color:#333;line-height:1.5;}
-/* ── Flashcards ── */
-.fc-setup{background:#fff;border-radius:var(--radius-md);padding:24px;border:1px solid #e8ecf0;margin-bottom:14px;}
-.fc-section-label{font-size:var(--font-xs);color:var(--color-text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:block;}
-.fc-mode-row{display:flex;gap:10px;margin-bottom:4px;flex-wrap:wrap;}
-.fc-mode-btn{flex:1;min-width:180px;padding:14px 16px;border-radius:var(--radius-md);border:1.5px solid #e0e4ec;background:#f5f7fa;font-size:var(--font-base);font-weight:600;color:#555;text-align:left;cursor:pointer;transition:all .2s;}
-.fc-mode-btn.active{border-color:#1a6b4a;background:#edfaf3;color:#1a6b4a;}
-.fc-mode-btn .mode-icon{font-size:24px;display:block;margin-bottom:6px;}
-.fc-mode-btn .mode-desc{font-size:var(--font-xs);font-weight:400;color:var(--color-text-muted);margin-top:3px;}
-.fc-mode-btn.active .mode-desc{color:#2d9e6b;}
-.fc-filter-bar{background:#f9f9f9;border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
-.fc-score-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:10px 16px;background:#fff;border-radius:var(--radius-md);border:1px solid #e8ecf0;flex-wrap:wrap;gap:8px;}
-.fc-score-nums{display:flex;gap:16px;}
-.fc-score-ok{font-size:var(--font-base);font-weight:700;color:#2d9e6b;}
-.fc-score-err{font-size:var(--font-base);font-weight:700;color:var(--color-danger);}
-.fc-progress-wrap{height:5px;background:var(--color-border-light);border-radius:var(--radius-sm);margin-bottom:18px;overflow:hidden;}
-.fc-progress-fill{height:100%;background:#2d9e6b;border-radius:var(--radius-sm);transition:width .35s;}
-.fc-card{background:#fff;border-radius:var(--radius-lg);padding:36px 28px 28px;text-align:center;border:1px solid #e8ecf0;margin-bottom:18px;}
-.fc-word{font-size:38px;font-weight:800;color:#1a6b4a;margin-bottom:8px;word-break:break-word;line-height:1.2;}
-.fc-sub{font-size:var(--font-base);color:var(--color-text-muted);margin-bottom:6px;font-style:italic;}
-.fc-question{font-size:var(--font-sm);font-weight:600;color:var(--color-text-muted);margin-top:10px;text-transform:uppercase;letter-spacing:.4px;}
-.fc-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+/* ── Flashcards ── the setup/header/filter chrome now lives on the
+   b2-norsk.css component system; only the bespoke centered-card/option-grid
+   layout below stays a purpose-built class, retokenized. */
+.fc-card{background:var(--surface);border-radius:var(--r-dialog);padding:36px 28px 28px;text-align:center;border:1px solid var(--line);margin-bottom:var(--s-4);}
+.fc-word{font-size:38px;font-weight:800;color:var(--green);margin-bottom:8px;word-break:break-word;line-height:1.2;}
+.fc-sub{font-size:var(--t-base);color:var(--ink-3);margin-bottom:6px;font-style:italic;}
+.fc-question{font-size:var(--t-sm);font-weight:600;color:var(--ink-3);margin-top:10px;text-transform:uppercase;letter-spacing:.4px;}
+.fc-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:var(--s-3);}
 @media(max-width:520px){.fc-options{grid-template-columns:1fr;}}
-.fc-opt{padding:14px 16px;border-radius:var(--radius-md);border:1.5px solid #e0e4ec;background:#fff;font-size:var(--font-base);font-weight:600;color:#333;text-align:center;cursor:pointer;transition:all .15s;line-height:1.4;}
-.fc-opt:hover:not([disabled]){border-color:#2d9e6b;background:#edfaf3;color:#1a6b4a;}
-.fc-opt.correct{border-color:#2d9e6b!important;background:#edfaf3!important;color:#1a6b4a!important;}
-.fc-opt.wrong{border-color:var(--color-danger)!important;background:#fff5f5!important;color:var(--color-danger)!important;}
-.fc-opt.reveal{border-color:#2d9e6b;background:#f0fdf6;color:#1a6b4a;opacity:.65;}
+.fc-opt{padding:14px 16px;border-radius:var(--r-btn);border:1.5px solid var(--line-strong);background:var(--surface);font-size:var(--t-base);font-weight:600;color:var(--ink);text-align:center;cursor:pointer;transition:all .15s;line-height:1.4;}
+.fc-opt:hover:not([disabled]){border-color:var(--green);background:var(--green-tint);color:var(--green);}
+.fc-opt.correct{border-color:var(--green)!important;background:var(--green-tint)!important;color:var(--green)!important;}
+.fc-opt.wrong{border-color:var(--danger)!important;background:var(--tema-helse-bg)!important;color:var(--danger)!important;}
+.fc-opt.reveal{border-color:var(--green);background:var(--green-tint-2);color:var(--green);opacity:.65;}
 .fc-opt[disabled]{cursor:default;}
-.fc-feedback{text-align:center;margin-bottom:14px;min-height:48px;}
-.fc-feedback-ok{font-size:20px;font-weight:800;color:#2d9e6b;margin-bottom:4px;}
-.fc-feedback-err{font-size:20px;font-weight:800;color:var(--color-danger);margin-bottom:4px;}
-.fc-correct-hint{font-size:var(--font-sm);color:var(--color-text-muted);}
-.fc-nav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
-.btn-fc-next{padding:12px 32px;background:#1a6b4a;border:none;border-radius:var(--radius-md);font-size:var(--font-base);color:#fff;font-weight:700;cursor:pointer;}
-.fc-done{background:#fff;border-radius:var(--radius-md);padding:50px 30px;text-align:center;border:1px solid #e8ecf0;}
-.fc-done-emoji{font-size:60px;margin-bottom:14px;}
-.fc-done-score{font-size:28px;font-weight:800;color:#1a6b4a;margin-bottom:6px;}
-.fc-done-pct{font-size:17px;color:var(--color-text-muted);margin-bottom:28px;}
+.fc-feedback{text-align:center;margin-bottom:var(--s-3);min-height:48px;}
+.fc-feedback-ok{font-size:20px;font-weight:800;color:var(--green);margin-bottom:4px;}
+.fc-feedback-err{font-size:20px;font-weight:800;color:var(--danger);margin-bottom:4px;}
+.fc-correct-hint{font-size:var(--t-sm);color:var(--ink-3);}
+.fc-nav{display:flex;gap:var(--s-2);justify-content:center;flex-wrap:wrap;}
+.fc-done{background:var(--surface);border-radius:var(--r-card);padding:50px 30px;text-align:center;border:1px solid var(--line);}
+.fc-done-score{font-size:28px;font-weight:800;color:var(--green);margin-bottom:6px;}
+.fc-done-pct{font-size:17px;color:var(--ink-3);margin-bottom:var(--s-4);}
 </style>
 </head>
 <body>
@@ -665,7 +622,7 @@ const TIPS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────
-const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", learntFilter:"", currentTopic:null, currentPrompt:null, essay:"",
+const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", learntFilter:"", ordTagFilter:"", currentTopic:null, currentPrompt:null, essay:"",
   // Feature 018. myClass is {class, classmates} — a null `class` means the student
   // is in no class, which is ordinary and must be explained rather than hidden.
   myClass:null, sharedInbox:null, shareOpen:false,
@@ -2394,7 +2351,7 @@ function buildOrdbank(){
   // ── Filter panel (§ "Filters") ──
   if(state.words.length>0){
     const isOpen = state.ordbankFiltersOpen ?? true;
-    const activeCount = [state.topicFilter,state.practicedFilter,state.learntFilter,state.timeFilter].filter(Boolean).length;
+    const activeCount = [state.topicFilter,state.practicedFilter,state.learntFilter,state.timeFilter,state.ordTagFilter].filter(Boolean).length;
     const panel=el("div",{class:"filter-panel",style:{marginBottom:"var(--s-4)"}});
     if(!isOpen) panel.setAttribute("data-collapsed","");
 
@@ -2411,11 +2368,12 @@ function buildOrdbank(){
       if(state.practicedFilter==="not_practiced") headLeft.appendChild(buildRemovablePill("ikke øvd", ()=>{state.practicedFilter="";renderContent();}));
       if(state.learntFilter==="hide_learnt") headLeft.appendChild(buildRemovablePill("lærte skjult", ()=>{state.learntFilter="";renderContent();}));
       if(state.timeFilter) headLeft.appendChild(buildRemovablePill(({7:"siste 7 dager",30:"siste 30 dager",90:"siste 3 måneder"})[state.timeFilter], ()=>{state.timeFilter=0;renderContent();}));
+      if(state.ordTagFilter) headLeft.appendChild(buildRemovablePill(state.ordTagFilter, ()=>{state.ordTagFilter="";renderContent();}));
     }
     head.appendChild(headLeft);
     const headRight=el("div",{style:{display:"flex",alignItems:"center",gap:"14px"}});
     if(activeCount) headRight.appendChild(el("button",{class:"btn--link",click(){
-      state.topicFilter="";state.practicedFilter="";state.learntFilter="";state.timeFilter=0;
+      state.topicFilter="";state.practicedFilter="";state.learntFilter="";state.timeFilter=0;state.ordTagFilter="";
       renderContent();
     }},"Nullstill"));
     // Plain text + ▼, not an icon button — matches the reference mockup exactly
@@ -2476,6 +2434,25 @@ function buildOrdbank(){
       const opts=el("div",{class:"facet__options"});
       [[0,"Alle"],[7,"Siste 7 dager"],[30,"Siste 30 dager"],[90,"Siste 3 måneder"]].forEach(([val,label])=>{
         opts.appendChild(buildFacetPill(label,state.timeFilter===val,()=>{state.timeFilter=val;renderContent();}));
+      });
+      facet.appendChild(opts);
+      body.appendChild(facet);
+    }
+
+    // TAGG facet (feature 023) — only when at least one word actually carries a
+    // tag, mirroring TEMA's own visibility rule. Tags are named by a teacher and
+    // applied to a specific student's words; this facet has nothing to show for a
+    // student none of whose words have been tagged, so it stays hidden rather
+    // than rendering an always-empty row.
+    const tagsPresent=allWordTags(state.words);
+    if(tagsPresent.length>0){
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Tagg"));
+      const opts=el("div",{class:"facet__options"});
+      opts.appendChild(buildFacetPill("Alle",!state.ordTagFilter,()=>{state.ordTagFilter="";renderContent();}));
+      tagsPresent.forEach(tag=>{
+        const count=state.words.filter(w=>(w.tags||[]).includes(tag)).length;
+        opts.appendChild(buildFacetPill(tag,state.ordTagFilter===tag,()=>{state.ordTagFilter=tag;renderContent();},null,count));
       });
       facet.appendChild(opts);
       body.appendChild(facet);
@@ -2574,6 +2551,7 @@ function resultLineText(){
   if(state.practicedFilter==="not_practiced") parts.push("ikke øvd");
   if(state.learntFilter==="hide_learnt") parts.push("lærte skjult");
   if(state.timeFilter) parts.push(({7:"siste 7 dager",30:"siste 30 dager",90:"siste 3 måneder"})[state.timeFilter]);
+  if(state.ordTagFilter) parts.push(`tagg "${state.ordTagFilter}"`);
   if(state.search) parts.push(`søk «${state.search}»`);
   return parts.join(" · ");
 }
@@ -2582,70 +2560,72 @@ function resultLineText(){
 
 function buildOrdbankModeToggle(){
   const mode = teacherState.ordbankMode || "mine";
-  // Feature 025: selected state reuses the app's established selection treatment
-  // (var(--color-primary) fill, same as .topic-chip.active) instead of the
-  // hardcoded blue this toggle used to carry — a secondary/neutral control's
-  // "on" state, not an unrelated accent color.
-  const row = el("div",{style:{display:"flex",gap:"0",marginBottom:"16px",borderRadius:"var(--radius-md)",overflow:"hidden",border:"1.5px solid #dde",width:"fit-content"}});
-  const mineBtn = el("button",{style:{border:"none",padding:"8px 18px",fontSize:"var(--font-base)",fontWeight:"600",cursor:"pointer",
-    background:mode==="mine"?"var(--color-primary)":"#fff", color:mode==="mine"?"#fff":"#333"},
-    click(){ teacherState.ordbankMode="mine"; renderContent(); }}, "📚 Mine ord");
-  const eleverBtn = el("button",{style:{border:"none",padding:"8px 18px",fontSize:"var(--font-base)",fontWeight:"600",cursor:"pointer",
-    background:mode==="elever"?"var(--color-primary)":"#fff", color:mode==="elever"?"#fff":"#333"},
-    click(){ teacherState.ordbankMode="elever"; renderContent(); }}, "👥 Elevenes ord");
-  row.appendChild(mineBtn); row.appendChild(eleverBtn);
+  // A toggle maps onto the same selected-pill treatment as every other
+  // exclusive-choice control in the app (AI-fokus scope, report-layout surface,
+  // Gi oppgaver's mode switch) — never a filled primary/accent colour.
+  const row = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-4)"}});
+  row.appendChild(el("button",{class:"pill","aria-pressed":mode==="mine"?"true":"false",
+    click(){ teacherState.ordbankMode="mine"; renderContent(); }}, "Mine ord"));
+  row.appendChild(el("button",{class:"pill","aria-pressed":mode==="elever"?"true":"false",
+    click(){ teacherState.ordbankMode="elever"; renderContent(); }}, "Elevenes ord"));
   return row;
 }
 
-// Same chip-row look as "Mine ord"'s topic/learnt/time filters (`.topic-filter-bar` /
-// `.topic-chip`) — the point of this view is to reuse that filter bar, not build a
-// second one that merely resembles it.
+// Same facet/pill look as "Mine ord"'s own filter panel (`.facet`/`.facet__label`/
+// `.facet__options`/`.pill`) — the point of this view is to read as the same
+// feature from a different angle, not a bespoke chip row. Manages its own
+// aria-pressed state on click rather than going through a full renderContent(),
+// since this panel loads its data asynchronously instead of re-rendering the tab.
 function _aggFilterChipRow(label, options, currentValue, onPick){
-  const bar = el("div",{class:"topic-filter-bar",style:{marginBottom:"8px"}});
-  bar.appendChild(el("span",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},label));
+  const facet = el("div",{class:"facet"});
+  facet.appendChild(el("div",{class:"facet__label"},label));
+  const opts = el("div",{class:"facet__options"});
   options.forEach(([val,text])=>{
-    bar.appendChild(el("button",{class:"topic-chip"+(currentValue===val?" active":""),
+    opts.appendChild(el("button",{class:"pill","aria-pressed":currentValue===val?"true":"false",
       click(e){
         onPick(val);
-        e.currentTarget.parentNode.querySelectorAll(".topic-chip").forEach(b=>b.classList.remove("active"));
-        e.currentTarget.classList.add("active");
+        opts.querySelectorAll(".pill").forEach(b=>b.setAttribute("aria-pressed","false"));
+        e.currentTarget.setAttribute("aria-pressed","true");
       }}, text));
   });
-  return bar;
+  facet.appendChild(opts);
+  return facet;
 }
 
 function buildTeacherWordAggregatePanel(){
   const frag = document.createDocumentFragment();
-  frag.appendChild(el("p",{style:{color:"var(--color-text-muted)",fontSize:"var(--font-sm)",margin:"0 0 14px"}},
+  frag.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}},
     "Alle ord elevene dine har i ordbanken, samlet på tvers av elever."));
 
-  const filterSection = el("div",{style:{marginBottom:"14px"}});
-  filterSection.appendChild(_aggFilterChipRow("TEMA:", [["","Alle"],...VALID_TOPIC_LIST.map(t=>[t,t])],
+  const filterCard = el("div",{class:"filter-panel"});
+  const filterBody = el("div",{class:"filter-panel__body"});
+  filterBody.appendChild(_aggFilterChipRow("Tema", [["","Alle"],...VALID_TOPIC_LIST.map(t=>[t,t])],
     teacherState.aggTopicFilter, v=>{ teacherState.aggTopicFilter=v; loadAggregate().then(()=>trackFilterChange("topic")); }));
-  filterSection.appendChild(_aggFilterChipRow("LÆRT:", [["","Alle ord"],["hide_learnt","Skjul lærte"]],
+  filterBody.appendChild(_aggFilterChipRow("Lært", [["","Alle ord"],["hide_learnt","Skjul lærte"]],
     teacherState.aggLearntFilter, v=>{ teacherState.aggLearntFilter=v; loadAggregate().then(()=>trackFilterChange("learnt")); }));
-  filterSection.appendChild(_aggFilterChipRow("TID:", [[0,"Alle"],[7,"Siste 7 dager"],[30,"Siste 30 dager"],[90,"Siste 3 måneder"]],
+  filterBody.appendChild(_aggFilterChipRow("Lagt til", [[0,"Alle"],[7,"Siste 7 dager"],[30,"Siste 30 dager"],[90,"Siste 3 måneder"]],
     teacherState.aggTimeFilter, v=>{ teacherState.aggTimeFilter=v; loadAggregate().then(()=>trackFilterChange("time")); }));
 
   const classBarWrap = el("div",{});
-  filterSection.appendChild(classBarWrap);
+  filterBody.appendChild(classBarWrap);
 
-  const sourceRow = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}});
-  sourceRow.appendChild(el("span",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px"}},"TEKST:"));
-  const sourceSel = el("select",{style:{padding:"5px 8px",borderRadius:"var(--radius-md)",border:"1.5px solid #dde",fontSize:"var(--font-sm)"},
+  const sourceFacet = el("div",{class:"facet"});
+  sourceFacet.appendChild(el("div",{class:"facet__label"},"Tekst"));
+  const sourceSel = el("select",{class:"select",style:{width:"auto"},
     change(){ teacherState.aggSourceFilter = sourceSel.value; loadAggregate().then(()=>trackFilterChange("source_text")); }});
-  sourceRow.appendChild(sourceSel);
-  filterSection.appendChild(sourceRow);
-  frag.appendChild(filterSection);
+  sourceFacet.appendChild(sourceSel);
+  filterBody.appendChild(sourceFacet);
+  filterCard.appendChild(filterBody);
+  frag.appendChild(filterCard);
 
   // Print bar — same buttons and labels as "Mine ord" (printWords), wired to the
   // aggregate-specific print function: cloud sizing is student count, not random.
-  const printBar = el("div",{class:"io-bar",style:{marginBottom:"14px"}});
-  printBar.appendChild(el("button",{class:"btn-io btn-secondary",click(){
+  const printBar = el("div",{class:"actions",style:{margin:"var(--s-3) 0"}});
+  printBar.appendChild(el("button",{class:"btn",click(){
     printAggregateWords("cloud",currentWords,filterDesc());
     trackEvent("teacher.word_cloud_viewed",{word_count:currentWords.length});
-  }},"🖨️ Skriv ut ordsky"));
-  printBar.appendChild(el("button",{class:"btn-io btn-secondary",click(){printAggregateWords("list",currentWords,filterDesc());}},"🖨️ Skriv ut ordliste"));
+  }},icon("printer"),"Skriv ut ordsky"));
+  printBar.appendChild(el("button",{class:"btn",click(){printAggregateWords("list",currentWords,filterDesc());}},icon("printer"),"Skriv ut ordliste"));
   frag.appendChild(printBar);
 
   const resultWrap = el("div",{});
@@ -2669,14 +2649,14 @@ function buildTeacherWordAggregatePanel(){
   function renderResult(){
     resultWrap.innerHTML = "";
     if(!currentWords.length){
-      resultWrap.appendChild(el("p",{style:{color:"var(--color-text-muted)",marginTop:"8px"}},
+      resultWrap.appendChild(el("p",{class:"card__note"},
         "Ingen ord funnet — elevene dine har ingen ord som passer filteret over."));
       return;
     }
-    const table = el("div",{style:{display:"grid",gridTemplateColumns:"1fr auto",gap:"6px 20px",fontSize:"var(--font-base)",maxWidth:"600px"}});
+    const table = el("div",{style:{display:"grid",gridTemplateColumns:"1fr auto",gap:"6px 20px",fontSize:"var(--t-base)",maxWidth:"600px"}});
     currentWords.forEach(w=>{
       table.appendChild(el("div",{},$esc(w.word)));
-      table.appendChild(el("div",{style:{color:"#666",textAlign:"right"}}, `${w.count} elev${w.count===1?"":"er"}`));
+      table.appendChild(el("div",{class:"card__note",style:{textAlign:"right"}}, `${w.count} elev${w.count===1?"":"er"}`));
     });
     resultWrap.appendChild(table);
   }
@@ -2718,7 +2698,7 @@ function buildTeacherWordAggregatePanel(){
 
   async function loadAggregate(){
     resultWrap.innerHTML = "";
-    resultWrap.appendChild(el("p",{style:{color:"var(--color-text-muted)"}},"Laster…"));
+    resultWrap.appendChild(el("p",{class:"card__note"},"Laster…"));
     const params = scopeParams();
     if(teacherState.aggTopicFilter) params.set("topic", teacherState.aggTopicFilter);
     if(teacherState.aggLearntFilter==="hide_learnt") params.set("hide_learnt","true");
@@ -2733,7 +2713,7 @@ function buildTeacherWordAggregatePanel(){
     const r = await api("/api/teacher/words/aggregate?"+params.toString()).catch(()=>null);
     if(!r?.ok){
       resultWrap.innerHTML = "";
-      resultWrap.appendChild(el("p",{style:{color:"var(--color-danger)"}},"Kunne ikke laste ord."));
+      resultWrap.appendChild(el("p",{class:"card__note",style:{color:"var(--danger)"}},"Kunne ikke laste ord."));
       return;
     }
     const data = await r.json();
@@ -2746,7 +2726,7 @@ function buildTeacherWordAggregatePanel(){
     classBarWrap.innerHTML = "";
     if(!(teacherState.classes||[]).length) return;
     classBarWrap.appendChild(_aggFilterChipRow(
-      "KLASSE:",
+      "Klasse",
       [["","Alle klasser"],...teacherState.classes.map(c=>[c.id,c.name])],
       teacherState.aggClassFilter,
       v=>{ teacherState.aggClassFilter=v; teacherState.aggSourceFilter=""; loadSources().then(loadAggregate).then(()=>trackFilterChange("class")); }
@@ -2784,6 +2764,7 @@ function getFilteredWords(){
   // above rather than replacing it. Unlike flashcards, the bank shows everything by
   // default: this is the learner's record of what they know, not a practice pool.
   if(state.learntFilter==="hide_learnt") filtered=filtered.filter(w=>!isLearnt(w));
+  if(state.ordTagFilter) filtered=filtered.filter(w=>(w.tags||[]).includes(state.ordTagFilter));
   if(state.search) filtered=filtered.filter(w=>
     w.word.toLowerCase().includes(state.search.toLowerCase())||
     w.meaning.toLowerCase().includes(state.search.toLowerCase()));
@@ -3251,54 +3232,74 @@ function buildSetninger(){
   const frag=document.createDocumentFragment();
 
   if(state.words.length===0){
-    frag.appendChild(el("div",{class:"empty-state",style:{padding:"60px 20px"}},
-      el("div",{class:"big"},"💬"),
-      el("p",{style:{fontSize:"var(--font-base)",marginBottom:"8px"}},"Ingen ord i ordbanken ennå!"),
-      el("p",{style:{fontSize:"var(--font-base)",marginBottom:"16px"}},"Legg til ord først, så kan du øve på å bruke dem i setninger."),
-      el("button",{style:{padding:"10px 24px",background:"#1a6b4a",color:"#fff",border:"none",borderRadius:"var(--radius-md)",fontSize:"var(--font-base)",fontWeight:"700"},
-        click(){setTab("ordbank");}
-      },"+ Legg til ord")));
+    frag.appendChild(el("div",{class:"empty-state"},
+      el("p",{class:"card__title",style:{marginBottom:"6px"}},"Ingen ord i ordbanken ennå"),
+      el("p",{class:"card__sub",style:{marginBottom:"var(--s-3)"}},"Legg til ord først, så kan du øve på å bruke dem i setninger."),
+      el("button",{class:"btn btn--primary",click(){setTab("ordbank");}},icon("plus"),"Legg til ord")));
     return frag;
   }
 
-  // Feature 026: filters collapse as one block.
-  frag.appendChild(buildFilterToggle("setninger", state, "sentFiltersOpen", renderContent));
-  const sentFiltersWrap=el("div",{style:{display:(state.sentFiltersOpen??true)?"":"none"}});
-  frag.appendChild(sentFiltersWrap);
-
-  // ── Topic filter bar ──
+  // ── Filter panel (§ "Filters") — same facet/pill component as Ordbank ──
   const topics=VALID_TOPIC_LIST.filter(t=>state.words.some(w=>w.topic===t));
-  if(topics.length>0){
-    const filterBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"14px"}});
-    filterBar.appendChild(el("span",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TEMA:"));
-    const allCount=state.words.length;
-    filterBar.appendChild(el("button",{class:"topic-chip"+(state.sentTopicFilter===""?" active":""),
-      click(){state.sentTopicFilter="";state.wordIdx=0;renderContent();}},`Alle (${allCount})`));
-    topics.forEach(topic=>{
-      const count=state.words.filter(w=>w.topic===topic).length;
-      filterBar.appendChild(el("button",{class:"topic-chip"+(state.sentTopicFilter===topic?" active":""),
-        click(){state.sentTopicFilter=topic;state.wordIdx=0;renderContent();}},`${topicIcon(topic)} ${topic} (${count})`));
-    });
-    sentFiltersWrap.appendChild(filterBar);
-  }
-
-  // ── Tag filter bar (feature 023) ── only rendered when at least one word in the
-  // bank carries a tag, mirroring the topic-chip visibility rule above.
   const sentTags=allWordTags(state.words);
-  if(sentTags.length>0){
-    const tagBar=el("div",{class:"topic-filter-bar",style:{marginBottom:"14px"}});
-    tagBar.appendChild(el("span",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"6px",alignSelf:"center"}},"TAGG:"));
-    tagBar.appendChild(el("button",{class:"topic-chip"+(state.tagFilter===""?" active":""),
-      click(){state.tagFilter="";state.wordIdx=0;renderContent();}},"Alle"));
-    sentTags.forEach(tag=>{
-      tagBar.appendChild(el("button",{class:"topic-chip"+(state.tagFilter===tag?" active":""),
-        click(){
+  if(topics.length>0 || sentTags.length>0){
+    const isOpen=state.sentFiltersOpen ?? true;
+    const activeCount=[state.sentTopicFilter,state.tagFilter].filter(Boolean).length;
+    const panel=el("div",{class:"filter-panel",style:{marginBottom:"var(--s-4)"}});
+    if(!isOpen) panel.setAttribute("data-collapsed","");
+
+    const head=el("div",{class:"filter-panel__head"});
+    const headLeft=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}});
+    headLeft.appendChild(icon("filter"));
+    headLeft.lastChild.style.color="var(--ink-3)";
+    headLeft.appendChild(el("span",{class:"label-mono"},"Filtre"));
+    if(activeCount) headLeft.appendChild(el("span",{class:"badge-count"},String(activeCount)));
+    if(!isOpen){
+      if(state.sentTopicFilter) headLeft.appendChild(buildRemovablePill(state.sentTopicFilter, ()=>{state.sentTopicFilter="";state.wordIdx=0;renderContent();}));
+      if(state.tagFilter) headLeft.appendChild(buildRemovablePill(state.tagFilter, ()=>{state.tagFilter="";state.wordIdx=0;renderContent();}));
+    }
+    head.appendChild(headLeft);
+    const headRight=el("div",{style:{display:"flex",alignItems:"center",gap:"14px"}});
+    if(activeCount) headRight.appendChild(el("button",{class:"btn--link",click(){
+      state.sentTopicFilter="";state.tagFilter="";state.wordIdx=0;renderContent();
+    }},"Nullstill"));
+    headRight.appendChild(el("button",{style:{background:"none",border:"none",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"13px",color:"var(--ink-2)",fontWeight:"500"},
+      click(){ state.sentFiltersOpen=!isOpen; trackEvent("filters.toggled",{tab:"setninger",state:isOpen?"collapsed":"expanded"}); renderContent(); }
+    },(isOpen?"Skjul filtre":"Vis filtre")+" ",el("span",{style:{fontSize:"10px"}},"▼")));
+    head.appendChild(headRight);
+    panel.appendChild(head);
+
+    const body=el("div",{class:"filter-panel__body"});
+    if(topics.length>0){
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Tema"));
+      const opts=el("div",{class:"facet__options"});
+      opts.appendChild(buildFacetPill("Alle",state.sentTopicFilter==="",()=>{state.sentTopicFilter="";state.wordIdx=0;renderContent();},null,state.words.length));
+      topics.forEach(t=>{
+        const count=state.words.filter(w=>w.topic===t).length;
+        opts.appendChild(buildFacetPill(t,state.sentTopicFilter===t,()=>{state.sentTopicFilter=t;state.wordIdx=0;renderContent();},topicTema(t).bg,count));
+      });
+      facet.appendChild(opts);
+      body.appendChild(facet);
+    }
+    // Tag facet (feature 023) — only rendered when at least one word carries a tag.
+    if(sentTags.length>0){
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Tagg"));
+      const opts=el("div",{class:"facet__options"});
+      opts.appendChild(buildFacetPill("Alle",!state.tagFilter,()=>{state.tagFilter="";state.wordIdx=0;renderContent();}));
+      sentTags.forEach(tag=>{
+        opts.appendChild(buildFacetPill(tag,state.tagFilter===tag,()=>{
           state.tagFilter=tag; state.wordIdx=0;
           trackEvent("setninger.tag_filter_used",{tag});
           renderContent();
-        }},tag));
-    });
-    sentFiltersWrap.appendChild(tagBar);
+        }));
+      });
+      facet.appendChild(opts);
+      body.appendChild(facet);
+    }
+    panel.appendChild(body);
+    frag.appendChild(panel);
   }
 
   const sentWords=getSentWords();
@@ -3306,9 +3307,8 @@ function buildSetninger(){
     const parts=[];
     if(state.sentTopicFilter) parts.push(`tema "${state.sentTopicFilter}"`);
     if(state.tagFilter) parts.push(`tagg "${state.tagFilter}"`);
-    frag.appendChild(el("div",{class:"empty-state"},
-      el("p",{style:{fontSize:"var(--font-base)"}},
-        parts.length ? `Ingen ord med ${parts.join(" og ")}.` : "Ingen ord.")));
+    frag.appendChild(el("p",{class:"card__note"},
+      parts.length ? `Ingen ord med ${parts.join(" og ")}.` : "Ingen ord."));
     return frag;
   }
 
@@ -3322,24 +3322,24 @@ function buildSetninger(){
   const currentSentence=state.sentences[word.id]||"";
 
   // ── Navigation bar ──
-  const nav=el("div",{class:"sent-nav"});
-  nav.appendChild(el("button",{class:"btn-nav btn-secondary",disabled:state.wordIdx===0?"":null,
+  const nav=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"var(--s-3)",flexWrap:"wrap",gap:"var(--s-2)"}});
+  nav.appendChild(el("button",{class:"btn",disabled:state.wordIdx===0?"":null,
     click(){state.wordIdx--;renderContent();}
   },"← Forrige"));
-  nav.appendChild(el("div",{class:"sent-progress"},
-    el("strong",{},`${state.wordIdx+1} / ${total}`),` ord  ·  ${doneCount} setninger skrevet`));
-  nav.appendChild(el("button",{class:"btn-nav btn-secondary",disabled:state.wordIdx===total-1?"":null,
+  nav.appendChild(el("div",{class:"card__note"},
+    el("b",{style:{color:"var(--ink)"}},`${state.wordIdx+1} / ${total}`),` ord · ${doneCount} setninger skrevet`));
+  nav.appendChild(el("button",{class:"btn",disabled:state.wordIdx===total-1?"":null,
     click(){state.wordIdx++;renderContent();}
   },"Neste →"));
   frag.appendChild(nav);
 
   // ── Word card ──
-  const card=el("div",{class:"sent-card"});
-  card.appendChild(el("div",{class:"sent-word"},word.word));
-  const meta=el("div",{class:"sent-meta"});
-  meta.appendChild(el("span",{class:"sent-cat",style:{background:cat.color+"18",color:cat.color}},cat.label));
-  if(word.topic) meta.appendChild(el("span",{class:"sent-topic-badge"},word.topic));
-  if(word.meaning) meta.appendChild(el("span",{class:"sent-meaning"},word.meaning));
+  const card=el("div",{class:"card",style:{marginBottom:"var(--s-3)"}});
+  card.appendChild(el("div",{style:{fontSize:"32px",fontWeight:"800",color:"var(--green)",marginBottom:"var(--s-2)",wordBreak:"break-word",lineHeight:"1.2"}},word.word));
+  const meta=el("div",{style:{display:"flex",alignItems:"center",gap:"var(--s-2)",marginBottom:"var(--s-3)",flexWrap:"wrap"}});
+  meta.appendChild(el("span",{class:"tag"},cat.label));
+  if(word.topic){ const tema=topicTema(word.topic); meta.appendChild(el("span",{class:"tag",style:{background:tema.bg,color:tema.fg}},word.topic)); }
+  if(word.meaning) meta.appendChild(el("span",{class:"card__note",style:{fontStyle:"italic"}},word.meaning));
   card.appendChild(meta);
 
   const hints={
@@ -3347,24 +3347,24 @@ function buildSetninger(){
     uttrykk:`Bruk uttrykket "${word.word}" naturlig i en setning. Jobb med kontekst og flyt.`,
     koblingsord:`Koble to tanker med "${word.word}". Koblingsord skaper logisk sammenheng mellom setningsdeler.`,
   };
-  card.appendChild(el("p",{class:"sent-prompt"},hints[actualCat]||`Lag en setning med "${word.word}".`));
+  card.appendChild(el("p",{style:{fontSize:"var(--t-base)",fontWeight:"600",color:"var(--ink)",marginBottom:"var(--s-2)"}},hints[actualCat]||`Lag en setning med "${word.word}".`));
 
-  const ta=el("textarea",{id:"sent-ta",class:"sent-area",
+  const ta=el("textarea",{id:"sent-ta",class:"textarea",style:{minHeight:"88px",marginBottom:"var(--s-2)"},
     placeholder:`Skriv én setning med "${word.word}" her…`,
     input:onSentenceInput});
   ta.value=currentSentence;
   card.appendChild(ta);
 
-  const fb=el("div",{id:"sent-feedback",class:"sent-feedback"});
+  const fb=el("div",{id:"sent-feedback",style:{display:"flex",alignItems:"center",gap:"var(--s-2)",minHeight:"20px"}});
   fillSentenceFeedback(fb,currentSentence,word);
   card.appendChild(fb);
 
-  const grammarDiv=el("div",{id:"grammar-result",class:"grammar-result",style:{display:"none"}});
+  const grammarDiv=el("div",{id:"grammar-result",style:{display:"none",marginTop:"var(--s-3)"}});
   card.appendChild(grammarDiv);
 
   // Action buttons
-  const actions=el("div",{class:"sent-actions"});
-  actions.appendChild(el("button",{class:"btn-next-sent",
+  const actions=el("div",{class:"actions",style:{marginTop:"var(--s-3)",flexWrap:"wrap"}});
+  actions.appendChild(el("button",{class:"btn btn--primary",
     click(){
       const t=$("sent-ta"); if(t) state.sentences[word.id]=t.value;
       saveSentences();
@@ -3378,18 +3378,18 @@ function buildSetninger(){
     }
   },sentWords.some((w,i)=>i!==state.wordIdx&&!state.sentences[w.id]?.trim())?"Lagre og neste ord →":"Lagre"));
 
-  actions.appendChild(el("button",{class:"btn-secondary",title:"Grammatikksjekk via Claude AI",
-    click:()=>checkGrammar(word.word, $("sent-ta")?.value||currentSentence, word.id)},"🤖 Sjekk med Claude"));
+  actions.appendChild(el("button",{class:"btn",title:"Grammatikksjekk via Claude AI",
+    click:()=>checkGrammar(word.word, $("sent-ta")?.value||currentSentence, word.id)},"Sjekk med Claude"));
 
   if(currentSentence.trim()){
-    actions.appendChild(el("button",{class:"btn-skip",
+    actions.appendChild(el("button",{class:"btn",
       click(){
         const t=$("sent-ta"); if(t){t.value="";state.sentences[word.id]="";}
         saveSentences(); updateSentencePanel();
       }
     },"Slett setning"));
   }
-  actions.appendChild(el("button",{class:"btn-skip",
+  actions.appendChild(el("button",{class:"btn",
     click(){
       const unwritten=sentWords.map((w,i)=>({w,i})).filter(({w})=>!state.sentences[w.id]?.trim());
       if(unwritten.length){state.wordIdx=unwritten[Math.floor(Math.random()*unwritten.length)].i;renderContent();}
@@ -3402,22 +3402,20 @@ function buildSetninger(){
   // ── Previously written sentences ──
   const written=sentWords.filter(w=>state.sentences[w.id]?.trim()&&w.id!==word.id);
   if(written.length){
-    const prev=el("div",{class:"prev-sentences"});
-    prev.appendChild(el("h3",{},"Setninger du har skrevet"));
+    const prev=el("div",{style:{marginTop:"var(--s-4)"}});
+    prev.appendChild(el("div",{class:"label-mono",style:{marginBottom:"var(--s-2)"}},"Setninger du har skrevet"));
     written.slice().reverse().forEach(w=>{
-      const item=el("div",{class:"prev-sent-item",
+      const item=el("div",{class:"card",style:{marginBottom:"var(--s-2)",cursor:"pointer",borderLeft:"3px solid var(--green)"},
         click(){state.wordIdx=sentWords.indexOf(w);renderContent();}});
-      item.style.cursor="pointer";
-      item.appendChild(el("div",{class:"prev-sent-word"},w.word));
-      item.appendChild(el("div",{class:"prev-sent-text"},state.sentences[w.id]));
+      item.appendChild(el("div",{style:{fontSize:"var(--t-mono)",color:"var(--green)",fontWeight:"700",marginBottom:"3px"}},w.word));
+      item.appendChild(el("div",{style:{fontSize:"var(--t-base)",color:"var(--ink)",lineHeight:"1.5"}},state.sentences[w.id]));
       prev.appendChild(item);
     });
     frag.appendChild(prev);
   }
 
-  const exportBtn=el("button",{class:"btn-io btn-secondary",style:{marginTop:"14px",marginBottom:"14px"},
-    click:exportSentencesByTopic},"⬇️ Eksporter setninger");
-  frag.appendChild(exportBtn);
+  frag.appendChild(el("button",{class:"btn",style:{marginTop:"var(--s-3)"},
+    click:exportSentencesByTopic},icon("download"),"Eksporter setninger"));
   return frag;
 }
 
@@ -3429,7 +3427,7 @@ async function checkGrammar(word, sentence, wordId){
   grammarDiv.style.display="block";
 
   // Loading indicator
-  const loading=el("div",{style:{color:"var(--color-text-muted)",fontSize:"var(--font-sm)",padding:"8px 0"}},"🤖 Spør Claude…");
+  const loading=el("p",{class:"card__note",style:{padding:"8px 0"}},"Spør Claude…");
   grammarDiv.appendChild(loading);
 
   await checkWithClaude(word, sentence, grammarDiv, wordId);
@@ -3441,15 +3439,15 @@ async function checkWithClaude(word, sentence, container, wordId){
   // Must be served via localhost — run start_server.py.
   if(window.location.protocol==="file:"){
     container.innerHTML="";
-    const box=el("div",{style:{background:"#fffdf0",borderLeft:"4px solid #f0c040",borderRadius:"var(--radius-md)",padding:"14px 16px",fontSize:"var(--font-sm)",lineHeight:"1.7",color:"#555"}});
-    box.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"6px",color:"var(--color-warning)"}},"⚠️ Kan ikke nå Claude API fra en lokal fil"));
+    const box=el("div",{class:"card",style:{borderLeft:"4px solid var(--status-doing)",fontSize:"var(--t-sm)",lineHeight:"1.7"}});
+    box.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"6px",color:"var(--status-doing)"}},"Kan ikke nå Claude API fra en lokal fil"));
     box.appendChild(document.createTextNode("Nettleseren blokkerer API-kall fra "));
-    box.appendChild(el("code",{style:{background:"#f0f0f0",padding:"2px 6px",borderRadius:"var(--radius-sm)"}},"file://"));
+    box.appendChild(el("code",{style:{background:"var(--surface-head)",padding:"2px 6px",borderRadius:"var(--r-btn)"}},"file://"));
     box.appendChild(document.createTextNode(" av sikkerhetsgrunner. Løsningen er enkel:"));
     box.appendChild(el("ol",{style:{marginTop:"8px",marginLeft:"18px",lineHeight:"2"}},
       el("li",{},"Åpne en terminal i samme mappe som HTML-filen"),
-      el("li",{},el("span",{},"Kjør: "),el("code",{style:{background:"#f0f0f0",padding:"2px 8px",borderRadius:"var(--radius-sm)",fontWeight:"700"}},"python3 start_server.py")),
-      el("li",{},"Åpne ",el("a",{href:"http://localhost:8080/norsk_b2_pro.html",target:"_blank",style:{color:"#1a6b4a",fontWeight:"700"}},"http://localhost:8080/norsk_b2_pro.html"))
+      el("li",{},el("span",{},"Kjør: "),el("code",{style:{background:"var(--surface-head)",padding:"2px 8px",borderRadius:"var(--r-btn)",fontWeight:"700"}},"python3 start_server.py")),
+      el("li",{},"Åpne ",el("a",{href:"http://localhost:8080/norsk_b2_pro.html",target:"_blank",style:{color:"var(--green)",fontWeight:"700"}},"http://localhost:8080/norsk_b2_pro.html"))
     ));
     container.appendChild(box);
     return;
@@ -3476,8 +3474,8 @@ async function checkWithClaude(word, sentence, container, wordId){
 
   }catch(err){
     container.innerHTML="";
-    container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid var(--color-danger)",borderRadius:"var(--radius-md)",padding:"10px 14px",fontSize:"var(--font-sm)",color:"#555"}},
-      err.aiHandled ? `❌ ${err.message}` : `❌ Feil: ${err.message}. Prøv igjen om litt.`
+    container.appendChild(el("p",{class:"card__note",style:{color:"var(--danger)",padding:"10px 14px",borderLeft:"3px solid var(--danger)"}},
+      err.aiHandled ? err.message : `Feil: ${err.message}. Prøv igjen om litt.`
     ));
     // Only the failures the backend cannot see. `aiHandled` means the request
     // itself failed, and the server already recorded that — reporting it again
@@ -3519,41 +3517,42 @@ function renderClaudeResult(r, container){
   container.innerHTML="";
   const isOk=r.correct&&r.natural;
   const isPartial=r.correct&&!r.natural;
+  const statusColor = isOk?"var(--status-learned)":isPartial?"var(--status-doing)":"var(--danger)";
+
+  const resultBox=el("div",{class:"card"});
 
   // Header
-  const hdr=el("div",{class:`claude-header ${isOk?"ok":isPartial?"warn":"err"}`});
+  const hdr=el("div",{class:"status",style:{fontSize:"var(--t-base)",fontWeight:"700",color:statusColor,marginBottom:"var(--s-2)"}});
+  hdr.appendChild(el("span",{class:"status__dot",style:{background:statusColor}}));
   hdr.appendChild(document.createTextNode(
-    isOk?"✓ Korrekt og naturlig!":isPartial?"~ Grammatisk riktig, men litt unaturlig":"✗ Feil funnet"
+    isOk?"Korrekt og naturlig!":isPartial?"Grammatisk riktig, men litt unaturlig":"Feil funnet"
   ));
-  const resultBox=el("div",{class:"claude-result"});
   resultBox.appendChild(hdr);
 
-  const body=el("div",{class:"claude-body"});
-  if(r.overall) body.appendChild(el("div",{class:"claude-overall"},r.overall));
+  if(r.overall) resultBox.appendChild(el("p",{style:{fontSize:"var(--t-sm)",color:"var(--ink-2)",marginBottom:"var(--s-2)",lineHeight:"1.55"}},r.overall));
 
   // Errors
   if(r.errors&&r.errors.length){
     r.errors.forEach(e=>{
-      const card=el("div",{class:"claude-error-card"});
-      if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
-      if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
-      if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
-      body.appendChild(card);
+      const card=el("div",{style:{background:"var(--tema-helse-bg)",borderRadius:"var(--r-btn)",padding:"8px 12px",marginBottom:"var(--s-1)"}});
+      if(e.text)  card.appendChild(el("div",{style:{fontWeight:"700",color:"var(--danger)",fontSize:"var(--t-mono)",marginBottom:"2px"}},`"${e.text}"`));
+      if(e.issue) card.appendChild(el("div",{class:"card__note",style:{marginBottom:"3px"}},e.issue));
+      if(e.fix)   card.appendChild(el("div",{style:{color:"var(--green)",fontWeight:"600",fontSize:"var(--t-mono)"}},`→ ${e.fix}`));
+      resultBox.appendChild(card);
     });
   }
 
   // Improved sentence
   if(r.improved){
-    const imp=el("div",{class:"claude-improved"});
-    imp.appendChild(el("div",{class:"claude-improved-label"},"Forbedret setning"));
-    imp.appendChild(el("div",{class:"claude-improved-text"},r.improved));
-    body.appendChild(imp);
+    const imp=el("div",{style:{background:"var(--green-tint)",borderRadius:"var(--r-btn)",padding:"10px 12px",marginTop:"var(--s-2)"}});
+    imp.appendChild(el("div",{class:"label-mono",style:{color:"var(--green)",marginBottom:"3px"}},"Forbedret setning"));
+    imp.appendChild(el("div",{style:{fontSize:"var(--t-base)",fontStyle:"italic",color:"var(--ink)"}},r.improved));
+    resultBox.appendChild(imp);
   }
 
   // Tip
-  if(r.tip) body.appendChild(el("div",{class:"claude-tip"},`💡 ${r.tip}`));
+  if(r.tip) resultBox.appendChild(el("p",{class:"card__note",style:{marginTop:"var(--s-2)"}},r.tip));
 
-  resultBox.appendChild(body);
   container.appendChild(resultBox);
 }
 
@@ -3632,18 +3631,18 @@ function onSentenceInput(e){
 function fillSentenceFeedback(container,sentence,word){
   container.innerHTML="";
   if(!sentence.trim()){
-    container.appendChild(el("span",{style:{color:"var(--color-text-muted)"}},"Begynn å skrive…"));
+    container.appendChild(el("span",{class:"card__note"},"Begynn å skrive…"));
     return;
   }
   const low=sentence.toLowerCase();
   const used=[word.word,...(word.forms||[])].some(f=>f.length>=2&&low.includes(f.toLowerCase()));
   const wc=sentence.trim().split(/\s+/).length;
   if(used){
-    container.appendChild(el("span",{class:"sent-badge"},"✓ Ordet er brukt!"));
+    container.appendChild(el("span",{class:"status status--learned"},el("span",{class:"status__dot"}),"Ordet er brukt!"));
   } else {
-    container.appendChild(el("span",{style:{color:"var(--color-warning)",fontSize:"var(--font-sm)"}},`Husk å bruke "${word.word}" i setningen.`));
+    container.appendChild(el("span",{style:{color:"var(--status-doing)",fontSize:"var(--t-sm)"}},`Husk å bruke "${word.word}" i setningen.`));
   }
-  container.appendChild(el("span",{style:{color:"var(--color-text-muted)",marginLeft:"8px",fontSize:"var(--font-xs)"}},`${wc} ord`));
+  container.appendChild(el("span",{class:"card__note",style:{marginLeft:"8px"}},`${wc} ord`));
 }
 
 function updateSentencePanel(){
@@ -4396,108 +4395,130 @@ function buildFlashcards(){
 function buildFcSetup(frag){
   if(state.words.length<2){
     frag.appendChild(el("div",{class:"empty-state"},
-      el("div",{class:"big"},"🎮"),
-      el("p",{style:{fontSize:"var(--font-base)",marginBottom:"8px"}},"Trenger minst 2 ord!"),
-      el("p",{style:{fontSize:"var(--font-base)"}},"Legg til ord i ordbanken for å spille.")));
+      el("p",{class:"card__title",style:{marginBottom:"6px"}},"Trenger minst 2 ord"),
+      el("p",{class:"card__sub"},"Legg til ord i ordbanken for å spille.")));
     return frag;
   }
 
-  const card=el("div",{class:"fc-setup"});
-  card.appendChild(el("h2",{style:{fontSize:"18px",color:"#1a6b4a",marginBottom:"6px"}},"🎮 Flashcard-spill"));
+  const card=el("div",{class:"card"});
+  card.appendChild(el("div",{class:"card__title",style:{marginBottom:"var(--s-2)"}},"Flashcards"));
 
   // Description
-  const desc=el("div",{style:{background:"#f0f8f4",borderRadius:"var(--radius-md)",padding:"12px 16px",marginBottom:"18px",fontSize:"var(--font-sm)",color:"#555",lineHeight:"1.6"}});
-  desc.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"4px",color:"#1a6b4a"}},"Blandet modus — to typer kort:"));
-  desc.appendChild(el("div",{},"📖  Norsk ord vises → velg riktig engelsk oversettelse (flervalg)"));
-  desc.appendChild(el("div",{},"✍️  Engelsk oversettelse vises → skriv det norske ordet"));
+  const desc=el("div",{style:{background:"var(--surface-head)",borderRadius:"var(--r-btn)",padding:"12px 16px",marginBottom:"var(--s-4)",fontSize:"var(--t-sm)",color:"var(--ink-2)",lineHeight:"1.6"}});
+  desc.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"4px",color:"var(--green)"}},"Blandet modus — to typer kort:"));
+  desc.appendChild(el("div",{},"Norsk ord vises → velg riktig engelsk oversettelse (flervalg)"));
+  desc.appendChild(el("div",{},"Engelsk oversettelse vises → skriv det norske ordet"));
   card.appendChild(desc);
 
-  // Filters
+  // Filters — same filter-panel/facet/pill component as Ordbank and Setninger.
   const topics=VALID_TOPIC_LIST.filter(t=>state.words.some(w=>w.topic===t));
   if(topics.length>0||state.words.length>0){
-    card.appendChild(el("span",{class:"fc-section-label"},"FILTRER ORD (valgfritt)"));
-    // Feature 026: filters collapse as one block, below the section label.
-    card.appendChild(buildFilterToggle("flashcards", fc, "filtersOpen", renderContent));
-    const fcFiltersWrap=el("div",{style:{display:(fc.filtersOpen??true)?"":"none"}});
-    card.appendChild(fcFiltersWrap);
-    if(topics.length>0){
-      const tBar=el("div",{class:"fc-filter-bar"});
-      tBar.appendChild(el("span",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"TEMA: "));
-      [["","Alle"],...topics.map(t=>[t,t])].forEach(([val,label])=>
-        tBar.appendChild(el("button",{class:"topic-chip"+(fc.topicFilter===val?" active":""),
-          click(){fc.topicFilter=val;renderContent();}},(val?`${topicIcon(val)} `:"")+label)));
-      fcFiltersWrap.appendChild(tBar);
-    }
-    // Tag filter (feature 023) — only rendered when the bank has ≥1 tagged word,
-    // mirroring the topic-chip visibility rule above.
+    const isOpen=fc.filtersOpen ?? true;
     const fcTags=allWordTags(state.words);
-    if(fcTags.length>0){
-      const gBar=el("div",{class:"fc-filter-bar"});
-      gBar.appendChild(el("span",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"TAGG: "));
-      [["","Alle"],...fcTags.map(t=>[t,t])].forEach(([val,label])=>
-        gBar.appendChild(el("button",{class:"topic-chip"+(fc.tagFilter===val?" active":""),
-          click(){
-            fc.tagFilter=val;
-            if(val) trackEvent("flashcards.tag_filter_used",{tag:val});
-            renderContent();
-          }},label)));
-      fcFiltersWrap.appendChild(gBar);
+    const activeCount=[fc.topicFilter,fc.tagFilter,fc.timeFilter,fc.maxWords,fc.learningFilter,fc.includeLearnt].filter(Boolean).length;
+    const panel=el("div",{class:"filter-panel",style:{marginBottom:"var(--s-3)"}});
+    if(!isOpen) panel.setAttribute("data-collapsed","");
+
+    const head=el("div",{class:"filter-panel__head"});
+    const headLeft=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}});
+    headLeft.appendChild(icon("filter"));
+    headLeft.lastChild.style.color="var(--ink-3)";
+    headLeft.appendChild(el("span",{class:"label-mono"},"Filtrer ord"));
+    if(activeCount) headLeft.appendChild(el("span",{class:"badge-count"},String(activeCount)));
+    head.appendChild(headLeft);
+    const headRight=el("div",{style:{display:"flex",alignItems:"center",gap:"14px"}});
+    if(activeCount) headRight.appendChild(el("button",{class:"btn--link",click(){
+      fc.topicFilter="";fc.tagFilter="";fc.timeFilter=0;fc.maxWords=0;fc.learningFilter="";fc.includeLearnt=false;
+      renderContent();
+    }},"Nullstill"));
+    headRight.appendChild(el("button",{style:{background:"none",border:"none",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"13px",color:"var(--ink-2)",fontWeight:"500"},
+      click(){ fc.filtersOpen=!isOpen; trackEvent("filters.toggled",{tab:"flashcards",state:isOpen?"collapsed":"expanded"}); renderContent(); }
+    },(isOpen?"Skjul filtre":"Vis filtre")+" ",el("span",{style:{fontSize:"10px"}},"▼")));
+    head.appendChild(headRight);
+    panel.appendChild(head);
+
+    const body=el("div",{class:"filter-panel__body"});
+    if(topics.length>0){
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Tema"));
+      const opts=el("div",{class:"facet__options"});
+      opts.appendChild(buildFacetPill("Alle",fc.topicFilter==="",()=>{fc.topicFilter="";renderContent();}));
+      topics.forEach(t=>opts.appendChild(buildFacetPill(t,fc.topicFilter===t,()=>{fc.topicFilter=t;renderContent();},topicTema(t).bg)));
+      facet.appendChild(opts);
+      body.appendChild(facet);
     }
-    const dBar=el("div",{class:"fc-filter-bar"});
-    dBar.appendChild(el("span",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"TID: "));
-    [[0,"Alle"],[7,"Siste 7 dager"],[30,"Siste 30 dager"],[90,"Siste 3 måneder"]].forEach(([val,label])=>
-      dBar.appendChild(el("button",{class:"topic-chip"+(fc.timeFilter===val?" active":""),
-        click(){fc.timeFilter=val;renderContent();}},label)));
-    fcFiltersWrap.appendChild(dBar);
-
-    // Max words filter
-    const mBar=el("div",{class:"fc-filter-bar"});
-    mBar.appendChild(el("span",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"ANTALL ORD: "));
-    [[0,"Alle"],[10,"Maks 10"],[20,"Maks 20"],[30,"Maks 30"]].forEach(([val,label])=>
-      mBar.appendChild(el("button",{class:"topic-chip"+(fc.maxWords===val?" active":""),
-        click(){fc.maxWords=val;renderContent();}},label)));
-    fcFiltersWrap.appendChild(mBar);
-
-    // Learning filter chips. "Ikke lært ennå" is gone: not-learnt is now the default
-    // pool, so the chip would have selected everything already shown. "Flest feil"
-    // stays — it answers a different question from learnt status (FR-038).
-    const lBar=el("div",{class:"fc-filter-bar"});
-    lBar.appendChild(el("span",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginRight:"4px"}},"LÆRING: "));
-    [["","Alle ord"],["error_only","Flest feil"]].forEach(([val,label])=>
-      lBar.appendChild(el("button",{class:"topic-chip"+(fc.learningFilter===val?" active":""),
-        click(){
+    // Tag filter (feature 023) — only rendered when the bank has ≥1 tagged word.
+    if(fcTags.length>0){
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Tagg"));
+      const opts=el("div",{class:"facet__options"});
+      opts.appendChild(buildFacetPill("Alle",fc.tagFilter==="",()=>{fc.tagFilter="";renderContent();}));
+      fcTags.forEach(t=>opts.appendChild(buildFacetPill(t,fc.tagFilter===t,()=>{
+        fc.tagFilter=t; trackEvent("flashcards.tag_filter_used",{tag:t}); renderContent();
+      })));
+      facet.appendChild(opts);
+      body.appendChild(facet);
+    }
+    {
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Lagt til"));
+      const opts=el("div",{class:"facet__options"});
+      [[0,"Alle"],[7,"Siste 7 dager"],[30,"Siste 30 dager"],[90,"Siste 3 måneder"]].forEach(([val,label])=>
+        opts.appendChild(buildFacetPill(label,fc.timeFilter===val,()=>{fc.timeFilter=val;renderContent();})));
+      facet.appendChild(opts);
+      body.appendChild(facet);
+    }
+    {
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Antall ord"));
+      const opts=el("div",{class:"facet__options"});
+      [[0,"Alle"],[10,"Maks 10"],[20,"Maks 20"],[30,"Maks 30"]].forEach(([val,label])=>
+        opts.appendChild(buildFacetPill(label,fc.maxWords===val,()=>{fc.maxWords=val;renderContent();})));
+      facet.appendChild(opts);
+      body.appendChild(facet);
+    }
+    // "Ikke lært ennå" is gone: not-learnt is now the default pool, so the chip
+    // would have selected everything already shown. "Flest feil" stays — it
+    // answers a different question from learnt status (FR-038).
+    {
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Læring"));
+      const opts=el("div",{class:"facet__options"});
+      [["","Alle ord"],["error_only","Flest feil"]].forEach(([val,label])=>
+        opts.appendChild(buildFacetPill(label,fc.learningFilter===val,()=>{
           fc.learningFilter=val;
           if(val) loadStats().then(()=>renderContent()); else renderContent();
-        }},label)));
-    lBar.appendChild(el("button",{class:"topic-chip"+(fc.includeLearnt?" active":""),
-      title:"Lærte ord holdes utenfor øvingen med mindre du tar dem med",
-      click(){fc.includeLearnt=!fc.includeLearnt;renderContent();}},
-      "✓ Ta med lærte ord"));
-    fcFiltersWrap.appendChild(lBar);
+        })));
+      opts.appendChild(buildFacetPill("Ta med lærte ord",fc.includeLearnt,()=>{fc.includeLearnt=!fc.includeLearnt;renderContent();}));
+      facet.appendChild(opts);
+      body.appendChild(facet);
+    }
+    panel.appendChild(body);
+    card.appendChild(panel);
   }
 
   const avail=getFcWords();
   const learntHidden=fc.includeLearnt?0:state.words.filter(isLearnt).length;
-  card.appendChild(el("p",{style:{marginTop:"16px",fontSize:"var(--font-sm)",color:"var(--color-text-muted)"}},
+  card.appendChild(el("p",{class:"card__note"},
     `${avail.length} ord tilgjengelig med gjeldende filter`
     +(learntHidden?` (${learntHidden} lærte ord er holdt utenfor)`:"")));
 
   // An empty pool is nearly always the learnt exclusion doing its job. Say so, and
   // offer the way out in place rather than making the learner find the chip (FR-033).
   if(avail.length<2&&learntHidden){
-    const hint=el("div",{style:{marginTop:"10px",padding:"12px 14px",background:"#fffbe6",border:"1px solid #f0e0a0",borderRadius:"var(--radius-md)",fontSize:"var(--font-sm)",color:"#6b5a1a"}});
-    hint.appendChild(el("div",{style:{marginBottom:"8px"}},
+    const hint=el("div",{style:{marginTop:"var(--s-2)",padding:"12px 14px",background:"var(--tema-integrering-bg)",border:"1px solid var(--line)",borderRadius:"var(--r-btn)",fontSize:"var(--t-sm)",color:"var(--tema-integrering-fg)"}});
+    hint.appendChild(el("div",{style:{marginBottom:"var(--s-2)"}},
       "Ingen ord igjen å øve på med disse filtrene — de er markert som lærte."));
-    hint.appendChild(el("button",{class:"btn-secondary",style:{padding:"8px 16px",fontSize:"var(--font-sm)"},
+    hint.appendChild(el("button",{class:"btn",
       click(){fc.includeLearnt=true;renderContent();}},"Ta med lærte ord"));
     card.appendChild(hint);
   }
 
   card.appendChild(el("button",{
-    class:"btn-primary",style:{marginTop:"18px",padding:"13px 36px",fontSize:"var(--font-base)"},
+    class:"btn btn--primary",style:{marginTop:"var(--s-3)"},
     disabled:avail.length<2?"":null,
     click:startFlashcards,
-  },avail.length>=2?"▶  Start spill":"Trenger minst 2 ord"));
+  },avail.length>=2?"Start spill":"Trenger minst 2 ord"));
 
   frag.appendChild(card);
   return frag;
@@ -4505,17 +4526,17 @@ function buildFcSetup(frag){
 
 // Shared score bar + progress for all card types
 function buildFcHeader(frag){
-  const bar=el("div",{class:"fc-score-bar"});
-  const nums=el("div",{class:"fc-score-nums"});
-  nums.appendChild(el("span",{class:"fc-score-ok"},`✓ ${fc.correct}`));
-  nums.appendChild(el("span",{class:"fc-score-err"},`✗ ${fc.wrong}`));
+  const bar=el("div",{class:"card",style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"var(--s-2)",flexWrap:"wrap",gap:"var(--s-2)"}});
+  const nums=el("div",{style:{display:"flex",gap:"var(--s-4)"}});
+  nums.appendChild(el("span",{style:{fontSize:"var(--t-base)",fontWeight:"700",color:"var(--status-learned)"}},`✓ ${fc.correct}`));
+  nums.appendChild(el("span",{style:{fontSize:"var(--t-base)",fontWeight:"700",color:"var(--danger)"}},`✗ ${fc.wrong}`));
   bar.appendChild(nums);
-  bar.appendChild(el("span",{style:{fontSize:"var(--font-sm)",color:"var(--color-text-muted)"}},`${fc.idx+1} / ${fc.queue.length}`));
-  bar.appendChild(el("button",{class:"btn-skip",style:{fontSize:"var(--font-xs)",padding:"6px 12px"},
-    click(){fc.started=false;renderContent();}},"⏹ Avslutt"));
+  bar.appendChild(el("span",{class:"card__note"},`${fc.idx+1} / ${fc.queue.length}`));
+  bar.appendChild(el("button",{class:"btn",
+    click(){fc.started=false;renderContent();}},"Avslutt"));
   frag.appendChild(bar);
-  const prog=el("div",{class:"fc-progress-wrap"});
-  prog.appendChild(el("div",{class:"fc-progress-fill",style:{width:(fc.idx/fc.queue.length*100)+"%"}}));
+  const prog=el("div",{style:{height:"5px",background:"var(--line)",borderRadius:"var(--r-pill)",marginBottom:"var(--s-4)",overflow:"hidden"}});
+  prog.appendChild(el("div",{style:{height:"100%",background:"var(--green)",borderRadius:"var(--r-pill)",transition:"width .35s",width:(fc.idx/fc.queue.length*100)+"%"}}));
   frag.appendChild(prog);
 }
 
@@ -4532,10 +4553,9 @@ function buildFcChoiceCard(frag,word){
   const opts=word._options;
 
   const card=el("div",{class:"fc-card"});
-  const typeBadge=el("div",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"12px"}},"📖 Velg oversettelse");
-  card.appendChild(typeBadge);
+  card.appendChild(el("div",{class:"label-mono",style:{marginBottom:"var(--s-2)"}},"Velg oversettelse"));
   card.appendChild(el("div",{class:"fc-word"},word.word));
-  if(word.topic) card.appendChild(el("div",{class:"fc-sub"},el("span",{class:"sent-topic-badge"},word.topic)));
+  if(word.topic){ const tema=topicTema(word.topic); card.appendChild(el("div",{class:"fc-sub"},el("span",{class:"tag",style:{background:tema.bg,color:tema.fg}},word.topic))); }
   card.appendChild(el("div",{class:"fc-question"},"— Hva betyr dette ordet? —"));
   frag.appendChild(card);
 
@@ -4570,7 +4590,7 @@ function buildFcChoiceCard(frag,word){
     }
     frag.appendChild(fb);
     frag.appendChild(el("div",{class:"fc-nav"},
-      el("button",{class:"btn-fc-next",click(){
+      el("button",{class:"btn btn--primary",click(){
         fc.idx++; fc.answered=false; fc.chosenIdx=null; renderContent();
       }},fc.idx<fc.queue.length-1?"Neste →":"Se resultat →")));
   }
@@ -4583,24 +4603,24 @@ function buildFcWriteCard(frag,word){
   const cat=CAT_MAP[actualCat]||CATS[0];
 
   const card=el("div",{class:"fc-card"});
-  card.appendChild(el("div",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"12px"}},"✍️ Skriv det norske ordet"));
-  card.appendChild(el("div",{class:"fc-word",style:{fontSize:"28px",color:"#333",fontWeight:"700"}},meaning));
-  card.appendChild(el("div",{class:"fc-sub"},el("span",{class:"sent-cat",style:{background:cat.color+"18",color:cat.color}},cat.label)));
+  card.appendChild(el("div",{class:"label-mono",style:{marginBottom:"var(--s-2)"}},"Skriv det norske ordet"));
+  card.appendChild(el("div",{class:"fc-word",style:{fontSize:"28px",color:"var(--ink)",fontWeight:"700"}},meaning));
+  card.appendChild(el("div",{class:"fc-sub"},el("span",{class:"tag"},cat.label)));
   card.appendChild(el("div",{class:"fc-question"},"— Hva er det norske ordet? —"));
   frag.appendChild(card);
 
   if(!fc.writeChecked){
     // Input row
-    const row=el("div",{style:{display:"flex",gap:"10px",maxWidth:"520px",margin:"0 auto 16px"}});
+    const row=el("div",{style:{display:"flex",gap:"var(--s-2)",maxWidth:"520px",margin:"0 auto var(--s-3)"}});
     const inp=el("input",{
-      id:"fc-write-inp",class:"text-input",type:"text",
+      id:"fc-write-inp",class:"input",type:"text",
       placeholder:"Skriv norsk ord her…",
-      style:{fontSize:"var(--font-base)",padding:"12px 16px",flex:"1"},
+      style:{flex:"1"},
       keydown(e){if(e.key==="Enter")fcCheckWrite(inp.value,word);}
     });
     inp.value=fc.writeInput;
     row.appendChild(inp);
-    row.appendChild(el("button",{class:"btn-primary",style:{whiteSpace:"nowrap",padding:"12px 20px",flexShrink:"0"},
+    row.appendChild(el("button",{class:"btn btn--primary",style:{whiteSpace:"nowrap",flexShrink:"0"},
       click(){fcCheckWrite(inp.value,word);}
     },"Sjekk →"));
     frag.appendChild(row);
@@ -4609,12 +4629,12 @@ function buildFcWriteCard(frag,word){
     // Result
     const wasOk=fc.writeResult;
     const fb=el("div",{class:"fc-feedback"});
-    fb.appendChild(el("div",{style:{fontSize:"var(--font-sm)",color:"var(--color-text-muted)",marginBottom:"6px"}},`Du svarte: "${fc.writeInput}"`));
+    fb.appendChild(el("div",{class:"card__note",style:{marginBottom:"6px"}},`Du svarte: "${fc.writeInput}"`));
     fb.appendChild(el("div",{class:wasOk?"fc-feedback-ok":"fc-feedback-err"},wasOk?"✓ Riktig!":"✗ Feil"));
     if(!wasOk) fb.appendChild(el("div",{class:"fc-correct-hint"},`Riktig svar: ${word.word}`));
     frag.appendChild(fb);
     frag.appendChild(el("div",{class:"fc-nav"},
-      el("button",{class:"btn-fc-next",click(){
+      el("button",{class:"btn btn--primary",click(){
         fc.idx++; fc.answered=false; fc.chosenIdx=null;
         fc.writeInput=""; fc.writeChecked=false; fc.writeResult=false;
         renderContent();
@@ -4651,11 +4671,9 @@ function buildFcDone(frag){
         if(fc.started)renderContent();
       });
   }
-  const emoji=pct>=80?"🎉":pct>=60?"👍":"💪";
   const msg=pct>=80?"Utmerket!":pct>=60?"Bra jobbet!":"Øv mer – du klarer det!";
 
   const done=el("div",{class:"fc-done"});
-  done.appendChild(el("div",{class:"fc-done-emoji"},emoji));
   done.appendChild(el("div",{class:"fc-done-score"},`${fc.correct} / ${total} riktig`));
   done.appendChild(el("div",{class:"fc-done-pct"},`${pct}% — ${msg}`));
 
@@ -4663,18 +4681,18 @@ function buildFcDone(frag){
   // learner cannot account for is the failure this notice exists to prevent (FR-037).
   if(fc.autoLearnt.length){
     const names=fc.autoLearnt.map(id=>state.words.find(w=>w.id===id)?.word).filter(Boolean);
-    const note=el("div",{style:{margin:"14px auto 0",maxWidth:"460px",padding:"12px 14px",background:"#f0f9f4",border:"1px solid #c8e6d4",borderRadius:"var(--radius-md)",fontSize:"var(--font-sm)",color:"#1a6b4a",textAlign:"left"}});
+    const note=el("div",{style:{margin:"var(--s-3) auto 0",maxWidth:"460px",padding:"12px 14px",background:"var(--green-tint)",border:"1px solid var(--green)",borderRadius:"var(--r-btn)",fontSize:"var(--t-sm)",color:"var(--green)",textAlign:"left"}});
     note.appendChild(el("div",{style:{fontWeight:"700",marginBottom:"4px"}},
-      `✓ Markert som lært automatisk: ${names.join(", ")}`));
-    note.appendChild(el("div",{style:{color:"#4a7a62"}},
+      `Markert som lært automatisk: ${names.join(", ")}`));
+    note.appendChild(el("div",{},
       "Disse holdes utenfor øvingen framover. Du kan angre i Ordbanken."));
     done.appendChild(note);
   }
 
-  const nav=el("div",{class:"fc-nav"});
-  nav.appendChild(el("button",{class:"btn-fc-next",click:startFlashcards},"🔄 Spill igjen"));
-  nav.appendChild(el("button",{class:"btn-secondary",style:{padding:"12px 28px",fontSize:"var(--font-base)"},
-    click(){fc.started=false;renderContent();}},"⚙️ Endre innstillinger"));
+  const nav=el("div",{class:"fc-nav",style:{marginTop:"var(--s-4)"}});
+  nav.appendChild(el("button",{class:"btn btn--primary",click:startFlashcards},"Spill igjen"));
+  nav.appendChild(el("button",{class:"btn",
+    click(){fc.started=false;renderContent();}},"Endre innstillinger"));
   done.appendChild(nav);
   frag.appendChild(done);
   return frag;

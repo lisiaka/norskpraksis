@@ -580,6 +580,58 @@ text. Two things worth knowing:
   converted, to `.status.status--learned` (green dot) instead of the old
   `.sub-status-badge` class plus a redundant "✓" character in the text.
 
+**Post-review fixes (staging review after the redesign pass above)** — Maria's first
+pass over staging found four gaps the redesign work missed:
+- **Ordbank was missing a tag filter facet entirely.** Feature 023 added named word
+  tags with a filter to Setninger and Flashcards, but never to Ordbank itself — this
+  wasn't something the redesign dropped, it was never built. Added as a fifth facet
+  (`state.ordTagFilter`, wired into `getFilteredWords()`/`resultLineText()`), using
+  `allWordTags()` — the same helper Setninger's tag facet already used — so it only
+  appears when at least one word actually carries a tag, mirroring TEMA's own
+  visibility rule.
+- **`buildOrdbankModeToggle()`** (Mine ord / Elevenes ord) was still on old tokens —
+  `var(--color-primary)` fill, `#dde` border — sitting directly above the now-redesigned
+  Ordbank chrome. Converted to a `.pill[aria-pressed]` pair, the same toggle rule as
+  every other exclusive-choice control.
+- **`buildTeacherWordAggregatePanel()`** ("Elevenes ord") and its `_aggFilterChipRow()`
+  helper were entirely untouched — old `.topic-filter-bar`/`.topic-chip` chips, `#dde`
+  selects, `🖨️` emoji on the print buttons. Rebuilt onto `.filter-panel`/`.facet`/
+  `.pill` (matching "Mine ord" exactly, which was always the point of this view — see
+  the code comment on `_aggFilterChipRow`), with `.select` for the source-text filter
+  and `icon("printer")` buttons.
+- **Setninger and Flashcards were fully untouched** — both were large, self-contained
+  passes:
+  - Setninger (`buildSetninger()`, ~L3274, plus `renderClaudeResult()`,
+    `checkWithClaude()`, `fillSentenceFeedback()`): filter panel converted from
+    `buildFilterToggle()`/`.topic-filter-bar` to the shared `.filter-panel`/facet/pill
+    component (TEMA + TAGG); word card, AI grammar-check result, and previous-sentences
+    list all converted to `.card`/`.tag`/`.status`/tokens. `renderClaudeResult()` is
+    Setninger's own AI renderer (not shared with any teacher view, confirmed by grep),
+    so it was safe to redesign fully — unlike `renderEssayClaudeResult()`/
+    `renderGjenfortellResult()`, which stay deferred for exactly that reason.
+  - Flashcards (`buildFcSetup()`/`buildFcHeader()`/`buildFcChoiceCard()`/
+    `buildFcWriteCard()`/`buildFcDone()`, ~L4402): same filter-panel/facet/pill
+    treatment for setup; the centered-card/2-column-option-grid layout is different
+    enough from anything else in the app that it kept its own `.fc-card`/`.fc-options`/
+    `.fc-opt` classes rather than being forced into `.card`/`.btn` — but every hardcoded
+    hex in them was retokenized (`var(--green)`, `var(--danger)`, `var(--tema-helse-bg)`,
+    etc.), the same "reskin the bespoke layout, don't rebuild it" call as Statistikk's
+    donut chart. The celebratory result-screen emoji (🎉/👍/💪) were dropped — decorative
+    only, no load-bearing meaning — leaving the message text alone to carry it.
+  - **`buildFilterToggle()` itself was left alone**, since Setningsbygging still calls
+    it and is not part of this fix. Setninger and Flashcards now build their filter
+    headers inline instead of through that helper — the same "leave a shared helper on
+    the old system until its last non-redesigned caller is gone" call made for
+    `buildClassQuickSelect()`/`attachWordCounter()` earlier in this pass.
+  - Confirmed-dead CSS deleted after checking every remaining call site by grep:
+    `.claude-improved*`, `.claude-tip`, `.sent-nav/-progress/-card/-word/-meta/-prompt/
+    -area/-feedback/-actions/-badge/-saved-label/-done-box`, `.prev-sent*`,
+    `.btn-next-sent`, `.btn-nav`, `.fc-setup/-section-label/-mode-*/-filter-bar/
+    -score-*/-progress-*`, `.fc-done-emoji`, `.btn-fc-next`. **Kept**: `.sent-cat`,
+    `.sent-topic-badge`, `.btn-skip` — still used by Flashcards's own card layout — and
+    every `.claude-*` class `renderEssayClaudeResult()`/`renderGjenfortellResult()`
+    still depend on.
+
 **Deliberately not done yet**, in priority order a future pass should pick up:
 1. The full sharing redesign (one-click send + confirm-strip-with-Angre + optional
    message + inbox in Min uke) — current share flow still works, just isn't restyled
@@ -600,6 +652,11 @@ text. Two things worth knowing:
    matching mockup section 5a's *sidebar structure* pixel-for-pixel (per-class
    expansion, roster-health badges) — that needs roster stats the backend doesn't
    expose yet, which is new backend work, not a frontend reskin.
+7. Setningsbygging (`buildOrdstilling()`, uses `ws` state) is now the only student
+   tab still on the old system — it shares `buildFilterToggle()`/`.topic-filter-bar`
+   with what Setninger and Flashcards used to have before the post-review fixes
+   above. Same treatment needed: filter panel onto `.filter-panel`/`.facet`/`.pill`,
+   game chrome onto tokens.
 
 ## AI feedback
 
