@@ -207,7 +207,9 @@ ord" switch) is not a 4th type; its selected state must visually read as seconda
   centered/shadow layout.
 - **`.btn-secondary`** — neutral/secondary action. Gray, outlined. `.btn-io` and `.btn-nav`
   share its rules; each keeps its own padding where a call site needs it.
-- **`.btn-destructive`** — delete/remove action. Red, outlined. `.btn-del-essay` uses it.
+- **`.btn-destructive`** — delete/remove action. Red, outlined. Replaces the former
+  `.btn-del-essay` (declaration-identical, so its one call site was repointed directly
+  rather than kept as a second name for the same rule).
 
 Classes not listed above (`.btn-del`, `.btn-learnt`, `.btn-tts-*`, `.plan-nav-btn`,
 `.plan-go-btn`, `.fc-mode-btn`, `.btn-fc-next`, `.btn-skip`, `.btn-next-sent`,
