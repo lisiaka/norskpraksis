@@ -193,8 +193,9 @@ a:hover { color: var(--green-hover); text-decoration: underline; }
    -------------------------------------------------------------------------- */
 .app { display: flex; min-height: 100vh; }
 .sidebar { width: 212px; flex: none; background: var(--surface); border-right: 1px solid var(--line); }
-.sidebar__brand { height: 60px; display: flex; align-items: center; padding: 0 20px;
+.sidebar__brand { height: 60px; display: flex; align-items: center; gap: 9px; padding: 0 20px;
   border-bottom: 1px solid var(--line-soft); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+.sidebar__brand img { width: 26px; height: 26px; flex: none; }
 .nav-item {
   display: flex; align-items: center; gap: 9px; height: 34px; padding: 0 10px;
   border-radius: 6px; color: var(--ink-2); font-size: var(--t-base); text-decoration: none;
@@ -223,6 +224,27 @@ a:hover { color: var(--green-hover); text-decoration: underline; }
 .card__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2);
   margin-top: 5px; padding-top: 9px; border-top: 1px solid var(--line-soft); }
 .word-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s-3); }
+/* Every word card is the same height regardless of how much text it holds —
+   title/meaning/explanation each clamp to one line with an ellipsis instead
+   of growing the card, so a grid row never has a mix of tall and short
+   cards. Scoped to .word-grid so it never touches .card__title/__sub/__note
+   used elsewhere (dialogs, teacher views, etc.) where content-driven height
+   is correct. */
+.word-grid .card { height: 176px; display: flex; flex-direction: column; overflow: hidden; }
+.word-grid .card__title, .word-grid .card__sub, .word-grid .card__note {
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+/* The card has two .card__foot rows (tema+status, then actions) — margin-top:
+   auto on the first one pushes both to the bottom together as a flex child,
+   with the second following it in normal flow right underneath. */
+.word-grid .card__foot:first-of-type { margin-top: auto; }
+
+/* Ordbank main grid + side detail panel — same grid/sticky-column technique
+   as Lesing's reader + lookup panel (.lesing-reader-layout/.lesing-lookup-panel):
+   a second instance of a pattern the app already has, not a new one. */
+.ordbank-layout { display: grid; grid-template-columns: 1fr; gap: var(--s-4); align-items: start; }
+.ordbank-layout.has-detail { grid-template-columns: 1fr 340px; }
+@media (max-width: 860px) { .ordbank-layout.has-detail { grid-template-columns: 1fr; } }
+.ordbank-detail-col { position: sticky; top: 16px; }
 
 .checkbox { width: 17px; height: 17px; flex: none; border: 1px solid var(--line-strong);
   border-radius: var(--r-check); background: var(--surface); }

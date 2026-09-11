@@ -632,6 +632,90 @@ pass over staging found four gaps the redesign work missed:
     every `.claude-*` class `renderEssayClaudeResult()`/`renderGjenfortellResult()`
     still depend on.
 
+**Ordbank word-card sizing + the detail panel moved to a side column** (second
+round of staging feedback) — `renderWordList()`/`buildWordDetailPanel()`, ~L2775:
+- **Every word card is now a fixed 176px tall** (`.word-grid .card { height: 176px }`
+  in `b2-norsk.css`), with `.card__title`/`.card__sub`/`.card__note` each clamped to
+  one line (`-webkit-line-clamp: 1`) — a long word, translation, or explanation ends
+  in an ellipsis instead of growing the card. Previously height was fully
+  content-driven, so a grid row could mix a 3-line card next to a 1-line one.
+  **Scoped to `.word-grid .card`** specifically, so it never touches `.card__title`/
+  `__sub`/`__note` anywhere else in the app (dialogs, teacher views, etc.) where
+  content-driven height is correct.
+  - The card has two `.card__foot` rows (tema+status, then the learnt/delete
+    icon-buttons). `.card` became `display:flex; flex-direction:column`, and
+    `margin-top:auto` on the *first* `.card__foot` pushes both rows to the bottom
+    together — however little text is above them, the footer always lands in the
+    same place, which is what makes the fixed height actually look tidy rather than
+    just clipped.
+- **The click-to-edit panel now opens in a sticky side column, not inline under the
+  clicked card.** Previously it was inserted as a sibling of the card inside that
+  word's own grid cell, so opening one word grew that grid row and pushed every row
+  below it down. Extracted into its own function, `buildWordDetailPanel(w)`, and
+  `renderWordList()` now builds a two-column `.ordbank-layout` (word grid + a
+  `.ordbank-detail-col` that only exists when `state.openWordId` matches a word in
+  the current filter) — **the same grid/sticky-column technique Lesing's reader +
+  lookup panel already uses** (`.lesing-reader-layout`/`.lesing-lookup-panel`), not
+  a new pattern invented for this. Collapses to one column under 860px, same
+  breakpoint spirit as Lesing's.
+  - The panel itself was redesigned onto the component system while it was being
+    moved anyway: `buildField()`/`.input`/`.select` for the editable fields (same
+    dialog-form components as "Nytt ord"), a close `icon-btn` in the header, and
+    exactly one `.btn--primary` ("Lagre") — the learnt-toggle button was accidentally
+    also `.btn--primary` when a word wasn't yet learnt (two primaries competing on
+    one panel), caught while testing and dropped to a plain `.btn`.
+  - `state.openWordId` is a single id, not a set — there is at most one side panel
+    ever, which is exactly what the sticky single-column layout assumes. If that
+    ever changes to allow multiple open words, this layout would need rethinking.
+
+- **Setningsbygging (`buildOrdstilling()`) redesigned onto the component system.**
+  The setup screen's topic filter was the last `.topic-filter-bar`/`.topic-chip`
+  survivor among the practice tabs — replaced with the same `.filter-panel`/`.facet`/
+  `buildFacetPill()` component Ordbank, Setninger and Flashcards already use, driven
+  by `ws.topicFilter`/`ws.filtersOpen`. The done screen now reuses Flashcards'
+  `.fc-done`/`.fc-done-score`/`.fc-done-pct`/`.fc-nav` outright rather than keeping
+  its own `.ws-done*` twin — same screen (session finished, here's the score), so the
+  old rules were deleted rather than migrated. The in-round progress bar was rebuilt
+  to match `buildFcHeader()`'s shape (a `.card` meta row + thin token-colored track)
+  instead of the old hardcoded-`#2d9e6b` `.progress-fill`. The word-sort board itself
+  (`.ws-token`/`.ws-pool-area`/`.ws-answer-area`/`.ws-correct-box`/`.ws-wrong-box`)
+  keeps its own CSS — it's a genuinely different widget (draggable-feeling word tiles),
+  not a reusable component — but every hardcoded hex in it now points at a design
+  token instead. Emoji were dropped throughout (🧩🎮✅❌🎉👍💪🔄⚙️); ✓/✗ kept, per the
+  no-emoji rule's plain-glyph exception. `.btn-fc-next` was deleted outright — it had
+  no CSS rule at all, an orphaned class from an older version, silently rendering as
+  an unstyled default button.
+- **Login screen (`#login-screen`) redesigned onto the component system**, and now
+  carries `specs/Logo.png` (copied to `app/public/logo.png`, downsized from 1254px/
+  1MB to 256px/60KB with `sips` — the source file was far larger than a UI mark needs
+  and would otherwise ship a 1MB asset on every unauthenticated page load). The old
+  gradient background (`linear-gradient(135deg,#e8f5ff,#f0e8ff)`, blue/purple, no
+  relation to the app's green brand) is now `var(--canvas)` — the same flat token the
+  rest of the app sits on. `.login-card` moved from a pill-radius/blue-tinted-shadow
+  card to `var(--surface)`/`var(--line)`/`var(--r-dialog)`/`var(--shadow-dialog)` —
+  literally the same tokens `.dialog` uses, since a full-screen persistent card and a
+  scrim-triggered dialog are the same visual object. `.login-input` moved from a
+  50px-pill blue-bordered field to the standard `.input` shape (rectangular,
+  `var(--r-btn)`, `var(--line-strong)`) so it doesn't look like a different app from
+  the rest of the form language; `.login-btn` moved from a gradient pill to a flat
+  `var(--green)` rectangle at `var(--h-field)` height, matching `.btn--primary`. The
+  🇳🇴 flag emoji (`.login-flag`) was replaced outright with `<img class="login-logo"
+  src="logo.png">` — the requested branding, not a decorative icon, so it's exempt
+  from the no-emoji-icons-elsewhere framing (it was never an icon, just a spot that
+  used to hold a flag emoji as a placeholder mark). Every element `id` the login/
+  register JS (`loginAs`/`registerUser`/`init()`, ~L7015-7184) reads or writes was
+  preserved exactly — this was a restyle, not a rewrite, and none of that logic
+  changed.
+- **Sidebar brand mark.** `renderTabs()`'s `.sidebar__brand` (top-left of every
+  authenticated screen) now renders `<img src="logo.png"> B2 Norsk` instead of bare
+  text — the same asset as the login page, so the mark is consistent from the first
+  screen a user sees through every screen after. `.sidebar__brand` gained `gap:9px`
+  and a `26px` image size in `b2-norsk.css`; no other sidebar rule changed.
+- **`#main-header`/`.header` (the old `<h1>🇳🇴 B2 Prøve i Norsk…</h1>` banner) was
+  left alone.** It still renders into the DOM (`renderHeader()` still runs), but
+  `.header h1,.header p{display:none}` already hides its content — dead since the
+  sidebar/topbar system replaced it, not something this pass touched or needed to.
+
 **Deliberately not done yet**, in priority order a future pass should pick up:
 1. The full sharing redesign (one-click send + confirm-strip-with-Angre + optional
    message + inbox in Min uke) — current share flow still works, just isn't restyled

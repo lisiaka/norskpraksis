@@ -28,17 +28,17 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .user-badge:hover{border-color:#1a6b4a;color:#1a6b4a;background:#f0fdf8;}
 .user-badge .ub-icon{font-size:var(--font-base);}
 /* ── Login screen ── */
-#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#e8f5ff 0%,#f0e8ff 100%);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
-.login-card{background:#fff;border-radius:var(--radius-lg);padding:48px 40px;max-width:400px;width:100%;box-shadow:0 12px 48px rgba(79,110,247,.14);text-align:center;}
-.login-card .login-flag{font-size:56px;margin-bottom:16px;}
-.login-card h2{font-size:24px;font-weight:800;color:#1a1a2e;margin-bottom:6px;letter-spacing:-.3px;}
-.login-card p{font-size:var(--font-base);color:var(--color-text-muted);margin-bottom:28px;line-height:1.6;}
-.login-input{width:100%;padding:14px 18px;border-radius:50px;border:2px solid #e0e4ff;font-size:var(--font-base);text-align:center;font-family:inherit;margin-bottom:12px;transition:border-color .2s;background:#f8f9ff;}
-.login-input:focus{border-color:#2d9e6b!important;outline:none;box-shadow:0 0 0 3px rgba(45,158,107,.15);}
-.login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#1a6b4a,#2d9e6b);color:#fff;border:none;border-radius:50px;font-size:var(--font-base);font-weight:800;cursor:pointer;transition:opacity .15s;}
-.login-btn:hover{opacity:.88;}
+#login-screen{position:fixed;inset:0;background:var(--canvas);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.login-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-dialog);padding:40px 36px;max-width:380px;width:100%;box-shadow:var(--shadow-dialog);text-align:center;}
+.login-card .login-logo{width:56px;height:56px;margin-bottom:16px;}
+.login-card h2{font-size:var(--t-page);font-weight:700;color:var(--ink);margin-bottom:6px;letter-spacing:-.01em;}
+.login-card p{font-size:var(--t-sm);color:var(--ink-3);margin-bottom:var(--s-4);line-height:1.6;}
+.login-input{width:100%;height:var(--h-field);padding:0 14px;border-radius:var(--r-btn);border:1px solid var(--line-strong);font-size:var(--t-base);text-align:center;font-family:inherit;margin-bottom:var(--s-2);box-sizing:border-box;background:var(--surface);color:var(--ink);}
+.login-input:focus{border-color:var(--green)!important;border-width:1.5px;outline:none;}
+.login-btn{width:100%;height:var(--h-field);background:var(--green);color:#fff;border:none;border-radius:var(--r-btn);font-size:var(--t-base);font-weight:600;cursor:pointer;transition:background .15s;}
+.login-btn:hover{background:var(--green-hover);}
 .login-btn:disabled{opacity:.4;cursor:default;}
-.login-hint{font-size:var(--font-xs);color:var(--color-text-muted);margin-top:10px;}
+.login-hint{font-size:var(--t-sm);color:var(--ink-3);margin-top:var(--s-2);}
 /* ── Sidebar navigation ── */
 .tabs{position:fixed;top:0;left:0;bottom:0;width:236px;background:#fff;border-right:1px solid #e0e4ec;display:flex;flex-direction:column;padding:0;overflow-y:auto;z-index:100;border-radius:0;box-shadow:none;margin:0;gap:0;}
 .card{background:#fff;border-radius:var(--radius-md);padding:22px 24px;box-shadow:0 2px 10px rgba(0,0,0,.05);border:1px solid #e8ecf0;margin-bottom:14px;}
@@ -224,22 +224,17 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .tts-word{border-radius:var(--radius-sm);transition:background .08s linear;}
 .tts-word.tts-now{background:#ffe9a8;box-shadow:0 0 0 2px #ffe9a8;}
 /* ── Word Sort (Setningsbygging) game ── */
-.ws-pool-area{display:flex;flex-wrap:wrap;gap:8px;min-height:52px;padding:12px;background:#f8fdf9;border-radius:var(--radius-md);border:1.5px dashed #c8e6c9;margin-bottom:12px;align-content:flex-start;}
-.ws-answer-area{display:flex;flex-wrap:wrap;gap:8px;min-height:56px;padding:12px;background:#fff;border-radius:var(--radius-md);border:2px solid #2d9e6b;margin-bottom:14px;align-items:flex-start;align-content:flex-start;}
-.ws-answer-area.empty{border-color:#dde;background:#fafafa;}
-.ws-token{padding:8px 14px;border-radius:var(--radius-lg);background:#e8f5ee;border:1.5px solid #2d9e6b;color:#1a6b4a;font-size:var(--font-base);font-weight:600;cursor:pointer;transition:all .15s;user-select:none;line-height:1.3;}
-.ws-token:hover{background:#d4edda;transform:translateY(-1px);box-shadow:0 2px 6px rgba(45,158,107,.2);}
-.ws-token.in-pool{background:#f0f4f8;border-color:#ccd;color:#555;}
-.ws-token.in-pool:hover{background:#e4eaf2;border-color:#2d9e6b;color:#1a6b4a;}
-.ws-token.selected{background:#1a6b4a;color:#fff;border-color:#1a6b4a;box-shadow:0 2px 8px rgba(26,107,74,.3);}
-.ws-token.selected:hover{background:#1a6b4a;transform:none;}
-.ws-correct-box{background:#edfaf3;border-left:4px solid #2d9e6b;border-radius:var(--radius-md);padding:12px 16px;font-size:var(--font-base);color:#1a6b4a;font-weight:700;margin-top:14px;line-height:1.6;}
-.ws-wrong-box{background:#fff5f5;border-left:4px solid var(--color-danger);border-radius:var(--radius-md);padding:12px 16px;font-size:var(--font-base);color:#555;margin-top:14px;line-height:1.6;}
-.ws-wrong-original{color:#1a6b4a;font-style:italic;margin-top:6px;font-size:var(--font-sm);}
-.ws-done{background:#fff;border-radius:var(--radius-md);padding:50px 30px;text-align:center;border:1px solid #e8ecf0;}
-.ws-done-emoji{font-size:60px;margin-bottom:14px;}
-.ws-done-score{font-size:28px;font-weight:800;color:#1a6b4a;margin-bottom:6px;}
-.ws-done-pct{font-size:17px;color:var(--color-text-muted);margin-bottom:28px;}
+.ws-pool-area{display:flex;flex-wrap:wrap;gap:8px;min-height:52px;padding:12px;background:var(--surface-sunk);border-radius:var(--r-btn);border:1.5px dashed var(--line-strong);margin-bottom:12px;align-content:flex-start;}
+.ws-answer-area{display:flex;flex-wrap:wrap;gap:8px;min-height:56px;padding:12px;background:var(--surface);border-radius:var(--r-btn);border:2px solid var(--green);margin-bottom:14px;align-items:flex-start;align-content:flex-start;}
+.ws-answer-area.empty{border-color:var(--line);background:var(--surface-sunk);}
+.ws-token{padding:8px 14px;border-radius:var(--r-pill);background:var(--green-tint);border:1.5px solid var(--green);color:var(--green);font-size:var(--t-base);font-weight:600;cursor:pointer;transition:all .15s;user-select:none;line-height:1.3;}
+.ws-token:hover{background:var(--green-tint-2);}
+.ws-token.in-pool{background:var(--surface-head);border-color:var(--line-strong);color:var(--ink-2);}
+.ws-token.in-pool:hover{background:var(--surface-sunk);border-color:var(--green);color:var(--green);}
+.ws-token.selected{background:var(--green);color:#fff;border-color:var(--green);}
+.ws-correct-box{background:var(--green-tint);border-left:4px solid var(--green);border-radius:var(--r-btn);padding:12px 16px;font-size:var(--t-base);color:var(--green);font-weight:700;margin-top:14px;line-height:1.6;}
+.ws-wrong-box{background:var(--tema-helse-bg);border-left:4px solid var(--danger);border-radius:var(--r-btn);padding:12px 16px;font-size:var(--t-base);color:var(--ink-2);margin-top:14px;line-height:1.6;}
+.ws-wrong-original{color:var(--green);font-style:italic;margin-top:6px;font-size:var(--t-sm);}
 /* ── Read indicator on text cards ── */
 .lesing-read-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:var(--radius-md);font-size:var(--font-xs);font-weight:700;background:#edfaf3;color:#2d9e6b;border:1px solid #b6e8ce;margin-bottom:8px;}
 .lesing-unread-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:var(--radius-md);font-size:var(--font-xs);font-weight:700;background:#f5f5f5;color:var(--color-text-muted);border:1px solid #e0e0e0;margin-bottom:8px;}
@@ -377,21 +372,21 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 <body>
 <div id="login-screen" style="display:none">
   <div class="login-card">
-    <div class="login-flag">🇳🇴</div>
+    <img class="login-logo" src="logo.png" alt="B2 Norsk"/>
     <h2>B2 Norsk Treningsverktøy</h2>
     <p id="login-subtitle">Logg inn med e-postadressen din.</p>
-    <input id="reg-name" class="login-input" type="text" placeholder="Ditt navn" autocomplete="name" style="display:none;margin-bottom:10px"/>
-    <div id="reg-role" style="display:none;margin-bottom:12px;text-align:left;font-size:var(--font-base);color:#444">
+    <input id="reg-name" class="login-input" type="text" placeholder="Ditt navn" autocomplete="name" style="display:none;margin-bottom:var(--s-2)"/>
+    <div id="reg-role" style="display:none;margin-bottom:var(--s-3);text-align:left;font-size:var(--t-base);color:var(--ink-2)">
       <div style="margin-bottom:6px;font-weight:600">Jeg er:</div>
       <label style="margin-right:20px;cursor:pointer"><input type="radio" name="reg-role-choice" value="student" checked style="margin-right:5px"/>Elev</label>
       <label style="cursor:pointer"><input type="radio" name="reg-role-choice" value="teacher" style="margin-right:5px"/>Lærer</label>
     </div>
     <input id="login-input" class="login-input" type="email" placeholder="E-postadresse" autocomplete="email" autocapitalize="off"/>
-    <input id="login-password" class="login-input" type="password" placeholder="Passord" autocomplete="current-password" style="margin-top:10px"/>
-    <div id="login-error" style="display:none;color:var(--color-danger);font-size:var(--font-sm);margin-top:6px;text-align:center;"></div>
-    <button id="login-btn" class="login-btn" disabled>Logg inn →</button>
-    <div style="text-align:center;margin-top:14px;font-size:var(--font-sm);color:var(--color-text-muted)">
-      <span id="login-toggle-text">Ny bruker? </span><a id="login-toggle" href="#" style="color:#1a6b4a;font-weight:700;text-decoration:none">Registrer deg</a>
+    <input id="login-password" class="login-input" type="password" placeholder="Passord" autocomplete="current-password" style="margin-top:var(--s-2)"/>
+    <div id="login-error" style="display:none;color:var(--danger);font-size:var(--t-sm);margin-top:6px;text-align:center;"></div>
+    <button id="login-btn" class="login-btn" style="margin-top:var(--s-2)" disabled>Logg inn →</button>
+    <div style="text-align:center;margin-top:var(--s-3);font-size:var(--t-sm);color:var(--ink-3)">
+      <span id="login-toggle-text">Ny bruker? </span><a id="login-toggle" href="#" style="color:var(--green);font-weight:600;text-decoration:none">Registrer deg</a>
     </div>
   </div>
 </div>
@@ -1543,7 +1538,7 @@ function renderTabs(){
   const c=$("tabs"); c.innerHTML="";
   const doneCount=Object.keys(state.sentences).filter(id=>state.sentences[id]?.trim()).length;
   // Sidebar brand
-  c.appendChild(el("div",{class:"sidebar__brand"},"B2 Norsk"));
+  c.appendChild(el("div",{class:"sidebar__brand"},el("img",{src:"logo.png",alt:""}),"B2 Norsk"));
 
   if(state.userRole==="teacher"){
     const wrap=el("div",{style:{padding:"14px 12px",display:"flex",flexDirection:"column",gap:"3px"}});
@@ -2771,6 +2766,103 @@ function getFilteredWords(){
   return filtered;
 }
 
+// Side panel for a single word — opened by clicking its card in the grid
+// (state.openWordId), rendered into the sticky right column renderWordList()
+// builds. Lives on the side rather than inline under the card so opening one
+// word never pushes the cards below it down (§ "Ordbank word-card sizing").
+function buildWordDetailPanel(w){
+  const panel=el("div",{class:"card"});
+
+  const head=el("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"var(--s-2)",marginBottom:"var(--s-3)"}});
+  head.appendChild(el("div",{class:"card__title"},w.word));
+  head.appendChild(el("button",{class:"icon-btn",title:"Lukk",
+    click(){ state.openWordId=null; renderWordList(); }
+  },icon("close")));
+  panel.appendChild(head);
+
+  const fields=el("div",{style:{display:"flex",flexDirection:"column",gap:"var(--s-2)",marginBottom:"var(--s-3)"}});
+  const wordIn=el("input",{id:"dp-word",class:"input",type:"text",value:w.word||""});
+  fields.appendChild(buildField({label:"Ord",hint:false,inputEl:wordIn}));
+  const meaningIn=el("input",{id:"dp-meaning",class:"input",type:"text",value:w.meaning||""});
+  fields.appendChild(buildField({label:"Betydning",hint:false,inputEl:meaningIn}));
+  const explanationIn=el("input",{id:"dp-explanation",class:"input",type:"text",value:w.explanation||""});
+  fields.appendChild(buildField({label:"Forklaring på norsk",hint:false,inputEl:explanationIn}));
+  const topicSel=el("select",{id:"dp-topic",class:"select"});
+  topicSel.appendChild(el("option",{value:""},"— Ingen tema —"));
+  VALID_TOPIC_LIST.forEach(t=>{
+    const o=el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1));
+    if(t===(w.topic||"")) o.selected=true;
+    topicSel.appendChild(o);
+  });
+  fields.appendChild(buildField({label:"Tema",hint:false,inputEl:topicSel}));
+  const formsIn=el("input",{id:"dp-forms",class:"input",type:"text",value:(w.forms||[]).join(", ")});
+  fields.appendChild(buildField({label:"Bøyningsformer (kommaseparert)",hint:false,inputEl:formsIn}));
+  const distractorsIn=el("input",{id:"dp-distractors",class:"input",type:"text",value:(w.flashcard_options||[]).join(", ")});
+  fields.appendChild(buildField({label:"Distraktorer – flervalg-svar (kommaseparert)",hint:false,inputEl:distractorsIn}));
+  panel.appendChild(fields);
+
+  // Example sentences — read-only. They are generated to use the word in context,
+  // and there is nothing for the learner to correct in them (FR-005, FR-010).
+  const ex=(w.examples||[]).filter(e=>typeof e==="string"&&e.trim());
+  if(ex.length){
+    panel.appendChild(el("div",{class:"field__label",style:{marginBottom:"var(--s-1)"}},"Eksempler"));
+    const list=el("ul",{style:{margin:"0 0 var(--s-3)",paddingLeft:"18px",color:"var(--ink-2)",lineHeight:"1.6",fontSize:"var(--t-sm)"}});
+    ex.forEach(s=>list.appendChild(el("li",{},s)));
+    panel.appendChild(list);
+  }
+
+  // Where the word was met. Absent for words typed straight into the bank, and
+  // absent again when the text no longer resolves — neither is an error state,
+  // so nothing at all is rendered in either case (FR-041).
+  if(w.source_text_id && !sourceTextIndex.map) loadSourceTextIndex().then(renderWordList);
+  const src=resolveSourceText(w);
+  if(src){
+    panel.appendChild(el("div",{class:"field__label",style:{marginBottom:"var(--s-1)"}},"Møtt i teksten"));
+    panel.appendChild(el("span",{class:"btn--link",style:{display:"block",marginBottom:"var(--s-3)",cursor:"pointer"},
+      click(){ setLesingText(src); setTab("lesing"); window.scrollTo(0,0); }
+    },`${src.title} →`));
+  }
+
+  // Learnt toggle. The label states who set the current state, because an
+  // automatic mark and a deliberate one are undone for different reasons (FR-037).
+  const learnt=isLearnt(w);
+  panel.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-1)"}},learntOriginLabel(w)));
+  panel.appendChild(el("button",{class:"btn",style:{width:"100%",marginBottom:"var(--s-3)"},
+    click(){setWordLearnt(w.id,!learnt);} // re-renders on its own
+  },learnt?"Marker som ikke lært":"Marker som lært"));
+
+  const actionsRow=el("div",{class:"actions"});
+  const saveBtn=el("button",{class:"btn btn--primary",
+    async click(){
+      const upd={
+        word:panel.querySelector("#dp-word").value.trim()||w.word,
+        meaning:panel.querySelector("#dp-meaning").value.trim()||w.meaning,
+        topic:panel.querySelector("#dp-topic").value.trim()||w.topic,
+        explanation:panel.querySelector("#dp-explanation").value.trim()||null,
+        forms:panel.querySelector("#dp-forms").value.split(",").map(s=>s.trim()).filter(Boolean),
+        flashcard_options:panel.querySelector("#dp-distractors").value.split(",").map(s=>s.trim()).filter(Boolean).slice(0,4),
+      };
+      const r=await api(`/api/words/${encodeURIComponent(w.id)}`,{method:"PATCH",body:JSON.stringify(upd)});
+      if(r.ok){const sv=await r.json();const idx=state.words.findIndex(x=>x.id===w.id);if(idx>=0)state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};saveStorage();}
+      renderWordList();
+    }
+  },"Lagre");
+  const aiBtn=el("button",{class:"btn",
+    async click(){
+      aiBtn.disabled=true; aiBtn.textContent="Genererer…";
+      const ok=await enrichWord(w.id);
+      // The learner pressed this, so silence would read as a broken button —
+      // unlike the automatic paths, where failing quietly is right.
+      if(!ok){ toast("AI-hjelp er ikke tilgjengelig akkurat nå. Prøv igjen om litt."); }
+      renderWordList();
+    }
+  },"Generer med AI");
+  actionsRow.appendChild(saveBtn); actionsRow.appendChild(aiBtn);
+  panel.appendChild(actionsRow);
+
+  return panel;
+}
+
 // Renders only the word-list section — never touches the form inputs
 function renderWordList(){
   const container=$("word-list"); if(!container)return;
@@ -2804,6 +2896,18 @@ function renderWordList(){
     return sorted;
   };
 
+  // Two-column layout: word grid + a side detail panel, opened by clicking a
+  // card. Same grid/sticky-column technique as Lesing's reader + lookup panel
+  // (.lesing-reader-layout/.lesing-lookup-panel) — the point is a second
+  // instance of a pattern the app already has, not a new one. Only one word
+  // can be open at a time (state.openWordId is a single id, not a set), so
+  // there is at most one side panel.
+  const layout=el("div",{class:"ordbank-layout"});
+  const mainCol=el("div",{});
+  layout.appendChild(mainCol);
+  container.appendChild(layout);
+  let openWord=null;
+
   let anyShown=false;
   CATS.forEach(cat=>{
     const cw=sortWords(filtered.filter(w=>(w.category===cat.key || (w.category==="temaord" && cat.key==="enkeltord"))));
@@ -2814,6 +2918,7 @@ function renderWordList(){
     sec.appendChild(title);
     const grid=el("div",{class:"word-grid"});
     cw.forEach(w=>{
+      if(w.id===state.openWordId) openWord=w;
       const wrap=el("div",{style:{gridColumn:"span 1"}});
 
       // Two independent entry points share one selection look (aria-selected +
@@ -2899,117 +3004,9 @@ function renderWordList(){
       chip.addEventListener("click",()=>{state.openWordId=state.openWordId===w.id?null:w.id;renderWordList();});
       wrap.appendChild(chip);
 
-      if(state.openWordId===w.id){
-        const panel=el("div",{style:{background:"#f8fdf9",border:"1px solid #c8e6d4",borderRadius:"var(--radius-md)",padding:"14px 16px",marginTop:"6px",fontSize:"var(--font-sm)"}});
-        const mkField=(label,val,id)=>{
-          const row=el("div",{style:{marginBottom:"10px"}});
-          row.appendChild(el("label",{style:{display:"block",fontWeight:"700",color:"#1a6b4a",marginBottom:"3px",fontSize:"var(--font-xs)"}},label));
-          row.appendChild(el("input",{id,type:"text",value:val||"",style:{width:"100%",boxSizing:"border-box",padding:"6px 10px",border:"1px solid #c8e6d4",borderRadius:"var(--radius-sm)",fontSize:"var(--font-sm)"}}));
-          return row;
-        };
-        panel.appendChild(mkField("Ord",w.word,"dp-word"));
-        panel.appendChild(mkField("Betydning",w.meaning,"dp-meaning"));
-        panel.appendChild(mkField("Forklaring på norsk",w.explanation,"dp-explanation"));
-        // Tema — select dropdown
-        {
-          const tRow=el("div",{style:{marginBottom:"10px"}});
-          tRow.appendChild(el("label",{style:{display:"block",fontWeight:"700",color:"#1a6b4a",marginBottom:"3px",fontSize:"var(--font-xs)"}},"Tema"));
-          const tSel=el("select",{id:"dp-topic",style:{width:"100%",boxSizing:"border-box",padding:"6px 10px",border:"1px solid #c8e6d4",borderRadius:"var(--radius-md)",fontSize:"var(--font-sm)"}});
-          tSel.appendChild(el("option",{value:""},"— Ingen tema —"));
-          VALID_TOPIC_LIST.forEach(t=>{
-            const o=el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1));
-            if(t===(w.topic||"")) o.selected=true;
-            tSel.appendChild(o);
-          });
-          tRow.appendChild(tSel);
-          panel.appendChild(tRow);
-        }
-        panel.appendChild(mkField("Bøyningsformer (kommaseparert)",(w.forms||[]).join(", "),"dp-forms"));
-        panel.appendChild(mkField("Distraktorer – flervalg-svar (kommaseparert)",(w.flashcard_options||[]).join(", "),"dp-distractors"));
-
-        // Example sentences — read-only. They are generated to use the word in context,
-        // and there is nothing for the learner to correct in them (FR-005, FR-010).
-        {
-          const ex=(w.examples||[]).filter(e=>typeof e==="string"&&e.trim());
-          if(ex.length){
-            const exRow=el("div",{style:{marginBottom:"10px"}});
-            exRow.appendChild(el("label",{style:{display:"block",fontWeight:"700",color:"#1a6b4a",marginBottom:"3px",fontSize:"var(--font-xs)"}},"Eksempler"));
-            const list=el("ul",{style:{margin:"0",paddingLeft:"18px",color:"#4a5a52",lineHeight:"1.6"}});
-            ex.forEach(s=>list.appendChild(el("li",{},s)));
-            exRow.appendChild(list);
-            panel.appendChild(exRow);
-          }
-        }
-
-        // Where the word was met. Absent for words typed straight into the bank, and
-        // absent again when the text no longer resolves — neither is an error state,
-        // so nothing at all is rendered in either case (FR-041).
-        {
-          // The index is fetched the first time an open card actually needs it, then
-          // the panel is re-rendered with the link in place. Learners who never open a
-          // word met while reading never pay for the two requests.
-          if(w.source_text_id && !sourceTextIndex.map) loadSourceTextIndex().then(renderWordList);
-          const src=resolveSourceText(w);
-          if(src){
-            const sRow=el("div",{style:{marginBottom:"10px"}});
-            sRow.appendChild(el("label",{style:{display:"block",fontWeight:"700",color:"#1a6b4a",marginBottom:"3px",fontSize:"var(--font-xs)"}},"Møtt i teksten"));
-            sRow.appendChild(el("button",{
-              style:{background:"none",border:"none",padding:"0",color:"#1a6b4a",fontSize:"var(--font-sm)",
-                textDecoration:"underline",cursor:"pointer",textAlign:"left"},
-              click(){ setLesingText(src); setTab("lesing"); window.scrollTo(0,0); }
-            },`${src.title} →`));
-            panel.appendChild(sRow);
-          }
-        }
-
-        // Learnt toggle. The label states who set the current state, because an
-        // automatic mark and a deliberate one are undone for different reasons (FR-037).
-        {
-          const lRow=el("div",{style:{marginBottom:"12px",paddingTop:"4px",borderTop:"1px solid #dcefe4"}});
-          lRow.appendChild(el("div",{style:{fontSize:"var(--font-xs)",color:"#4a7a62",marginBottom:"6px"}},
-            learntOriginLabel(w)));
-          const learnt=isLearnt(w);
-          lRow.appendChild(el("button",{
-            style:{padding:"7px 16px",fontSize:"var(--font-sm)",borderRadius:"var(--radius-md)",fontWeight:"600",cursor:"pointer",
-              background:learnt?"#fff":"#1a6b4a",color:learnt?"#1a6b4a":"#fff",border:"1px solid #1a6b4a"},
-            click(){setWordLearnt(w.id,!learnt);} // re-renders on its own
-          },learnt?"↺ Marker som ikke lært":"✓ Marker som lært"));
-          panel.appendChild(lRow);
-        }
-
-        const btnRow=el("div",{style:{display:"flex",gap:"8px",marginTop:"4px",flexWrap:"wrap"}});
-        const saveBtn=el("button",{class:"btn-primary",style:{padding:"7px 18px",fontSize:"var(--font-sm)"},
-          async click(){
-            const upd={
-              word:panel.querySelector("#dp-word").value.trim()||w.word,
-              meaning:panel.querySelector("#dp-meaning").value.trim()||w.meaning,
-              topic:panel.querySelector("#dp-topic").value.trim()||w.topic,
-              explanation:panel.querySelector("#dp-explanation").value.trim()||null,
-              forms:panel.querySelector("#dp-forms").value.split(",").map(s=>s.trim()).filter(Boolean),
-              flashcard_options:panel.querySelector("#dp-distractors").value.split(",").map(s=>s.trim()).filter(Boolean).slice(0,4),
-            };
-            const r=await api(`/api/words/${encodeURIComponent(w.id)}`,{method:"PATCH",body:JSON.stringify(upd)});
-            if(r.ok){const sv=await r.json();const idx=state.words.findIndex(x=>x.id===w.id);if(idx>=0)state.words[idx]={...state.words[idx],...sv,createdAt:new Date(sv.created_at).getTime()};saveStorage();}
-            renderWordList();
-          }
-        },"Lagre");
-        const aiBtn=el("button",{style:{padding:"7px 18px",fontSize:"var(--font-sm)",background:"#fff",border:"1px solid #1a6b4a",color:"#1a6b4a",borderRadius:"var(--radius-md)",fontWeight:"600",cursor:"pointer"},
-          async click(){
-            aiBtn.disabled=true; aiBtn.textContent="Genererer…";
-            const ok=await enrichWord(w.id);
-            // The learner pressed this, so silence would read as a broken button —
-            // unlike the automatic paths, where failing quietly is right.
-            if(!ok){ toast("AI-hjelp er ikke tilgjengelig akkurat nå. Prøv igjen om litt."); }
-            renderWordList();
-          }
-        },"✨ Generer med AI");
-        btnRow.appendChild(saveBtn); btnRow.appendChild(aiBtn);
-        panel.appendChild(btnRow);
-        wrap.appendChild(panel);
-      }
       grid.appendChild(wrap);
     });
-    sec.appendChild(grid); container.appendChild(sec);
+    sec.appendChild(grid); mainCol.appendChild(sec);
   });
   if(!anyShown){
     // "Empty because filtered" (§ "Empty and loading states") names the filter that
@@ -3022,7 +3019,14 @@ function renderWordList(){
         renderContent();
       }},"Nullstill"));
     }
-    container.appendChild(empty);
+    mainCol.appendChild(empty);
+  }
+
+  if(openWord){
+    const sideCol=el("div",{class:"ordbank-detail-col"});
+    sideCol.appendChild(buildWordDetailPanel(openWord));
+    layout.appendChild(sideCol);
+    layout.classList.add("has-detail");
   }
 }
 
@@ -6028,11 +6032,11 @@ function buildWsRound(sent){
   const answerLabel = sel !== null
     ? "Klikk et annet ord for å flytte det dit, eller klikk det samme for å avvelge:"
     : "Din setning:";
-  div.appendChild(el("div",{style:{fontSize:"var(--font-xs)",color:sel!==null?"#1a6b4a":"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginBottom:"6px"}},answerLabel));
+  div.appendChild(el("div",{class:"label-mono",style:{color:sel!==null?"var(--green)":"var(--ink-3)",marginBottom:"6px"}},answerLabel));
 
   const answerArea = el("div", {class:"ws-answer-area"+(sent.answer.length===0?" empty":"")});
   if(sent.answer.length === 0){
-    answerArea.appendChild(el("span",{style:{color:"var(--color-border)",fontSize:"var(--font-sm)",alignSelf:"center"}},"Klikk på ord nedenfor for å bygge setningen..."));
+    answerArea.appendChild(el("span",{class:"card__note",style:{alignSelf:"center"}},"Klikk på ord nedenfor for å bygge setningen..."));
   }
   sent.answer.forEach((tok, i) => {
     const isSelected = sel === i;
@@ -6044,10 +6048,10 @@ function buildWsRound(sent){
   div.appendChild(answerArea);
 
   // Pool area
-  div.appendChild(el("div",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",fontWeight:"700",textTransform:"uppercase",letterSpacing:".5px",marginBottom:"6px"}},"Tilgjengelige ord:"));
+  div.appendChild(el("div",{class:"label-mono",style:{marginBottom:"6px"}},"Tilgjengelige ord:"));
   const poolArea = el("div", {class:"ws-pool-area"});
   if(sent.pool.length === 0 && !sent.checked){
-    poolArea.appendChild(el("span",{style:{color:"var(--color-text-muted)",fontSize:"var(--font-sm)",alignSelf:"center"}},"Alle ord er plassert — sjekk svaret ditt!"));
+    poolArea.appendChild(el("span",{class:"card__note",style:{alignSelf:"center"}},"Alle ord er plassert — sjekk svaret ditt!"));
   }
   sent.pool.forEach((tok, i) => {
     const btn = el("button",{class:"ws-token in-pool"},tok);
@@ -6062,20 +6066,20 @@ function buildWsRound(sent){
   if(!sent.checked){
     const canCheck = sent.pool.length === 0 && sent.answer.length > 0;
     const checkBtn = el("button",{
-      class:"btn-primary",
+      class:"btn btn--primary",
       style:{opacity:canCheck?"1":".4"},
       click(){if(canCheck){ws.selectedAnswerIdx=null;wsCheck(sent);}}
-    },"✓ Sjekk svar");
+    },"Sjekk svar");
     actRow.appendChild(checkBtn);
-    actRow.appendChild(el("button",{class:"btn-secondary",click(){
+    actRow.appendChild(el("button",{class:"btn",click(){
       ws.selectedAnswerIdx = null;
       sent.pool = shuffle([...sent.tokens]);
       sent.answer = [];
       refreshWsRound();
-    }},"↺ Nullstill"));
+    }},"Nullstill"));
   } else {
     const isLast = ws.idx + 1 >= ws.sentences.length;
-    actRow.appendChild(el("button",{class:"btn-primary",click(){
+    actRow.appendChild(el("button",{class:"btn btn--primary",click(){
       ws.idx++;
       renderContent();
     }}, isLast ? "Se resultat →" : "Neste →"));
@@ -6085,10 +6089,10 @@ function buildWsRound(sent){
   // Feedback
   if(sent.checked){
     if(sent.correct){
-      div.appendChild(el("div",{class:"ws-correct-box"},"✅ Riktig!"));
+      div.appendChild(el("div",{class:"ws-correct-box"},"✓ Riktig!"));
     } else {
       const wrongBox = el("div",{class:"ws-wrong-box"});
-      wrongBox.appendChild(el("div",{},"❌ Ikke helt riktig."));
+      wrongBox.appendChild(el("div",{},"✗ Ikke helt riktig."));
       wrongBox.appendChild(el("div",{class:"ws-wrong-original"},`Riktig: ${sent.original}`));
       div.appendChild(wrongBox);
     }
@@ -6103,33 +6107,50 @@ function buildOrdstilling(){
   if(!ws.started){
     // Setup screen
     const card = el("div",{class:"card"});
-    card.appendChild(el("h2",{},"🧩 Setningsbygging"));
-    card.appendChild(el("p",{style:{color:"#777",fontSize:"var(--font-base)",marginBottom:"18px",lineHeight:"1.6"}},
+    card.appendChild(el("div",{class:"card__title",style:{marginBottom:"6px"}},"Setningsbygging"));
+    card.appendChild(el("p",{class:"card__sub",style:{marginBottom:"var(--s-4)"}},
       "Sett ord i riktig rekkefølge for å rekonstruere norske B2-setninger. Du får opptil 10 setninger per runde, hentet tilfeldig fra lesetekstene."));
 
-    card.appendChild(el("div",{style:{fontWeight:"700",fontSize:"var(--font-xs)",color:"var(--color-text-muted)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:"8px"}},"Velg tema (valgfritt):"));
-    // Feature 026: filters collapse as one block.
-    card.appendChild(buildFilterToggle("setningsbygging", ws, "filtersOpen", renderContent));
-    const wsFiltersWrap=el("div",{style:{display:(ws.filtersOpen??true)?"":"none"}});
-    card.appendChild(wsFiltersWrap);
-    const topicBar = el("div",{class:"topic-filter-bar",style:{marginBottom:"20px"}});
-    // Feature 026: built from the canonical VALID_TOPIC_LIST + TOPICS emoji, rather than
-    // a hardcoded local copy that both disagreed with TOPICS on miljø's icon and was
-    // missing two topics (demokrati, internasjonalt) — both now included.
-    [["","Alle tekster"],...VALID_TOPIC_LIST.filter(t=>t!=="generelt").map(t=>
-      [t, `${topicIcon(t)} ${t.charAt(0).toUpperCase()+t.slice(1)}`])].forEach(([val,label])=>{
-      topicBar.appendChild(el("button",{
-        class:"topic-chip"+(ws.topicFilter===val?" active":""),
-        click(e){
-          ws.topicFilter=val;
-          e.currentTarget.parentNode.querySelectorAll(".topic-chip").forEach(b=>b.classList.remove("active"));
-          e.currentTarget.classList.add("active");
-        }
-      },label));
-    });
-    wsFiltersWrap.appendChild(topicBar);
-    card.appendChild(el("button",{class:"btn-primary",style:{fontSize:"var(--font-base)",padding:"12px 32px"},
-      click(){startWordSort();}},"🎮 Start spillet"));
+    // Filters — same filter-panel/facet/pill component as Ordbank, Setninger and
+    // Flashcards. Topics are the canonical VALID_TOPIC_LIST (built-in texts cover
+    // all of them), not a hardcoded local copy.
+    {
+      const isOpen=ws.filtersOpen ?? true;
+      const activeCount=ws.topicFilter?1:0;
+      const panel=el("div",{class:"filter-panel",style:{marginBottom:"var(--s-4)"}});
+      if(!isOpen) panel.setAttribute("data-collapsed","");
+
+      const head=el("div",{class:"filter-panel__head"});
+      const headLeft=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}});
+      headLeft.appendChild(icon("filter"));
+      headLeft.lastChild.style.color="var(--ink-3)";
+      headLeft.appendChild(el("span",{class:"label-mono"},"Filtre"));
+      if(activeCount) headLeft.appendChild(el("span",{class:"badge-count"},String(activeCount)));
+      if(!isOpen && ws.topicFilter) headLeft.appendChild(buildRemovablePill(ws.topicFilter,()=>{ws.topicFilter="";renderContent();}));
+      head.appendChild(headLeft);
+      const headRight=el("div",{style:{display:"flex",alignItems:"center",gap:"14px"}});
+      if(activeCount) headRight.appendChild(el("button",{class:"btn--link",click(){ws.topicFilter="";renderContent();}},"Nullstill"));
+      headRight.appendChild(el("button",{style:{background:"none",border:"none",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"13px",color:"var(--ink-2)",fontWeight:"500"},
+        click(){ ws.filtersOpen=!isOpen; trackEvent("filters.toggled",{tab:"setningsbygging",state:isOpen?"collapsed":"expanded"}); renderContent(); }
+      },(isOpen?"Skjul filtre":"Vis filtre")+" ",el("span",{style:{fontSize:"10px"}},"▼")));
+      head.appendChild(headRight);
+      panel.appendChild(head);
+
+      const body=el("div",{class:"filter-panel__body"});
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Tema"));
+      const opts=el("div",{class:"facet__options"});
+      opts.appendChild(buildFacetPill("Alle tekster",ws.topicFilter==="",()=>{ws.topicFilter="";renderContent();}));
+      VALID_TOPIC_LIST.filter(t=>t!=="generelt").forEach(t=>
+        opts.appendChild(buildFacetPill(t,ws.topicFilter===t,()=>{ws.topicFilter=t;renderContent();},topicTema(t).bg)));
+      facet.appendChild(opts);
+      body.appendChild(facet);
+      panel.appendChild(body);
+      card.appendChild(panel);
+    }
+
+    card.appendChild(el("button",{class:"btn btn--primary",style:{marginTop:"var(--s-2)"},
+      click(){startWordSort();}},"Start spillet"));
     frag.appendChild(card);
     return frag;
   }
@@ -6147,35 +6168,34 @@ function buildOrdstilling(){
       trackEvent("wordsort_session",{correct:ws.score,total,pct,topicFilter:ws.topicFilter||null,
         sentences:ws.sentences.map(s=>({original:s.original,correct:s.correct,given:s.answer.join(" ")}))});
     }
-    const emoji = pct>=80?"🎉":pct>=60?"👍":"💪";
     const msg = pct>=80?"Utmerket!":pct>=60?"Bra jobbet!":"Øv mer – du klarer det!";
-    const done = el("div",{class:"ws-done"});
-    done.appendChild(el("div",{class:"ws-done-emoji"},emoji));
-    done.appendChild(el("div",{class:"ws-done-score"},`${ws.score} / ${total} riktig`));
-    done.appendChild(el("div",{class:"ws-done-pct"},`${pct}% — ${msg}`));
+    // Reuses Flashcards' .fc-done component — the same "session finished, here's
+    // the score" screen, not a new one invented for this tab.
+    const done = el("div",{class:"fc-done"});
+    done.appendChild(el("div",{class:"fc-done-score"},`${ws.score} / ${total} riktig`));
+    done.appendChild(el("div",{class:"fc-done-pct"},`${pct}% — ${msg}`));
     const nav = el("div",{class:"fc-nav"});
-    nav.appendChild(el("button",{class:"btn-fc-next",click:startWordSort},"🔄 Spill igjen"));
-    nav.appendChild(el("button",{class:"btn-secondary",style:{padding:"12px 28px",fontSize:"var(--font-base)"},
-      click(){ws.started=false;renderContent();}},"⚙️ Endre innstillinger"));
+    nav.appendChild(el("button",{class:"btn btn--primary",click:startWordSort},"Spill igjen"));
+    nav.appendChild(el("button",{class:"btn",
+      click(){ws.started=false;renderContent();}},"Endre innstillinger"));
     done.appendChild(nav);
     frag.appendChild(done);
     return frag;
   }
 
-  // Progress bar
-  const prog = el("div",{class:"progress-wrap"});
-  const pMeta = el("div",{class:"progress-meta"});
-  pMeta.appendChild(el("span",{},`Setning ${ws.idx+1} av ${ws.sentences.length}`));
-  pMeta.appendChild(el("span",{},`Score: ${ws.score} ✅`));
-  prog.appendChild(pMeta);
-  const track = el("div",{class:"progress-track"});
-  track.appendChild(el("div",{class:"progress-fill",style:{width:`${(ws.idx/ws.sentences.length)*100}%`,background:"#2d9e6b"}}));
-  prog.appendChild(track);
+  // Progress bar — same shape as Flashcards' buildFcHeader (a .card meta row
+  // plus a thin token-colored track), not a new component invented for this tab.
+  const bar=el("div",{class:"card",style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"var(--s-2)",flexWrap:"wrap",gap:"var(--s-2)"}});
+  bar.appendChild(el("span",{class:"card__note"},`Setning ${ws.idx+1} av ${ws.sentences.length}`));
+  bar.appendChild(el("span",{style:{fontSize:"var(--t-base)",fontWeight:"700",color:"var(--status-learned)"}},`Score: ${ws.score} ✓`));
+  frag.appendChild(bar);
+  const prog=el("div",{style:{height:"5px",background:"var(--line)",borderRadius:"var(--r-pill)",marginBottom:"var(--s-4)",overflow:"hidden"}});
+  prog.appendChild(el("div",{style:{height:"100%",background:"var(--green)",borderRadius:"var(--r-pill)",transition:"width .35s",width:(ws.idx/ws.sentences.length*100)+"%"}}));
   frag.appendChild(prog);
 
   // Game card
   const card = el("div",{class:"card"});
-  card.appendChild(el("p",{style:{fontSize:"var(--font-sm)",color:"var(--color-text-muted)",marginBottom:"16px"}},"Klikk på ordene for å sette dem i riktig rekkefølge. Klikk på et ord i svaret for å flytte det tilbake."));
+  card.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}},"Klikk på ordene for å sette dem i riktig rekkefølge. Klikk på et ord i svaret for å flytte det tilbake."));
   card.appendChild(buildWsRound(ws.sentences[ws.idx]));
   frag.appendChild(card);
 
