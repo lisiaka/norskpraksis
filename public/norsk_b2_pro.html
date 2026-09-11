@@ -1891,8 +1891,15 @@ function buildShareBar(){
     }
     newTagInput.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addTypedTag();}});
     newTagRow.appendChild(newTagInput);
-    newTagRow.appendChild(el("button",{class:"btn-sec",style:{padding:"6px 12px",fontSize:"13px"},
-      click:addTypedTag},"+ Legg til"));
+    // Only shown once a tag is already committed — that's the one case the send-time
+    // auto-pickup (buildShareBar's send handler) doesn't cover: a second tag typed
+    // over the first would otherwise overwrite it. For a single tag, this button
+    // did nothing but look like a required step, which is exactly what caused it to
+    // be skipped and the tag lost silently before the auto-pickup fix.
+    if(state.shareTagSelection.size){
+      newTagRow.appendChild(el("button",{class:"btn-sec",style:{padding:"6px 12px",fontSize:"13px"},
+        click:addTypedTag},"+ Legg til enda en"));
+    }
     tagPanel.appendChild(newTagRow);
 
     if(state.shareTagSelection.size){
