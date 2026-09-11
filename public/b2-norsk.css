@@ -1,0 +1,294 @@
+/* ==========================================================================
+   B2 Norsk — design system
+   Feed this file plus DESIGN-RULES.md to Claude Code and keep both applied.
+   One rule above all: shape tells the user what a thing does.
+     pill  = filter        rectangle = action
+     flat small square = metadata label (not clickable)
+     bordered box = input
+   ========================================================================== */
+
+:root {
+  /* ---- ink & surface ---------------------------------------------------- */
+  --ink:            #14201a;   /* headings, word entries, primary text */
+  --ink-2:          #3d4a43;   /* body text, secondary labels */
+  --ink-3:          #5d6b63;   /* mono labels, counts, helper text. FLOOR — nothing lighter carries text */
+  --surface:        #ffffff;
+  --surface-sunk:   #fbfcfb;   /* dialog footers, filter-panel ground */
+  --surface-head:   #f7f9f8;   /* table headers, panel headers */
+  --canvas:         #f4f6f4;   /* app background behind cards */
+  --line:           #e3e8e5;   /* card & panel borders */
+  --line-soft:      #f0f3f1;   /* row dividers inside a card */
+  --line-strong:    #c9d2cc;   /* input & secondary-button borders */
+  --line-pill:      #dde3df;   /* unselected filter pill border */
+
+  /* ---- brand ------------------------------------------------------------ */
+  --green:          #1a5c41;   /* the ONLY green. primary action, selected filter, links */
+  --green-hover:    #124430;
+  --green-tint:     #eaf2ed;   /* selected-filter and share-bar background */
+  --green-tint-2:   #f4faf7;   /* selected card background */
+
+  /* ---- status (meaning, never decoration) ------------------------------- */
+  --status-learned: #1a5c41;   /* lært */
+  --status-doing:   #a07408;   /* under arbeid */
+  --status-new:     #5d6b63;   /* ikke øvd */
+  --danger:         #8a3030;   /* destructive text, required-field marker */
+
+  /* ---- theme colours: one hue per tema, used on filter swatch + word tag -
+     Always the -fg on the -bg. Both pass 4.5:1. Never invent new pairs. --- */
+  --tema-arbeid-bg:       #f6eeda;  --tema-arbeid-fg:       #6b4a12;
+  --tema-demokrati-bg:    #e7eef8;  --tema-demokrati-fg:    #2c4d7a;
+  --tema-familie-bg:      #fae9f0;  --tema-familie-fg:      #7a3a56;
+  --tema-helse-bg:        #fbe8e8;  --tema-helse-fg:        #8a3030;
+  --tema-integrering-bg:  #f3efe2;  --tema-integrering-fg:  #5f5320;
+  --tema-miljo-bg:        #eaf2ed;  --tema-miljo-fg:        #1a5c41;
+  --tema-natur-bg:        #eaf3ec;  --tema-natur-fg:        #2f5d3a;
+  --tema-politikk-bg:     #eeeaf8;  --tema-politikk-fg:     #4a3a7a;
+  --tema-sprak-bg:        #e6f1f3;  --tema-sprak-fg:        #1f5a63;
+  --tema-teknologi-bg:    #eaecf8;  --tema-teknologi-fg:    #3d4a7a;
+  --tema-utdanning-bg:    #f8eee4;  --tema-utdanning-fg:    #7a4a1f;
+  --tema-generelt-bg:     #eef1ef;  --tema-generelt-fg:     #3d4a43;
+
+  /* ---- type ------------------------------------------------------------- */
+  --font: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --t-page:  19px;  /* screen title */
+  --t-lg:    16px;  /* word entry, dialog title is 18px */
+  --t-base: 14.5px; /* nav, buttons, fields */
+  --t-sm:    13px;  /* helper text, card meta */
+  --t-mono:  11px;  /* uppercase section labels, counts */
+
+  /* ---- shape & space --------------------------------------------------- */
+  --r-pill:   999px;  /* FILTERS ONLY */
+  --r-btn:    7px;    /* actions */
+  --r-card:   10px;
+  --r-dialog: 12px;
+  --r-tag:    4px;    /* metadata labels */
+  --r-check:  4px;
+  --h-control: 34px;  /* buttons in a header bar */
+  --h-field:   38px;  /* inputs, and buttons inside dialogs */
+  --h-pill:    28px;
+  --s-1: 6px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px;
+
+  --shadow-dialog: 0 18px 44px rgba(20, 32, 26, 0.18);
+  --shadow-pop:    0 14px 34px rgba(20, 32, 26, 0.12);
+  --focus:         0 0 0 3px rgba(26, 92, 65, 0.28);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--t-base);
+  color: var(--ink);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--green); text-decoration: none; }
+a:hover { color: var(--green-hover); text-decoration: underline; }
+*:focus-visible { outline: none; box-shadow: var(--focus); }
+
+/* --------------------------------------------------------------------------
+   ACTIONS — rectangles. Exactly ONE .btn--primary per screen.
+   -------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  height: var(--h-control); padding: 0 14px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-btn);
+  background: var(--surface); color: var(--ink);
+  font: 500 14px/1 var(--font); cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.btn:hover { background: #f7f9f8; border-color: #a8b5ad; }
+.btn--primary {
+  background: var(--green); border-color: var(--green);
+  color: #fff; font-weight: 600; padding: 0 16px;
+}
+.btn--primary:hover { background: var(--green-hover); border-color: var(--green-hover); }
+/* Secondary emphasis — e.g. "Del med klassen" beside the primary. Tinted, not filled. */
+.btn--accent { background: var(--green-tint); border-color: var(--green); font-weight: 600; }
+.btn--accent:hover { background: #dfebe4; }
+.btn--danger { color: var(--danger); }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.btn--link { /* a text action inside a row or panel header */
+  height: auto; padding: 0; border: 0; background: none;
+  color: var(--green); font-size: var(--t-sm); text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   FILTERS — pills. Never filled green: outline + tint + check when on.
+   -------------------------------------------------------------------------- */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: var(--h-pill); padding: 0 11px;
+  border: 1px solid var(--line-pill); border-radius: var(--r-pill);
+  background: var(--surface); color: var(--ink-2);
+  font: 400 13px/1 var(--font); cursor: pointer;
+}
+.pill:hover { border-color: #a8b5ad; }
+.pill[aria-pressed="true"] {
+  border-color: var(--green); background: var(--green-tint);
+  color: var(--ink); font-weight: 600;
+}
+.pill[aria-pressed="true"]::after { content: "✓"; color: var(--green); }
+.pill__swatch { width: 8px; height: 8px; border-radius: 2px; }        /* tema colour */
+.pill__dot    { width: 8px; height: 8px; border-radius: var(--r-pill); } /* status colour */
+.pill__count  { font: 400 11px/1 var(--mono); color: var(--ink-3); }
+/* Removable "active filter" chip shown when the panel is collapsed */
+.pill--removable { padding-right: 8px; }
+
+/* Filter panel — collapsible, but ALWAYS shows the active filters when collapsed */
+.filter-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+.filter-panel__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px var(--s-4); background: var(--surface-head); border-bottom: 1px solid var(--line);
+}
+.filter-panel__body { padding: 13px var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); }
+.filter-panel[data-collapsed] .filter-panel__body { display: none; }
+.filter-panel[data-collapsed] .filter-panel__head { border-bottom: 0; }
+.facet { display: grid; grid-template-columns: 76px 1fr; gap: var(--s-3); align-items: center; }
+.facet__label, .label-mono {
+  font: 400 var(--t-mono)/1.2 var(--mono);
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
+}
+.facet__options { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+.badge-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 19px; padding: 0 7px; border-radius: var(--r-tag);
+  background: var(--green); color: #fff; font: 400 11px/1 var(--mono);
+}
+
+/* --------------------------------------------------------------------------
+   METADATA — flat squared labels. No border, no hover, not clickable.
+   -------------------------------------------------------------------------- */
+.tag {
+  display: inline-flex; align-items: center; height: 21px; padding: 0 7px;
+  border-radius: var(--r-tag); font: 400 11px/1 var(--mono);
+  background: var(--tema-generelt-bg); color: var(--tema-generelt-fg);
+}
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.status__dot { width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--status-new); }
+.status--learned .status__dot { background: var(--status-learned); }
+.status--doing   .status__dot { background: var(--status-doing); }
+
+/* --------------------------------------------------------------------------
+   INPUTS — label above, never placeholder-as-label.
+   -------------------------------------------------------------------------- */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field__label { font: 600 12.5px/1.2 var(--font); color: var(--ink-2); }
+.field__hint  { font: 400 12.5px/1.2 var(--font); color: var(--ink-3); }
+.field__req   { font: 400 12.5px/1.2 var(--font); color: var(--danger); }
+.input, .select, .textarea {
+  height: var(--h-field); padding: 0 12px; width: 100%; box-sizing: border-box;
+  border: 1px solid var(--line-strong); border-radius: var(--r-btn);
+  background: var(--surface); color: var(--ink);
+  font: 400 14.5px/1 var(--font);
+}
+.textarea { height: auto; min-height: 58px; padding: 9px 12px; line-height: 1.4; resize: vertical; }
+.input::placeholder, .textarea::placeholder { color: var(--ink-3); }
+.input:focus, .select:focus, .textarea:focus { border-color: var(--green); border-width: 1.5px; outline: none; }
+.search { position: relative; }
+.search .input { padding-left: 34px; }
+
+/* --------------------------------------------------------------------------
+   SHELL & CARDS
+   -------------------------------------------------------------------------- */
+.app { display: flex; min-height: 100vh; }
+.sidebar { width: 212px; flex: none; background: var(--surface); border-right: 1px solid var(--line); }
+.sidebar__brand { height: 60px; display: flex; align-items: center; padding: 0 20px;
+  border-bottom: 1px solid var(--line-soft); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+.nav-item {
+  display: flex; align-items: center; gap: 9px; height: 34px; padding: 0 10px;
+  border-radius: 6px; color: var(--ink-2); font-size: var(--t-base); text-decoration: none;
+  /* Reset for <button>-based nav items (the reference used <a>) — harmless for
+     an <a> since anchors have no default border/background/cursor to reset. */
+  background: none; border: none; width: 100%; text-align: left; cursor: pointer;
+  font-family: inherit;
+}
+.nav-item:hover { background: #f2f5f3; text-decoration: none; }
+.nav-item[aria-current="page"] { background: var(--green-tint); color: var(--ink); font-weight: 600; }
+.nav-item__count { margin-left: auto; font: 400 11.5px/1 var(--mono); color: var(--ink-3); }
+.nav-item svg { width: 17px; height: 17px; flex: none; }
+
+.topbar { height: 60px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--s-5); background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar__title { font-size: var(--t-page); font-weight: 600; letter-spacing: -0.01em; }
+.topbar__meta { font: 400 13px/1 var(--mono); color: var(--ink-3); }
+.actions { display: flex; align-items: center; gap: var(--s-2); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 13px 14px; }
+.card:hover { border-color: #a8b5ad; }
+.card[aria-selected="true"] { background: var(--green-tint-2); border-color: var(--green); }
+.card__title { font-size: var(--t-lg); font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.card__sub { font-size: var(--t-sm); color: var(--ink-2); line-height: 1.35; }
+.card__note { font-size: 12.5px; color: var(--ink-3); line-height: 1.35; }
+.card__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2);
+  margin-top: 5px; padding-top: 9px; border-top: 1px solid var(--line-soft); }
+.word-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s-3); }
+
+.checkbox { width: 17px; height: 17px; flex: none; border: 1px solid var(--line-strong);
+  border-radius: var(--r-check); background: var(--surface); }
+.checkbox[aria-checked="true"] { background: var(--green); border-color: var(--green); color: #fff; }
+
+/* Selection bar — appears when words are marked; share is primary here */
+.selection-bar { display: flex; align-items: center; justify-content: space-between;
+  padding: 11px var(--s-4); border: 1px solid var(--green); border-radius: var(--r-card);
+  background: var(--green-tint); }
+
+/* Icon button, e.g. pronunciation ▶ on a word card */
+.icon-btn { display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; flex: none; border: 1px solid var(--line-pill);
+  border-radius: 6px; background: var(--surface); color: var(--ink-2); cursor: pointer; }
+
+/* --------------------------------------------------------------------------
+   TABLES (the alternative to cards; same tokens)
+   -------------------------------------------------------------------------- */
+.table { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+.table__head { padding: 9px var(--s-4); background: var(--surface-head);
+  border-bottom: 1px solid var(--line); font: 400 10.5px/1 var(--mono);
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.table__row { padding: 8px var(--s-4); border-bottom: 1px solid var(--line-soft); align-items: center; }
+.table__row:last-child { border-bottom: 0; }
+.table__row:hover { background: #f9fbfa; }
+
+/* --------------------------------------------------------------------------
+   DIALOGS — every create/edit/share flow. Never a form pinned above a list.
+   -------------------------------------------------------------------------- */
+.scrim { position: fixed; inset: 0; background: rgba(20, 32, 26, 0.34);
+  display: grid; place-items: center; padding: 28px; }
+.dialog { width: 600px; max-width: 100%; background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: var(--r-dialog);
+  box-shadow: var(--shadow-dialog); overflow: hidden; }
+.dialog__head { padding: 18px 22px 14px; border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-3); }
+.dialog__title { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.dialog__sub { font-size: var(--t-sm); color: var(--ink-3); }
+.dialog__body { padding: 18px 22px; display: flex; flex-direction: column; gap: 15px; }
+.dialog__foot { padding: 14px 22px; border-top: 1px solid var(--line-soft);
+  background: var(--surface-sunk); display: flex; align-items: center;
+  justify-content: space-between; gap: var(--s-2); }
+.dialog__foot .actions .btn { height: 36px; }
+
+/* Confirmation strip after a completed action. Always offer Angre. */
+.confirm { display: flex; align-items: center; gap: 14px; padding: 14px var(--s-4);
+  background: var(--surface); border: 1px solid var(--green); border-radius: var(--r-card); }
+.confirm__mark { display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; flex: none; border-radius: var(--r-pill);
+  background: var(--green); color: #fff; }
+
+/* Inbox row — shared words the receiver accepts or declines */
+.inbox__row { display: flex; align-items: center; gap: 14px; padding: 12px var(--s-4);
+  border-bottom: 1px solid var(--line-soft); }
+.inbox__row:last-child { border-bottom: 0; }
+
+/* Person avatar — initials in a tinted circle (roster rows, account chip) */
+.avatar { display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 28px; height: 28px; border-radius: var(--r-pill);
+  background: var(--green-tint); color: var(--green);
+  font: 600 11px/1 var(--font); }
+
+/* --------------------------------------------------------------------------
+   ICONS: 16px box, stroke 1.6, currentColor, fill none, round caps.
+   Navigation and space-constrained buttons only — never in headings.
+   No emoji anywhere in the UI.
+   -------------------------------------------------------------------------- */
+.icon { width: 17px; height: 17px; fill: none; stroke: currentColor;
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
