@@ -9987,7 +9987,7 @@ function buildGiOppgaver(students){
 function buildLaererAssignments(){
   const frag = document.createDocumentFragment();
   const s = teacherState.selectedStudent;
-  frag.appendChild(el("button",{class:"btn-secondary",style:{marginBottom:"16px"},
+  frag.appendChild(el("button",{class:"btn",style:{marginBottom:"var(--s-3)"},
     click:()=>laererSetView("progress")},"← Tilbake"));
   frag.appendChild(el("h2",{style:{marginBottom:"16px"}},`Oppgaver: ${$esc(s?.name||"")}`));
   const wrap = el("div",{});
