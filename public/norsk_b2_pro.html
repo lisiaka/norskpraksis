@@ -49,16 +49,19 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .field-label{font-size:var(--font-xs);color:#777;display:block;margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
 .text-input{width:100%;padding:10px 13px;border-radius:var(--radius-md);border:1.5px solid #e0e4ec;font-size:var(--font-base);background:#fff;}
 .sel{padding:10px 13px;border-radius:var(--radius-md);border:1.5px solid #e0e4ec;font-size:var(--font-base);background:#fff;width:100%;}
+/* Primary variant — main call-to-action. See app/CLAUDE.md § Button, chip, and icon conventions. */
 .btn-primary{padding:10px 22px;background:#1a6b4a;color:#fff;border:none;border-radius:var(--radius-md);font-size:var(--font-base);font-weight:700;white-space:nowrap;}
 .btn-primary:hover{background:#155c3d;}
 .btn-primary:disabled{background:#c3d6cc;cursor:not-allowed;}
+/* Secondary variant — neutral/secondary action. See app/CLAUDE.md § Button, chip, and icon conventions. */
 .btn-secondary{padding:9px 18px;background:#f5f7fa;border:1.5px solid #e0e4ec;border-radius:var(--radius-md);font-size:var(--font-sm);color:#555;font-weight:500;}
 .btn-secondary:hover{border-color:#2d9e6b;color:#1a6b4a;}
 .btn-secondary:disabled{opacity:.5;cursor:not-allowed;}
 .hint{font-size:var(--font-xs);color:var(--color-text-muted);margin-top:6px;}
 .io-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
-.btn-io{padding:8px 16px;background:#fff;border:1.5px solid #e0e4ec;border-radius:var(--radius-md);font-size:var(--font-sm);color:#555;font-weight:600;}
-.btn-io:hover{border-color:#2d9e6b;color:#1a6b4a;}
+/* Feature 025: color/border/typography now come from .btn-secondary (added at every
+   call site alongside this class) — .btn-io only supplies its own padding. */
+.btn-io{padding:8px 16px;}
 .io-hint{font-size:var(--font-xs);color:var(--color-text-muted);margin-left:4px;}
 .search-box{width:100%;padding:10px 14px;border-radius:var(--radius-md);border:1.5px solid #e0e4ec;font-size:var(--font-base);background:#fff;margin-bottom:14px;}
 .topic-filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:#fff;border-radius:var(--radius-md);border:1px solid #e8ecf0;align-items:center;}
@@ -114,10 +117,12 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .action-row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
 /* Primary call-to-action — used for the bank save/assign actions, which were
    previously easy to miss against the form fields above them. */
-.btn-cta{display:block;width:100%;max-width:320px;margin:0 auto;padding:11px 24px;background:#1a6b4a;color:#fff;border:none;border-radius:var(--radius-md);font-size:var(--font-base);font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(26,107,74,.22);transition:background .15s,box-shadow .15s,transform .05s;}
-.btn-cta:hover:not(:disabled){background:#15583d;box-shadow:0 5px 16px rgba(26,107,74,.32);}
+/* Feature 025: color/border/typography now come from .btn-primary (added at every
+   call site alongside this class) — .btn-cta only supplies the centered block layout. */
+.btn-cta{display:block;width:100%;max-width:320px;margin:0 auto;padding:11px 24px;cursor:pointer;box-shadow:0 2px 8px rgba(26,107,74,.22);transition:background .15s,box-shadow .15s,transform .05s;}
+.btn-cta:hover:not(:disabled){box-shadow:0 5px 16px rgba(26,107,74,.32);}
 .btn-cta:active:not(:disabled){transform:translateY(1px);}
-.btn-cta:disabled{background:#cfd8d3;color:#fff;box-shadow:none;cursor:not-allowed;}
+.btn-cta:disabled{box-shadow:none;cursor:not-allowed;}
 /* Selectable bank card — click anywhere to pick, no checkbox, body clamped to
    two lines so the common case needs no expand click. */
 .pick-card{position:relative;border:2px solid #e8ecf0;border-radius:var(--radius-md);background:#fff;margin-bottom:10px;padding:14px 16px;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s;}
@@ -198,7 +203,10 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .saved-essay-level{display:inline-block;padding:2px 8px;border-radius:var(--radius-md);font-size:var(--font-xs);font-weight:700;margin-left:6px;}
 .saved-essay-actions{display:flex;gap:6px;flex-shrink:0;}
 .btn-load-essay{padding:5px 12px;background:#edfaf3;border:1.5px solid #2d9e6b;border-radius:var(--radius-sm);font-size:var(--font-xs);color:#1a6b4a;font-weight:700;}
-.btn-del-essay{padding:5px 10px;background:#fff5f5;border:1.5px solid var(--color-danger);border-radius:var(--radius-sm);font-size:var(--font-xs);color:var(--color-danger);font-weight:700;}
+/* Feature 025: .btn-del-essay repointed to .btn-destructive below — its rule was
+   declaration-identical, so the call site now uses the canonical name directly. */
+/* Destructive variant — delete/remove action. See app/CLAUDE.md § Button, chip, and icon conventions. */
+.btn-destructive{padding:5px 10px;background:#fff5f5;border:1.5px solid var(--color-danger);border-radius:var(--radius-sm);font-size:var(--font-xs);color:var(--color-danger);font-weight:700;}
 /* ── Lesing reader layout ── */
 .lesing-reader-layout{display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start;}
 @media(max-width:780px){.lesing-reader-layout{grid-template-columns:1fr;}}
@@ -351,8 +359,11 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .sent-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
 .sent-progress{font-size:var(--font-sm);color:var(--color-text-muted);}
 .sent-progress strong{color:#444;}
-.btn-nav{padding:8px 18px;background:#fff;border:1.5px solid #e0e4ec;border-radius:var(--radius-md);font-size:var(--font-sm);color:#444;font-weight:600;}
-.btn-nav:hover{border-color:#2d9e6b;color:#1a6b4a;}
+/* Feature 025: color/border/typography now come from .btn-secondary (added at every
+   call site alongside this class) — .btn-nav only supplies its own padding and its
+   fully-inert disabled state (pointer-events:none blocks stray clicks on prev/next
+   arrows; .btn-secondary:disabled alone does not). */
+.btn-nav{padding:8px 18px;}
 .btn-nav:disabled{opacity:.3;cursor:default;pointer-events:none;}
 .sent-card{background:#fff;border-radius:var(--radius-md);padding:30px 28px 24px;border:1px solid #e8ecf0;margin-bottom:14px;}
 .sent-word{font-size:34px;font-weight:800;color:#1a6b4a;margin-bottom:10px;word-break:break-word;line-height:1.2;}
@@ -1347,7 +1358,7 @@ function refreshEssayBank(){
     metaDiv.textContent=`${entry.topicName||entry.topic||"–"} · ${entry.wordCount} ord · ${dateStr}`;
     info.appendChild(metaDiv);
     row.appendChild(info);
-    const delBtn=el("button",{class:"btn-del-essay",click(e){
+    const delBtn=el("button",{class:"btn-destructive",click(e){
       e.stopPropagation();
       if(confirm("Slette dette essayet?")) deleteEssay(entry.id);
     }},"🗑️");
@@ -1593,7 +1604,7 @@ function buildSharedInboxPanel(){
       await refreshSharing();
       renderContent();
     }
-    row.appendChild(el("button",{class:"btn-cta",style:{fontSize:"var(--font-xs)",padding:"4px 10px"},
+    row.appendChild(el("button",{class:"btn-cta btn-primary",style:{fontSize:"var(--font-xs)",padding:"4px 10px"},
       click:()=>resolve("accept")},"Legg til"));
     row.appendChild(el("button",{style:{fontSize:"var(--font-xs)",padding:"4px 10px"},
       click:()=>resolve("discard")},"Forkast"));
@@ -1944,7 +1955,7 @@ function buildShareBar(){
     panel.appendChild(row);
   });
 
-  const sendBtn = el("button",{class:"btn-cta",style:{marginTop:"10px"},disabled:true,
+  const sendBtn = el("button",{class:"btn-cta btn-primary",style:{marginTop:"10px"},disabled:true,
     click: async ()=>{
       const recipients = picked();
       if(!recipients.length) return;
@@ -2142,8 +2153,8 @@ function buildOrdbank(){
 
     // Print buttons row
     const printBar=el("div",{class:"io-bar",style:{marginBottom:"0",paddingTop:"4px"}});
-    printBar.appendChild(el("button",{class:"btn-io",click(){printWords("cloud");}},"🖨️ Skriv ut ordsky"));
-    printBar.appendChild(el("button",{class:"btn-io",click(){printWords("list");}},"🖨️ Skriv ut ordliste"));
+    printBar.appendChild(el("button",{class:"btn-io btn-secondary",click(){printWords("cloud");}},"🖨️ Skriv ut ordsky"));
+    printBar.appendChild(el("button",{class:"btn-io btn-secondary",click(){printWords("list");}},"🖨️ Skriv ut ordliste"));
     filterSection.appendChild(printBar);
 
     frag.appendChild(filterSection);
@@ -2151,11 +2162,11 @@ function buildOrdbank(){
 
   // ── Import / Export bar ──
   const ioBar=el("div",{class:"io-bar"});
-  ioBar.appendChild(el("button",{class:"btn-io",click:exportWords},"⬇️ Eksporter ordbank"));
+  ioBar.appendChild(el("button",{class:"btn-io btn-secondary",click:exportWords},"⬇️ Eksporter ordbank"));
   const fileIn=el("input",{id:"import-file",type:"file",accept:".json,.csv,.txt",style:{display:"none"},
     change(e){const f=e.target.files[0];if(f)importWords(f);e.target.value="";}});
   ioBar.appendChild(fileIn);
-  ioBar.appendChild(el("button",{class:"btn-io",click(){$("import-file").click();}},"⬆️ Importer fra fil"));
+  ioBar.appendChild(el("button",{class:"btn-io btn-secondary",click(){$("import-file").click();}},"⬆️ Importer fra fil"));
   ioBar.appendChild(el("span",{class:"io-hint"},"JSON, CSV, eller tekst (ett ord per linje)"));
   frag.appendChild(ioBar);
 
@@ -2173,12 +2184,16 @@ function buildOrdbank(){
 
 function buildOrdbankModeToggle(){
   const mode = teacherState.ordbankMode || "mine";
+  // Feature 025: selected state reuses the app's established selection treatment
+  // (var(--color-primary) fill, same as .topic-chip.active) instead of the
+  // hardcoded blue this toggle used to carry — a secondary/neutral control's
+  // "on" state, not an unrelated accent color.
   const row = el("div",{style:{display:"flex",gap:"0",marginBottom:"16px",borderRadius:"var(--radius-md)",overflow:"hidden",border:"1.5px solid #dde",width:"fit-content"}});
   const mineBtn = el("button",{style:{border:"none",padding:"8px 18px",fontSize:"var(--font-base)",fontWeight:"600",cursor:"pointer",
-    background:mode==="mine"?"#2c5f9e":"#fff", color:mode==="mine"?"#fff":"#333"},
+    background:mode==="mine"?"var(--color-primary)":"#fff", color:mode==="mine"?"#fff":"#333"},
     click(){ teacherState.ordbankMode="mine"; renderContent(); }}, "📚 Mine ord");
   const eleverBtn = el("button",{style:{border:"none",padding:"8px 18px",fontSize:"var(--font-base)",fontWeight:"600",cursor:"pointer",
-    background:mode==="elever"?"#2c5f9e":"#fff", color:mode==="elever"?"#fff":"#333"},
+    background:mode==="elever"?"var(--color-primary)":"#fff", color:mode==="elever"?"#fff":"#333"},
     click(){ teacherState.ordbankMode="elever"; renderContent(); }}, "👥 Elevenes ord");
   row.appendChild(mineBtn); row.appendChild(eleverBtn);
   return row;
@@ -2228,11 +2243,11 @@ function buildTeacherWordAggregatePanel(){
   // Print bar — same buttons and labels as "Mine ord" (printWords), wired to the
   // aggregate-specific print function: cloud sizing is student count, not random.
   const printBar = el("div",{class:"io-bar",style:{marginBottom:"14px"}});
-  printBar.appendChild(el("button",{class:"btn-io",click(){
+  printBar.appendChild(el("button",{class:"btn-io btn-secondary",click(){
     printAggregateWords("cloud",currentWords,filterDesc());
     trackEvent("teacher.word_cloud_viewed",{word_count:currentWords.length});
   }},"🖨️ Skriv ut ordsky"));
-  printBar.appendChild(el("button",{class:"btn-io",click(){printAggregateWords("list",currentWords,filterDesc());}},"🖨️ Skriv ut ordliste"));
+  printBar.appendChild(el("button",{class:"btn-io btn-secondary",click(){printAggregateWords("list",currentWords,filterDesc());}},"🖨️ Skriv ut ordliste"));
   frag.appendChild(printBar);
 
   const resultWrap = el("div",{});
@@ -2849,12 +2864,12 @@ function buildSetninger(){
 
   // ── Navigation bar ──
   const nav=el("div",{class:"sent-nav"});
-  nav.appendChild(el("button",{class:"btn-nav",disabled:state.wordIdx===0?"":null,
+  nav.appendChild(el("button",{class:"btn-nav btn-secondary",disabled:state.wordIdx===0?"":null,
     click(){state.wordIdx--;renderContent();}
   },"← Forrige"));
   nav.appendChild(el("div",{class:"sent-progress"},
     el("strong",{},`${state.wordIdx+1} / ${total}`),` ord  ·  ${doneCount} setninger skrevet`));
-  nav.appendChild(el("button",{class:"btn-nav",disabled:state.wordIdx===total-1?"":null,
+  nav.appendChild(el("button",{class:"btn-nav btn-secondary",disabled:state.wordIdx===total-1?"":null,
     click(){state.wordIdx++;renderContent();}
   },"Neste →"));
   frag.appendChild(nav);
@@ -2941,7 +2956,7 @@ function buildSetninger(){
     frag.appendChild(prev);
   }
 
-  const exportBtn=el("button",{class:"btn-io",style:{marginTop:"14px",marginBottom:"14px"},
+  const exportBtn=el("button",{class:"btn-io btn-secondary",style:{marginTop:"14px",marginBottom:"14px"},
     click:exportSentencesByTopic},"⬇️ Eksporter setninger");
   frag.appendChild(exportBtn);
   return frag;
@@ -5010,7 +5025,7 @@ function buildLesingReader(text){
   const frag=document.createDocumentFragment();
 
   // Back button
-  const backBtn=el("button",{class:"btn-io",style:{marginBottom:"14px",display:"flex",alignItems:"center",gap:"6px"},
+  const backBtn=el("button",{class:"btn-io btn-secondary",style:{marginBottom:"14px",display:"flex",alignItems:"center",gap:"6px"},
     click(){lesingState.currentText=null; lesingState.summaryText=""; lesingState.summaryVisible=false; renderContent();}});
   backBtn.innerHTML="← Tilbake til tekstlisten";
   frag.appendChild(backBtn);
@@ -5124,7 +5139,7 @@ function buildLesingReader(text){
 
   // ── Gjenfortell area (T009–T012, T013–T017) ──
   const gjArea=el("div",{style:{marginTop:"20px"}});
-  const gjBtn=el("button",{class:"btn-io",style:{marginBottom:"10px"}});
+  const gjBtn=el("button",{class:"btn-io btn-secondary",style:{marginBottom:"10px"}});
   gjBtn.textContent="Gjenfortell teksten";
   gjBtn.addEventListener("click",()=>{
     if(!lesingState.summaryVisible || lesingState.summaryText===""){
@@ -5170,7 +5185,7 @@ function buildLesingReader(text){
       try{renderGjenfortellResult(JSON.parse(prevSaved.claude_feedback),feedbackContainer);}catch{}
     }
 
-    const saveBtn=el("button",{class:"btn-io",style:{marginBottom:"8px",marginRight:"8px",background:"#f0faf5",color:"#1a6b4a",border:"1px solid #b6e8ce"}});
+    const saveBtn=el("button",{class:"btn-io btn-secondary",style:{marginBottom:"8px",marginRight:"8px",background:"#f0faf5",color:"#1a6b4a",border:"1px solid #b6e8ce"}});
     saveBtn.textContent="Lagre sammendrag";
     saveBtn.addEventListener("click",async()=>{
       if(!lesingState.summaryText.trim()){toast("Skriv et sammendrag først");return;}
@@ -5187,7 +5202,7 @@ function buildLesingReader(text){
       saveBtn.disabled=false; saveBtn.textContent="Lagre sammendrag";
     });
 
-    const checkBtn=el("button",{class:"btn-io",style:{marginBottom:"12px"}});
+    const checkBtn=el("button",{class:"btn-io btn-secondary",style:{marginBottom:"12px"}});
     checkBtn.textContent="Sjekk med AI";
     checkBtn.addEventListener("click",async()=>{
       if(!lesingState.summaryText.trim()){toast("Skriv et sammendrag først");return;}
@@ -5394,11 +5409,11 @@ function buildLesingReader(text){
     if(idx>=0 && filtered.length>1){
       const navRow=el("div",{style:{display:"flex",justifyContent:"space-between",maxWidth:"720px",margin:"14px auto 0"}});
       if(idx>0){
-        const prevBtn=el("button",{class:"btn-io",click(){setLesingText(filtered[idx-1]);trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();window.scrollTo(0,0);}},"← "+filtered[idx-1].title.substring(0,30));
+        const prevBtn=el("button",{class:"btn-io btn-secondary",click(){setLesingText(filtered[idx-1]);trackEvent("text_read",{textId:filtered[idx-1].id,title:filtered[idx-1].title,topic:filtered[idx-1].topic,level:filtered[idx-1].level||"B2"});renderContent();window.scrollTo(0,0);}},"← "+filtered[idx-1].title.substring(0,30));
         navRow.appendChild(prevBtn);
       } else { navRow.appendChild(el("span",{})); }
       if(idx<filtered.length-1){
-        const nextBtn=el("button",{class:"btn-io",click(){setLesingText(filtered[idx+1]);trackEvent("text_read",{textId:filtered[idx+1].id,title:filtered[idx+1].title,topic:filtered[idx+1].topic,level:filtered[idx+1].level||"B2"});renderContent();window.scrollTo(0,0);}},(filtered[idx+1].title.substring(0,30))+" →");
+        const nextBtn=el("button",{class:"btn-io btn-secondary",click(){setLesingText(filtered[idx+1]);trackEvent("text_read",{textId:filtered[idx+1].id,title:filtered[idx+1].title,topic:filtered[idx+1].topic,level:filtered[idx+1].level||"B2"});renderContent();window.scrollTo(0,0);}},(filtered[idx+1].title.substring(0,30))+" →");
         navRow.appendChild(nextBtn);
       }
       frag.appendChild(navRow);
@@ -6342,8 +6357,8 @@ function buildStatistik(){
           setTab("flashcards");
         }
       },"🎮 Øv på feilordene (maks 10)"));
-      btnRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("cloud",missedList)}},"☁️ Ordsky"));
-      btnRow.appendChild(el("button",{class:"btn-io",click(){printMissedWords("list", missedList)}},"📄 Ordliste"));
+      btnRow.appendChild(el("button",{class:"btn-io btn-secondary",click(){printMissedWords("cloud",missedList)}},"☁️ Ordsky"));
+      btnRow.appendChild(el("button",{class:"btn-io btn-secondary",click(){printMissedWords("list", missedList)}},"📄 Ordliste"));
       hdr.appendChild(btnRow);
 
       const scrollList=el("div",{class:"stat-missed-list"});
@@ -6916,7 +6931,7 @@ function buildLaererRoster(){
     style:{width:"100%",padding:"8px",marginBottom:"8px",boxSizing:"border-box",
       border:"1px solid var(--color-border)",borderRadius:"var(--radius-sm)",fontSize:"var(--font-base)"}});
   const addErr = el("div",{style:{color:"var(--color-danger)",fontSize:"var(--font-sm)",marginBottom:"8px",display:"none"}});
-  const addBtn = el("button",{class:"btn-cta",
+  const addBtn = el("button",{class:"btn-cta btn-primary",
     click: async ()=>{
       const email = emailInput.value.trim();
       if(!email){ addErr.textContent="Skriv inn en e-postadresse"; addErr.style.display=""; return; }
@@ -6952,7 +6967,7 @@ function buildLaererRoster(){
   classBox.appendChild(classListWrap);
   const newClassInput = el("input",{type:"text",placeholder:"Navn på ny klasse",maxlength:"100",
     style:{padding:"8px",marginRight:"8px",border:"1px solid var(--color-border)",borderRadius:"var(--radius-sm)",fontSize:"var(--font-base)"}});
-  const newClassBtn = el("button",{class:"btn-cta",style:{fontSize:"var(--font-sm)",padding:"6px 12px"},
+  const newClassBtn = el("button",{class:"btn-cta btn-primary",style:{fontSize:"var(--font-sm)",padding:"6px 12px"},
     click: async ()=>{
       const name = newClassInput.value.trim();
       if(!name){ toast("Klassen må ha et navn"); return; }
@@ -8670,9 +8685,10 @@ function $esc(str){ return String(str||""); }
 
 function buildMineOppgaver(){
   const frag = document.createDocumentFragment();
-  const hdr = el("div",{class:"card",style:{marginBottom:"16px",padding:"16px 20px"}});
-  hdr.appendChild(el("h2",{style:{margin:0}},"📋 Mine oppgaver"));
-  frag.appendChild(hdr);
+  // Feature 025: title renders as a plain section heading, not its own boxed
+  // .card, so it reads as one section with the assignment cards below it
+  // rather than two disconnected, gapped cards.
+  frag.appendChild(el("h2",{style:{margin:"0 0 12px",fontSize:"var(--font-base)",color:"#1a6b4a",fontWeight:"800",letterSpacing:"-.1px"}},"📋 Mine oppgaver"));
 
   const wrap = el("div",{});
   frag.appendChild(wrap);
@@ -9400,7 +9416,7 @@ function buildGiOppgaver(students){
     const errDiv2 = el("div",{style:{color:"var(--color-danger)",fontSize:"var(--font-sm)",marginBottom:"8px",display:"none"}});
     modeContent.appendChild(errDiv2);
 
-    const assignBtn2 = el("button",{class:"btn-cta",disabled:selectedIds.size===0,
+    const assignBtn2 = el("button",{class:"btn-cta btn-primary",disabled:selectedIds.size===0,
       click: async ()=>{
         const itemsArr = [];
         if(includeWords && items._getWordList) { const w=items._getWordList(); if(w) itemsArr.push(w); }
@@ -9639,7 +9655,7 @@ function buildLaererBankTexts(){
     const labelIn=el("input",{type:"text",placeholder:"Merkelapp (valgfritt)",
       style:{width:"100%",padding:"6px 8px",marginBottom:"10px",borderRadius:"var(--radius-sm)",border:"1.5px solid #dde",fontSize:"var(--font-sm)",boxSizing:"border-box"}});
     panel.appendChild(labelIn);
-    const assignBtn=el("button",{class:"btn-cta",
+    const assignBtn=el("button",{class:"btn-cta btn-primary",
       click:async ()=>{
         if(!selectedItems.length){toast("Velg minst én tekst");return;}
         const useAll=allCb.checked;
@@ -9782,7 +9798,7 @@ function buildLaererBankTexts(){
       const bodyIn=el("textarea",{placeholder:"Teksten…",style:{width:"100%",minHeight:"150px",padding:"7px 10px",marginBottom:"4px",borderRadius:"var(--radius-sm)",border:"1.5px solid #dde",fontSize:"var(--font-sm)",boxSizing:"border-box",resize:"vertical"}});
       const bodyCount=attachWordCounter(bodyIn, CUSTOM_TEXT_MAX_WORDS);
       const addErr=el("div",{style:{color:"var(--color-danger)",fontSize:"var(--font-sm)",marginBottom:"6px",display:"none"}});
-      const addBtn=el("button",{class:"btn-cta",
+      const addBtn=el("button",{class:"btn-cta btn-primary",
         click:async ()=>{
           const title=(titleIn.value||"").trim();
           const body=(bodyIn.value||"").trim();
@@ -9877,7 +9893,7 @@ function buildLaererBankPrompts(){
     const labelIn=el("input",{type:"text",placeholder:"Merkelapp (valgfritt)",
       style:{width:"100%",padding:"6px 8px",marginBottom:"10px",borderRadius:"var(--radius-sm)",border:"1.5px solid #dde",fontSize:"var(--font-sm)",boxSizing:"border-box"}});
     panel.appendChild(labelIn);
-    const assignBtn=el("button",{class:"btn-cta",
+    const assignBtn=el("button",{class:"btn-cta btn-primary",
       click:async ()=>{
         if(!selectedItems.length){toast("Velg minst én oppgave");return;}
         const useAll=allCb.checked;
@@ -10028,7 +10044,7 @@ function buildLaererBankPrompts(){
       VALID_TOPIC_LIST.forEach(t=>topicSel.appendChild(el("option",{value:t},t.charAt(0).toUpperCase()+t.slice(1))));
       const promptIn=el("textarea",{placeholder:"Oppgaveteksten…",style:{width:"100%",minHeight:"80px",padding:"7px 10px",marginBottom:"8px",borderRadius:"var(--radius-sm)",border:"1.5px solid #dde",fontSize:"var(--font-sm)",boxSizing:"border-box",resize:"vertical"}});
       const addErr=el("div",{style:{color:"var(--color-danger)",fontSize:"var(--font-sm)",marginBottom:"6px",display:"none"}});
-      const addBtn=el("button",{class:"btn-cta",
+      const addBtn=el("button",{class:"btn-cta btn-primary",
         click:async ()=>{
           const title=(titleIn.value||"").trim();
           const prompt_text=(promptIn.value||"").trim();

@@ -196,6 +196,44 @@ All topic-related fields use a fixed list of 12 canonical strings defined as `VA
 
 The `TOPICS` object (essay/skriv tab, ASCII keys `miljo`/`sprak`) is a separate map for essay prompt lookup and is intentionally not changed. `ESSAY_TOPIC_TO_WORD_TOPICS` bridges it to word-bank topic strings.
 
+## Button, chip, and icon conventions (feature 025)
+
+There are exactly **3 button variants** — do not introduce a 4th without a new decision
+recorded in a spec. A toggle/segmented-control style (e.g. Ordbank's "Mine ord"/"Elevenes
+ord" switch) is not a 4th type; its selected state must visually read as secondary.
+
+- **`.btn-primary`** — main call-to-action. Green, filled, bold. `.btn-cta` shares its
+  color/border/typography (via `class:"btn-cta btn-primary"`) but keeps its own block/
+  centered/shadow layout.
+- **`.btn-secondary`** — neutral/secondary action. Gray, outlined. `.btn-io` and `.btn-nav`
+  share its rules; each keeps its own padding where a call site needs it.
+- **`.btn-destructive`** — delete/remove action. Red, outlined. `.btn-del-essay` uses it.
+
+Classes not listed above (`.btn-del`, `.btn-learnt`, `.btn-tts-*`, `.plan-nav-btn`,
+`.plan-go-btn`, `.fc-mode-btn`, `.btn-fc-next`, `.btn-skip`, `.btn-next-sent`,
+`.btn-save-key`, `.btn-lookup`) were deliberately left unmigrated in feature 025 — see
+`specs/025-component-and-interaction-consistency/data-model.md` for the full inventory and
+why each was deferred rather than folded in.
+
+**Selection state is always shown with a border, at one of two levels**:
+- **Independent chips** (each option separately clickable, e.g. `.topic-chip`, `.plan-chip`)
+  are individually bordered in both selected and unselected states.
+- **Segmented controls** (mutually-exclusive options grouped as one control, e.g. the
+  Ordbank "Mine ord"/"Elevenes ord" toggle, the Tekstbank/Oppgavebank source-tab bars) put
+  the border on the wrapping container instead — the group boundary is the border, the
+  active segment is the background fill. Individual segments do not need their own border
+  on top of that.
+
+Do not add a third pattern (e.g. a chip or segment with no border anywhere, relying on
+background color alone) — an audit for feature 025 found every existing selection control
+already follows one of the two patterns above; keep it that way.
+
+**Icon usage rule**: an icon is required only where it carries load-bearing scanning
+meaning — removing it would make two similar controls indistinguishable, or it is the only
+signal of a control's type (e.g. Mine oppgaver's 📖/✍️/📚 type badges, Lesing's 🔊
+read-aloud control). Elsewhere it is optional/decorative and MUST NOT be added purely for
+visual symmetry with a sibling control.
+
 ## AI feedback
 
 `checkWithClaude()` (sentence) and `checkEssayWithClaude()` (essay) both instruct Claude to respond in **Norwegian Bokmål**. JSON keys remain in English (the renderer depends on them); only the string-value fields change language. Do not revert to English prompts.
