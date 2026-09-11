@@ -1952,7 +1952,14 @@ function buildShareBar(){
       const words = shareSelectedVisible();
       if(!words.length) return;
       sendBtn.disabled=true; sendBtn.textContent="Sender…";
-      const tagLabels = cfg.teacher ? Array.from(state.shareTagSelection) : [];
+      // A typed-but-not-yet-confirmed tag must still count — requiring the separate
+      // "+ Legg til" click before send was a silent trap: nothing indicated the send
+      // would ignore it, so the natural "type then send" motion lost the tag with no
+      // error, only a toast quietly missing its "merket" clause.
+      const typedTag = state.shareNewTagInput.trim();
+      const tagLabels = cfg.teacher
+        ? Array.from(new Set([...state.shareTagSelection, ...(typedTag ? [typedTag] : [])]))
+        : [];
       const res = await cfg.send(words, recipients, transCb ? transCb.checked : true, tagLabels);
       sendBtn.textContent=cfg.sendLabel;
       if(!res.ok){
