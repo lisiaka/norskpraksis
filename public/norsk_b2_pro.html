@@ -68,11 +68,6 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .topic-chip{padding:6px 14px;border-radius:var(--radius-lg);font-size:var(--font-sm);font-weight:600;background:#f5f7fa;border:1.5px solid #e0e4ec;color:#555;cursor:pointer;transition:all .2s;}
 .topic-chip:hover{border-color:#2d9e6b;background:#e8f5ee;}
 .topic-chip.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;}
-/* Feature 026: filter-block collapse toggle. Deliberately plain (no border, no
-   background) so it reads as a small utility control above the filter block, not
-   as another chip or button competing with the filters it hides/shows. */
-.filter-toggle-btn{background:none;border:none;padding:2px 0 8px;margin:0;font-size:var(--font-xs);font-weight:700;color:var(--color-text-muted);cursor:pointer;text-transform:uppercase;letter-spacing:.5px;}
-.filter-toggle-btn:hover{color:#1a6b4a;}
 .word-topic-tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:var(--radius-md);font-size:var(--font-xs);font-weight:700;background:#f0e68c;color:#776;}
 .cat-section{background:#fff;border-radius:var(--radius-md);padding:18px;margin-bottom:12px;border:1px solid #e8ecf0;}
 .cat-title{font-size:var(--font-xs);color:var(--color-text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:7px;}
@@ -422,29 +417,13 @@ const TOPICS = {
   utdanning:     {name:"Utdanning",             emoji:"🎓", color:"#d35400"},
 };
 
-// Feature 026: the one canonical topic-icon lookup, for topic filter chips elsewhere
-// (Ordbank, Setninger, Flashcards, Lesing, Setningsbygging). Bridges VALID_TOPIC_LIST's
-// real-character spelling (miljø, språk) to TOPICS' ASCII keys (miljo, sprak) — same
-// conversion already used when navigating to Skriv. "" (Alle) and "generelt" have no
-// TOPICS entry by design and resolve to no icon, not a missing one.
-function topicIcon(topic){
-  if(!topic) return "";
-  const key = TOPICS[topic] ? topic : topic.replace(/ø/g,"o").replace(/å/g,"a").replace(/æ/g,"ae");
-  return TOPICS[key]?.emoji || "";
-}
-
-// Feature 026: {emoji, color} lookup for text-card topic badges, same TOPICS source
-// and same key-bridging as topicIcon() above. Falls back to a generic document icon
-// for a topic TOPICS doesn't cover (e.g. "generelt"), never a guessed default.
-function topicMeta(topic){
-  if(!topic) return {emoji:"📄", color:"var(--color-text-muted)"};
-  const key = TOPICS[topic] ? topic : topic.replace(/ø/g,"o").replace(/å/g,"a").replace(/æ/g,"ae");
-  return TOPICS[key] || {emoji:"📄", color:"var(--color-text-muted)"};
-}
-
 // B2 Norsk design system (specs/DESIGN-RULES.md): tema is colour, never emoji.
 // The --tema-*-bg/-fg custom properties in b2-norsk.css use the same ASCII keys
-// as TOPICS (miljo, sprak), so the bridge is identical to topicIcon()'s.
+// as TOPICS (miljo, sprak). Feature 026 originally gave every topic filter chip an
+// emoji via a `topicIcon()`/`topicMeta()` pair (bridging the same ASCII keys) — this
+// design system pass superseded that with a colour swatch on every filter pill
+// instead (`topicTema()` below), which is what every tab's facet actually renders
+// today; the emoji helpers were removed as dead code once the last caller moved over.
 function topicKeyAscii(topic){
   if(!topic) return "";
   return TOPICS[topic] ? topic : topic.replace(/ø/g,"o").replace(/å/g,"a").replace(/æ/g,"ae");
@@ -1935,23 +1914,6 @@ async function sendWordsAsTeacher(words, studentIds, includeTranslation, tagLabe
   // send from an ordinary one without opening the student's bank.
   if(tagLabels && tagLabels.length) msg += ` · merket «${tagLabels.join(", ")}»`;
   return {ok:true, message:msg};
-}
-
-// Feature 026: one collapse/expand toggle per filter block, shared across every tab
-// that has one. `stateObj[key]` is read as `?? true` (expanded) so no existing state
-// object needs a migration — the field simply doesn't exist until first toggled.
-// `onToggle` is the tab's own re-render function (usually `renderContent`), not a
-// hardcoded call, since different tabs re-render at different granularity.
-function buildFilterToggle(tab, stateObj, key, onToggle){
-  const isOpen = stateObj[key] ?? true;
-  return el("button",{class:"filter-toggle-btn",
-    click(){
-      const next = !(stateObj[key] ?? true);
-      stateObj[key] = next;
-      trackEvent("filters.toggled",{tab, state: next ? "expanded" : "collapsed"});
-      onToggle();
-    }
-  }, isOpen ? "▾ Skjul filtre" : "▸ Vis filtre");
 }
 
 // Sharing lives with the filters, because the filters are what propose the selection:
@@ -5334,9 +5296,9 @@ function buildLesing(){
 
   const body=el("div",{class:"filter-panel__body"});
 
-  // TEMA facet — reuses the canonical TOPICS emoji via topicIcon() only where the
-  // pill's swatch color comes from; the pill itself uses topicTema()'s colour,
-  // never emoji, per the design system's "tema is colour" rule.
+  // TEMA facet — replaces this reader's former divergent local emoji map
+  // (feature 026, FR-006). Every pill's swatch comes from topicTema(), the same
+  // colour source every other tab's topic facet uses — never emoji.
   const temaFacet=el("div",{class:"facet"});
   temaFacet.appendChild(el("div",{class:"facet__label"},"Tema"));
   const temaOpts=el("div",{class:"facet__options"});
