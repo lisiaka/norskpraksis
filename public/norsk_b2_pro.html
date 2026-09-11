@@ -215,6 +215,10 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .btn-tts.speaking{border-color:var(--green);color:var(--green);background:var(--green-tint);animation:ttsPulse 1s ease-in-out infinite;}
 @keyframes ttsPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.22);}}
 .tts-word{border-radius:var(--radius-sm);transition:background .08s linear;}
+/* Feature 027: the student's own word, from this exact text. Declared before .tts-now so
+   the speech marker's own background wins while a word is actively being spoken; the
+   tint reasserts once the marker moves on, since .tts-now is toggled per-span. */
+.tts-word.own-word{background:var(--green-tint);border-radius:var(--r-btn);}
 .tts-word.tts-now{background:#ffe9a8;box-shadow:0 0 0 2px #ffe9a8;}
 /* ── Word Sort (Setningsbygging) game ── */
 .ws-pool-area{display:flex;flex-wrap:wrap;gap:8px;min-height:52px;padding:12px;background:var(--surface-sunk);border-radius:var(--r-btn);border:1.5px dashed var(--line-strong);margin-bottom:12px;align-content:flex-start;}
@@ -708,6 +712,18 @@ function resolveSourceText(w){
   if(!w || !w.source_text_id || !sourceTextIndex.map) return null;
   const kind = w.source_text_kind || "builtin";
   return sourceTextIndex.map[`${kind}:${w.source_text_id}`] || null;
+}
+
+// Feature 027: the words already in this student's Ordbank because they came from
+// *this* text — the same source_text_id/kind discrimination resolveSourceText() uses
+// in the other direction (word -> text). Scoped to state.words already in memory; no
+// request, and no scan of the text against the whole bank.
+function getOwnWordsForText(text){
+  if(!text || !state.words) return [];
+  const kind = text.isCustom ? "custom" : "builtin";
+  return state.words.filter(w =>
+    w.source_text_id === text.id && (w.source_text_kind||"builtin") === kind
+  );
 }
 
 // Word-sort game state
@@ -5136,19 +5152,39 @@ function ttsButton(getText, title){
   return btn;
 }
 
+// Feature 027: flattens {word, forms}[] into a lowercase Set of every matchable surface
+// form, so fillSpokenText's per-token check below is a single Set.has() rather than an
+// array scan per token per word.
+function buildOwnWordTokenSet(words){
+  const set = new Set();
+  (words||[]).forEach(w=>{
+    [w.word, ...(w.forms||[])].forEach(f=>{ if(f) set.add(String(f).toLowerCase()); });
+  });
+  return set;
+}
+// Strips leading/trailing non-letter characters (punctuation, quotes/guillemets) so a
+// token like "«skole»" or "integrering," matches on its letters alone. Characters inside
+// the token (a hyphen in a compound word) are left untouched — only the edges are peeled.
+function stripTokenPunctuation(token){
+  return String(token).replace(/^[^a-zA-ZæøåÆØÅ]+|[^a-zA-ZæøåÆØÅ]+$/g, "");
+}
+
 // Renders `str` into `host` as one span per word, and returns a `mark(charIndex)` that
 // highlights the word containing that index — or clears the highlight when passed null.
 // Whitespace stays in plain text nodes so the rendered text is character-for-character
 // the original, which is what lets a character index from the speech engine be looked
-// up here at all.
-function fillSpokenText(host, str){
+// up here at all. `ownWordsSet` (feature 027, optional) marks a span `own-word` when its
+// stripped, lowercased text is one of the student's own words for this text — independent
+// of the tts-now marker toggled below, so both can be visible on the same span at once.
+function fillSpokenText(host, str, ownWordsSet){
   const tokens=[];
   const text=String(str||"");
   const re=/\S+/g;
   let last=0, m;
   while((m=re.exec(text))!==null){
     if(m.index>last) host.appendChild(document.createTextNode(text.slice(last,m.index)));
-    const span=el("span",{class:"tts-word"},m[0]);
+    const isOwn = ownWordsSet && ownWordsSet.has(stripTokenPunctuation(m[0]).toLowerCase());
+    const span=el("span",{class: isOwn ? "tts-word own-word" : "tts-word"}, m[0]);
     tokens.push({start:m.index, end:m.index+m[0].length, span});
     host.appendChild(span);
     last=m.index+m[0].length;
@@ -5520,16 +5556,17 @@ function buildLesingReader(text){
   });
   card.appendChild(tagRow);
 
-  // Main text. With a Norwegian voice available it is rendered as one span per word so
-  // the word being spoken can be marked; without one it stays a plain text node, so a
-  // learner who cannot use the feature sees exactly the page they saw before it existed.
+  // Main text. Always rendered as one span per word (feature 027) — the highlight for the
+  // student's own words needs that structure on every device, not just one with a
+  // Norwegian voice. The TTS marker (feature 016) is layered on the same spans as an
+  // optional add-on rather than the thing that creates them; a device with no voice still
+  // sees no read-aloud controls, exactly as before this feature existed.
   const textDiv=el("div",{style:{fontSize:"var(--font-base)",lineHeight:"1.85",color:"#333",whiteSpace:"pre-wrap",fontFamily:"Georgia,serif",letterSpacing:".01em"}});
-  let markSpokenWord=null;
+  const ownWords=buildOwnWordTokenSet(getOwnWordsForText(text));
+  const markSpokenWord=fillSpokenText(textDiv, text.text, ownWords);
   if(ttsAvailable()){
-    card.appendChild(buildTtsBar(text, idx=>markSpokenWord&&markSpokenWord(idx)));
-    markSpokenWord=fillSpokenText(textDiv, text.text);
+    card.appendChild(buildTtsBar(text, idx=>markSpokenWord(idx)));
   } else {
-    textDiv.textContent=text.text;
     // The controls are hidden entirely here, which is silent by design — so no
     // learner will ever report it and the size of this group is otherwise
     // unknowable (FR-019). Once per session, never per render: renderContent()
