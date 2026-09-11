@@ -183,6 +183,24 @@ curl -X POST http://localhost:8788/api/test/simulate-renewal \
 - Vipps Recurring API v3 — Norwegian payment subscriptions
 - PayPal Subscriptions API v2 — international payment subscriptions
 
+## Terminology: "stil", never "essay", in UI copy
+
+Every Norwegian-facing string calls it a **stil** (en stil / stilen / stiler / stilene) —
+"Mine lagrede stiler," "Lagre stil," "Test mot stil," the Statistikk donut's "Brukt i
+stiler." Some of this was already consistent (the AI-fokus surface tab, the teacher's
+"Stiler levert" KPI) before a user report caught the rest still saying "essay" —
+`toast()` messages, the essay-bank panel, the Skriv editor's save button, three
+Statistikk labels, and the admin dashboard's summary card and table header.
+
+**"essay" stays in code** — `saveCurrentEssay()`, `.essay-bank-panel`, `/api/essays`,
+the `essay_saved` tracked-feature id (renaming it would orphan adoption history per the
+"four pre-019 names" rule), the `AiSurface.ESSAY` value, `data-essaysrc`, localStorage
+key `b2_essay_bank_v1`. None of that is user-visible, so none of it changed. The one
+exception in the other direction: the English prompt sent to Claude
+(`checkEssayWithClaude()`, "Please evaluate this Norwegian essay…") is an instruction
+to the model, not UI copy — English "essay" is the correct word there and was left
+alone.
+
 ## Topic system
 
 All topic-related fields use a fixed list of 12 canonical strings defined as `VALID_TOPIC_LIST`:
@@ -414,16 +432,13 @@ only what the mockup and the current data model both support was done:
     Ordbank's teacher toggle needed in 025, found again here.
 - **The teacher-facing plan and reading-summaries views are also redesigned** —
   `buildLaererPlan()` (~L8634) and `buildLaererSummaries()` (~L9133). Notably:
-  - `buildLaererPlan()` mirrors the already-redesigned student `buildPlanView()`
-    exactly where the two overlap: the same `.tag` "Nåværende uke" (not a bespoke "Nå"
-    pill), the same `.plan-prog-wrap`/`.plan-prog-fill` progress bar **left as-is,
-    unconverted** — that class pair is still the old visual language even on the
-    student side (see the Studieplan note above), so converting only the teacher
-    view would have made the two *less* consistent with each other, not more.
-  - `week.topicEmoji` is still rendered here on purpose. This view is one of the
-    three call sites named in the Studieplan note below ("one of them in a
-    teacher-facing view") — it stays deferred as a set, not fixed one call site
-    at a time.
+  - `buildLaererPlan()` mirrors the student `buildPlanView()` exactly where the
+    two overlap: the same `.tag` "Nåværende uke" (not a bespoke "Nå" pill), and
+    `.plan-prog-wrap`/`.plan-prog-fill` — kept as a class pair (not inlined) since
+    both sides use it, now pointing at tokens (see the Studieplan note below).
+  - `week.topicEmoji` was replaced with a `topicTema()` swatch here too, in the
+    same later pass that fixed the other two call sites (see the Studieplan note
+    below) — all three moved together, not one at a time.
   - The ✅/⬜ done-markers on plan text/essay rows became `.status__dot`, the same
     swap as the ordbank practiced-column in the texts/words/sentences pass.
 - **Tekstbank and Oppgavebank are also redesigned** — `buildLaererBankTexts()`
@@ -506,12 +521,28 @@ the same rules as Ordbank, not lifted from a reference screen. Notably:
 - Mine oppgaver's assignment-type badges (`ITEM_TYPE_META`, ~L9159) keep their icon —
   it's load-bearing (the only signal of an item's kind in the list), consistent with
   the icon-usage rule.
-- Studieplan's `week.topicEmoji` **still renders an emoji** — it comes from
-  `generatePlan()`'s data model (~L6217) and reaches three render call sites, one of
-  them in a teacher-facing view; replacing it with `topicIcon()` needs each of those
-  three checked rather than a two-line fix, so it was left alone rather than done
-  halfway. Same for the mini week-overview at the bottom of Studieplan
-  (`.plan-week-mini*` classes, ~L6597) — untouched, still the old visual language.
+- **Studieplan's week-detail card, nav, summary stats, mastery bars and the
+  mini-week overview were redesigned in a later pass than the rest of this section**
+  (a user report — "Min uke seems to still have old style... old emojis" — caught
+  what the first Studieplan pass missed: it had converted the session sub-blocks
+  reading/essay/word-mastery, and the earlier note here was written from that
+  alone, without checking the surrounding chrome). `.plan-nav`/`-btn`/`-center`,
+  `.plan-week-card`/`-hdr`/`-num`/`-topic`/`-dates`/`-body`, `.plan-summary-grid`/
+  `-box`/`-val`/`-lbl` were deleted outright — the summary stats now reuse
+  Statistikk's `.stat-grid`/`.stat-box` rather than keeping a Plan-only twin, and
+  the rest moved onto `.card`/`.btn`/tokens directly.
+- `week.topicEmoji` **is gone from all three render call sites** it used to reach
+  (the week-detail header, the mini week-overview, and the teacher-facing plan
+  view at ~L8730) — each now shows a `topicTema()` swatch dot instead, the same
+  "topic is colour, not an icon" treatment every other tab uses. `generatePlan()`
+  (~L6217) still writes `topicEmoji`/`topicColor` into the data model; nothing
+  reads them anymore, but they were left in place since removing them isn't
+  needed to fix the display and risks an unrelated data-shape change.
+- The mastery section's three sub-progress-bars (Lagt til i ordbank / Riktig i
+  flashcards / Brukt i setning) keep three distinct colours on purpose — they're
+  parallel, non-hierarchical categories, not stages of one bar, so collapsing
+  them to a single status token would lose the at-a-glance distinction. Same
+  reasoning as the essay bank's CEFR-level colours below.
 
 **Lesing is also redesigned** (`buildLesing()`/`refreshLesingList()`/`buildLesingReader()`,
 ~L5262-5919) — filter panel, text cards (tema tag + status), the reader header, grammar/
@@ -716,31 +747,151 @@ round of staging feedback) — `renderWordList()`/`buildWordDetailPanel()`, ~L27
   `.header h1,.header p{display:none}` already hides its content — dead since the
   sidebar/topbar system replaced it, not something this pass touched or needed to.
 
+**A round of user-reported bugs, fixed together** (all caught by using the redesigned
+app, not from code review):
+- **`.word-grid` is shared by three grids — Ordbank, Lesing's text cards, and Skriv's
+  topic tiles — and the fixed-176px-height/1-line-clamp rule from the word-card-sizing
+  work above was accidentally written against `.word-grid` itself.** That squeezed
+  Lesing's cards (which carry more content per card — a topic+status row, an optional
+  "summary written" tag, and a grammar-tag row that Ordbank's cards don't have) into a
+  budget sized for Ordbank, clipping long text titles unreadably (reported: "Pollinering
+  og biens betydning" — a real title — was unreadable in the text-card grid). Fixed by
+  scoping the fixed-height rules to a new `.word-grid--fixed` modifier class, added
+  alongside `.word-grid` only on Ordbank's grid (`renderWordList()`). Lesing and Skriv
+  keep plain `.word-grid` — same column layout, content-driven height, untouched.
+- **The TTS speaker button (`.btn-tts`, shared by Ordbank word cards, Lesing's lookup
+  panel, and comprehension questions) was reported "very tiny."** Its CSS was a leftover
+  from before `ttsButton()` rendered an SVG icon — `padding:2px 6px;background:none;
+  border:none` — sized for a text/emoji glyph, not a button, so on two of its three call
+  sites it had no visible chrome at all, and on the third (Ordbank) a manually-added
+  `.icon-btn` class lost the cascade to this inline `<style>` block loading after
+  `b2-norsk.css`. Rewritten as a real icon-button footprint — 30px square, bordered,
+  `var(--surface)` background — a step above the standard 24px `.icon-btn` since this
+  one needs to read as clickable on its own, not just inside a toolbar. The redundant
+  per-call-site `.icon-btn` add at the Ordbank site was removed now that the base class
+  carries its own chrome.
+- **Ordbank's detail-panel "Betydning"/"Forklaring på norsk" fields were `<input>`
+  (single-line)**, so a long AI-generated meaning or explanation was present in the DOM
+  but not visible without scrolling inside the field — reported as "doesn't show the
+  whole description." Both are `<textarea class="textarea">` now, same as every other
+  multi-line field in the app.
+- **Saved essays had become unreachable.** `buildSkriv()`'s "Mine lagrede essayer" panel
+  only rendered in two places: a branch guarded by `!state.currentPrompt` that was
+  actually dead code (every path that sets `state.tab="skriv"` — `goToPrompt`,
+  `pickPrompt`, loading a saved essay — also sets `currentPrompt` in the same step, so
+  that branch could never be reached), and the bottom of the essay editor, reachable
+  only after already picking a topic and a prompt. The dead branch was deleted (replaced
+  with a one-line safety net that redirects to `oppgaver` if the invariant it depends on
+  ever breaks); the panel itself was extracted into `buildEssayBankPanel()` and is now
+  also shown on `buildOppgaver()` — the screen the "Skrive" nav item actually opens —
+  so essays are findable before picking anything, not only after.
+  - **A second, independent bug in the same area: the panel's list showed empty on its
+    first render even when essays existed.** `refreshEssayBank()` populated its list by
+    `document.getElementById("essay-bank-list")`, which finds nothing for an element
+    that exists only in an in-memory, not-yet-attached fragment — true for every screen's
+    *first* render, before `renderContent()` appends it to `#content`. The three
+    call sites that already worked (`syncEssaysFromServer`, `saveCurrentEssay`,
+    `deleteEssay`) all fire from user interaction, after attachment, which is why this
+    never showed up as "essays are always empty" — only as "empty until you touch
+    something." Fixed by splitting out `renderEssayRows(container)`, which takes an
+    explicit element instead of looking one up, so `buildEssayBankPanel()` can populate
+    its own `bankList` reference directly regardless of attachment state.
+  - The essay-row list (`.saved-essay-row` etc.) and its `.essay-bank-panel` wrapper were
+    old-system (hardcoded hex, `--radius-md`) and got moved onto tokens/`.card` while
+    this was open anyway. The 🗑️ delete button is `icon("trash")` in an `.icon-btn` now;
+    the "💬 Kommentar fra lærer" emoji badge became a plain `.tag`; the CEFR level badge
+    keeps its own per-level colours (a fixed, meaningful set, not decoration — same
+    reasoning as the plan tab's mastery-step colours below).
+- **Studieplan ("Min uke") was reported as "still old style… old emojis."** The prior
+  redesign pass had converted the session sub-blocks (reading/essay/word-mastery) and
+  documented the tab as "also redesigned," but had not checked the surrounding chrome —
+  the week-detail card, nav, and summary stats were still fully old-system.
+  `.plan-nav`/`-btn`/`-center`, `.plan-week-card`/`-hdr`/`-num`/`-topic`/`-dates`/`-body`,
+  `.plan-summary-grid`/`-box`/`-val`/`-lbl` were deleted outright: the summary stats now
+  reuse Statistikk's `.stat-grid`/`.stat-box` instead of a Plan-only twin, and the rest
+  moved onto `.card`/`.btn`/tokens directly. `week.topicEmoji` is gone from all three
+  render call sites it used to reach (the week-detail header, the mini week-overview,
+  and the teacher-facing plan view) — each now shows a `topicTema()` swatch dot instead.
+  `generatePlan()` still writes `topicEmoji`/`topicColor` into the data model; nothing
+  reads them anymore, but removing them isn't needed to fix the display and would be an
+  unrelated data-shape change. The mastery section's three sub-progress-bars (Lagt til i
+  ordbank / Riktig i flashcards / Brukt i setning) keep three distinct colours on
+  purpose — parallel, non-hierarchical categories, not stages of one bar.
+- **Skriv's topic tiles were reported as "very pale."** They already followed
+  "topic is colour, not an icon" (no emoji, a small swatch dot) — but a 10px dot on an
+  otherwise-white card reads as pale regardless of the rule being followed correctly.
+  Asked the user to choose between reintroducing icons, adding a new icon set, or making
+  the existing colour more prominent; **chose to make the colour do more work** rather
+  than add icons — each tile now gets a 3px `tema.fg` top border plus a `tema.bg`
+  background wash, and the selected tile skips both (an inline style) so it doesn't
+  fight `[aria-selected]`'s own green border+tint, which still wins visually.
+- **Ordsky/Ordliste print output ("the design is in line with old look... the old
+  logo is also there") was on the old system in a way none of the rest of this pass
+  could have caught by reading the app's own CSS.** `printWords()`/`printMissedWords()`/
+  `printAggregateWords()` open a popup with `window.open("","_blank")` and populate it
+  with `document.write()` — that popup gets its **own separate document**, which does
+  not inherit the parent page's `<style>` or `:root` custom properties. Every
+  `var(--color-danger)`/`var(--color-warning)`/`var(--color-text-muted)`/
+  `var(--color-border-light)` reference in its inline `<style>` was silently resolving
+  to nothing there (not a crash — CSS just treats an undefined custom property as its
+  initial value), and the 🇳🇴 flag emoji was standing in for a "logo" that was never
+  the real one. Fixed by extracting one shared `buildPrintDoc({title, heading,
+  subtitle, bodyHtml, accent})` template — built from real hex values, never `var()`
+  references, since the print document can't see the app's tokens — used by all three
+  functions across both their cloud/list modes (six call sites collapsed to one
+  template). No emoji anywhere in the output; the real logo wasn't added either, since
+  an `<img>` sourced from the app would need to finish loading before the
+  auto-`window.print()` timeout fires (400ms) or print with a broken-image icon —
+  not a risk worth taking for a print header. `PRINT_CLOUD_COLORS` (the 12
+  `--tema-*-fg` hex values) replaces the old ad-hoc colour array so the word cloud's
+  palette is the same one used for topic tags everywhere else in the app;
+  `PRINT_ERROR_COLORS` is a warm/red-brown subset for the "vanskelige ord" variant.
+  The Ordbank list print's topic tag now uses the word's actual `topicTema()` colour
+  instead of a flat hardcoded khaki chip. `escapeHtml()` — already used in
+  `printAggregateWords()` but missing from the other two — is now applied to every
+  interpolated word/meaning across all three functions, closing a latent HTML-injection
+  gap (a word or meaning containing `<`/`>` would have been interpreted as markup in
+  the printed page).
+- **Sidebar logo bumped from 26px to 38px** (`.sidebar__brand img`) — reported as too
+  small at the original size chosen when the logo was first added.
+- **`launchPracticeWithFilter()` only forwarded the topic filter, while the panel
+  above it (Ordbank's "Øv med disse N ordene" / "Filtrene følger med inn i øvingen")
+  claimed all of them did.** Now forwards every filter that has a genuine equivalent
+  in the destination: topic + `ordTagFilter`→`tagFilter` + `timeFilter` for Flashcards
+  (plus `learntFilter`→`fc.includeLearnt`, inverted — Ordbank defaults to showing learnt
+  words, Flashcards defaults to hiding them, so "hide_learnt" in one is the other's
+  default and needs no flag, but Ordbank's "show all" needs `includeLearnt=true` set
+  explicitly or Flashcards' own default would silently override it); topic + tag for
+  Setninger. Two of Ordbank's five filters are still **not** forwarded, on purpose:
+  - `practicedFilter` ("Ikke øvd ennå") has no destination equivalent — it hides words
+    used in a sentence *or* correct in flashcards, a cross-exercise definition neither
+    exercise's own filter vocabulary can express.
+  - Setningsbygging only ever receives topic, because it doesn't draw from the word
+    bank at all — it extracts sentences from reading texts by *text* topic (see
+    `startWordSort()`). Tag/time/learnt-status describe word-bank entries, which this
+    game never touches, so a user report asking for "the same filters" here was
+    answered by explaining the architecture rather than bolting on filters with
+    nothing to filter — confirmed with the user as "nothing to change."
+
 **Deliberately not done yet**, in priority order a future pass should pick up:
 1. The full sharing redesign (one-click send + confirm-strip-with-Angre + optional
    message + inbox in Min uke) — current share flow still works, just isn't restyled
    to the new system's card/dialog language.
-2. `week.topicEmoji` in Studieplan (see above) and the mini week-overview's styling.
-3. Lesing's word-lookup `innerHTML` templates (see above).
-4. `renderEssayClaudeResult()`/`renderGjenfortellResult()` (~L4102/4222) — the AI-feedback
+2. Lesing's word-lookup `innerHTML` templates (see above).
+3. `renderEssayClaudeResult()`/`renderGjenfortellResult()` (~L4102/4222) — the AI-feedback
    renderers shared between the student Skriv/Lesing tabs and the teacher essay/summary
    detail views. Both teacher views around them are now redesigned (they sit inside a
    `.card` with a `var(--surface-head)` background instead of the old hardcoded blue
    box), but the renderers' own internals (level badge, error/strength/improvement
    blocks) are untouched — restyling the one shared component affects four call sites
    at once, which is a larger, separate pass, not something to do incidentally.
-5. `buildSubscriptionSection()`'s paid/grace/cancelled branches (see above) — dead code
+4. `buildSubscriptionSection()`'s paid/grace/cancelled branches (see above) — dead code
    while the paywall is off, so restyling them can't be verified in the running app.
-6. Round 5 (the teacher-facing redesign) is fully done, nav included — see the
+5. Round 5 (the teacher-facing redesign) is fully done, nav included — see the
    "teacher's top nav" note above. The only thing it deliberately stopped short of is
    matching mockup section 5a's *sidebar structure* pixel-for-pixel (per-class
    expansion, roster-health badges) — that needs roster stats the backend doesn't
    expose yet, which is new backend work, not a frontend reskin.
-7. Setningsbygging (`buildOrdstilling()`, uses `ws` state) is now the only student
-   tab still on the old system — it shares `buildFilterToggle()`/`.topic-filter-bar`
-   with what Setninger and Flashcards used to have before the post-review fixes
-   above. Same treatment needed: filter panel onto `.filter-panel`/`.facet`/`.pill`,
-   game chrome onto tokens.
 
 ## AI feedback
 

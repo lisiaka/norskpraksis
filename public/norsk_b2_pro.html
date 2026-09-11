@@ -180,21 +180,15 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinning{display:inline-block;animation:spin .8s linear infinite;}
 /* ── Essay bank ── */
-.essay-bank-panel{background:#f8fdf9;border-radius:var(--radius-md);border:1.5px solid #d4edda;padding:16px;margin-top:14px;}
-.essay-bank-panel h3{font-size:var(--font-sm);color:#1a6b4a;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
-.essay-bank-empty{font-size:var(--font-sm);color:var(--color-text-muted);text-align:center;padding:18px 0;}
-.saved-essay-row{background:#fff;border-radius:var(--radius-md);border:1.5px solid #e8f0e8;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;transition:border-color .2s,background .15s;cursor:pointer;}
-.saved-essay-row:hover{border-color:#2d9e6b;background:#f4fbf7;}
+.essay-bank-empty{font-size:var(--t-sm);color:var(--ink-3);text-align:center;padding:var(--s-4) 0;}
+.saved-essay-row{background:var(--surface);border-radius:var(--r-btn);border:1px solid var(--line);padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;transition:border-color .15s,background .15s;cursor:pointer;}
+.saved-essay-row:hover{border-color:var(--green);background:var(--green-tint-2);}
 .saved-essay-info{flex:1;min-width:0;}
-.saved-essay-title{font-weight:700;font-size:var(--font-base);color:#222;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.saved-essay-meta{font-size:var(--font-xs);color:var(--color-text-muted);line-height:1.5;}
-.saved-essay-level{display:inline-block;padding:2px 8px;border-radius:var(--radius-md);font-size:var(--font-xs);font-weight:700;margin-left:6px;}
-.saved-essay-actions{display:flex;gap:6px;flex-shrink:0;}
-.btn-load-essay{padding:5px 12px;background:#edfaf3;border:1.5px solid #2d9e6b;border-radius:var(--radius-sm);font-size:var(--font-xs);color:#1a6b4a;font-weight:700;}
-/* Feature 025: .btn-del-essay repointed to .btn-destructive below — its rule was
-   declaration-identical, so the call site now uses the canonical name directly. */
+.saved-essay-title{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-weight:600;font-size:var(--t-base);color:var(--ink);margin-bottom:3px;}
+.saved-essay-meta{font-size:var(--t-sm);color:var(--ink-3);line-height:1.5;}
+.saved-essay-level{display:inline-block;padding:2px 8px;border-radius:var(--r-tag);font-size:var(--t-mono);font-weight:700;}
 /* Destructive variant — delete/remove action. See app/CLAUDE.md § Button, chip, and icon conventions. */
-.btn-destructive{padding:5px 10px;background:#fff5f5;border:1.5px solid var(--color-danger);border-radius:var(--radius-sm);font-size:var(--font-xs);color:var(--color-danger);font-weight:700;}
+.btn-destructive{padding:5px 10px;background:#fff5f5;border:1.5px solid var(--danger);border-radius:var(--r-btn);font-size:var(--t-sm);color:var(--danger);font-weight:600;}
 /* ── Lesing reader layout ── */
 .lesing-reader-layout{display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start;}
 @media(max-width:780px){.lesing-reader-layout{grid-template-columns:1fr;}}
@@ -217,9 +211,13 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .tts-rate{margin-left:auto;display:flex;gap:4px;}
 .tts-rate button{padding:5px 10px;background:#fff;border:1.5px solid #dde;border-radius:var(--radius-sm);font-size:var(--font-xs);color:#666;font-family:inherit;font-weight:600;}
 .tts-rate button.active{background:#edfaf3;border-color:#2d9e6b;color:#1a6b4a;}
-.btn-tts{padding:2px 6px;background:none;border:none;font-size:var(--font-base);line-height:1;opacity:.55;flex-shrink:0;}
-.btn-tts:hover{opacity:1;}
-.btn-tts.speaking{opacity:1;animation:ttsPulse 1s ease-in-out infinite;}
+/* A real icon-button footprint (was 2px/6px padding + no border/background —
+   effectively invisible next to any other control on the page). Sized a step
+   above the standard 24px .icon-btn since this one needs to read as a clearly
+   clickable target on its own, not just inside a toolbar. */
+.btn-tts{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;flex-shrink:0;background:var(--surface);border:1px solid var(--line-pill);border-radius:6px;color:var(--ink-2);cursor:pointer;}
+.btn-tts:hover{border-color:var(--green);color:var(--green);background:var(--green-tint);}
+.btn-tts.speaking{border-color:var(--green);color:var(--green);background:var(--green-tint);animation:ttsPulse 1s ease-in-out infinite;}
 @keyframes ttsPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.22);}}
 .tts-word{border-radius:var(--radius-sm);transition:background .08s linear;}
 .tts-word.tts-now{background:#ffe9a8;box-shadow:0 0 0 2px #ffe9a8;}
@@ -278,49 +276,32 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
 .fc-toggle-label{font-size:var(--font-sm);color:var(--color-danger);font-weight:600;flex:1;}
 .toggle-btn{padding:5px 14px;border-radius:var(--radius-lg);border:1.5px solid #dde;background:#f0f4f8;font-size:var(--font-xs);font-weight:700;color:#666;cursor:pointer;}
 .toggle-btn.on{background:var(--color-danger);border-color:var(--color-danger);color:#fff;}
-/* ── Plan tab ── */
-.plan-chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
-.plan-chip{padding:8px 18px;border-radius:var(--radius-lg);border:1.5px solid #e0e4ec;background:#f5f7fa;font-size:var(--font-base);font-weight:600;color:#555;cursor:pointer;transition:all .15s;}
-.plan-chip.on{background:#1a6b4a;border-color:#1a6b4a;color:#fff;}
-.plan-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
-.plan-nav-btn{padding:8px 18px;border-radius:var(--radius-md);border:1.5px solid #e0e4ec;background:#fff;font-size:var(--font-base);font-weight:600;color:#555;cursor:pointer;transition:all .15s;}
-.plan-nav-btn:hover{background:#f5f7fa;border-color:#2d9e6b;}
-.plan-nav-btn:disabled{opacity:.35;cursor:not-allowed;}
-.plan-nav-center{flex:1;text-align:center;font-weight:700;font-size:var(--font-base);color:#333;}
-.plan-week-card{background:#fff;border-radius:var(--radius-md);overflow:hidden;border:1px solid #e8ecf0;}
-.plan-week-card.current{border-color:#1a6b4a;border-width:2px;}
-.plan-week-hdr{padding:16px 20px;display:flex;align-items:center;gap:14px;background:#f9fafb;}
-.plan-week-hdr.current{background:#f0fdf4;}
-.plan-week-num{font-size:var(--font-xs);font-weight:800;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.6px;min-width:52px;}
-.plan-week-topic{font-weight:800;font-size:var(--font-base);flex:1;}
-.plan-week-dates{font-size:var(--font-xs);color:var(--color-text-muted);}
-.plan-week-body{padding:6px 20px 18px;}
-.plan-session{padding:12px 0;border-top:1px solid #f3f3f3;}
+/* ── Plan tab ──
+   .plan-nav/-btn/-center, .plan-week-card/-hdr/-num/-topic/-dates/-body,
+   .plan-summary-grid/-box/-val/-lbl, .plan-done-badge, .plan-go-btn(.sec) and
+   .plan-chip(-row) were deleted here — buildPlanView() now builds those parts
+   from .card/.btn/.stat-grid/.stat-box/tokens directly, the same components
+   every other redesigned tab uses, rather than a Plan-only twin of each. */
+.plan-session{padding:12px 0;border-top:1px solid var(--line-soft);}
 .plan-session:first-child{border-top:none;padding-top:10px;}
-.plan-session-title{font-weight:700;font-size:var(--font-sm);color:#333;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
-.plan-done-badge{background:#d4f5e2;color:#1a6b4a;padding:2px 8px;border-radius:var(--radius-md);font-size:var(--font-xs);font-weight:700;}
-.plan-text-link{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f0f4ff;border-radius:var(--radius-md);margin-bottom:5px;cursor:pointer;transition:background .15s;text-decoration:none;}
-.plan-text-link:hover{background:#dde8ff;}
-.plan-text-link-title{flex:1;font-weight:600;color:#2d4e9e;font-size:var(--font-sm);}
+.plan-session-title{font-weight:600;font-size:var(--t-sm);color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.plan-text-link{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface-sunk);border:1px solid var(--line-soft);border-radius:var(--r-btn);margin-bottom:5px;cursor:pointer;transition:background .15s,border-color .15s;text-decoration:none;}
+.plan-text-link:hover{background:var(--green-tint-2);border-color:var(--green);}
+.plan-text-link-title{flex:1;font-weight:600;color:var(--ink);font-size:var(--t-sm);}
 .plan-text-read{opacity:.6;text-decoration:line-through;}
-.plan-go-btn{display:inline-block;margin-top:8px;padding:7px 16px;border-radius:var(--radius-md);border:none;font-size:var(--font-sm);font-weight:700;cursor:pointer;background:#1a6b4a;color:#fff;transition:opacity .15s;}
-.plan-go-btn:hover{opacity:.88;}
-.plan-go-btn.sec{background:#eef2fb;color:#2d4e9e;border:1.5px solid #c5d3f5;}
-.plan-go-btn.sec:hover{background:#dce5f8;}
-.plan-prog-wrap{background:#e8e8e8;border-radius:var(--radius-sm);height:7px;margin-bottom:3px;overflow:hidden;}
-.plan-prog-fill{height:7px;border-radius:var(--radius-sm);background:#1a6b4a;transition:width .4s;}
-.plan-summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px;}
-.plan-summary-box{background:#fff;border-radius:var(--radius-md);padding:14px 12px;text-align:center;border:1px solid #e8ecf0;}
-.plan-summary-val{font-size:22px;font-weight:800;color:#1a6b4a;}
-.plan-summary-lbl{font-size:var(--font-xs);color:var(--color-text-muted);margin-top:3px;}
-.plan-week-mini{display:flex;gap:4px;align-items:center;padding:8px 12px;border-radius:var(--radius-md);cursor:pointer;transition:background .15s;font-size:var(--font-sm);}
-.plan-week-mini:hover{background:#f0f4f8;}
-.plan-week-mini.cur{background:#e8f5ee;font-weight:700;}
-.plan-week-mini-num{min-width:26px;font-size:var(--font-xs);color:var(--color-text-muted);font-weight:700;}
-.plan-week-mini-topic{flex:1;font-weight:600;}
+.plan-prog-wrap{background:var(--line);border-radius:var(--r-pill);height:7px;margin-bottom:3px;overflow:hidden;}
+.plan-prog-fill{height:7px;border-radius:var(--r-pill);background:var(--green);transition:width .4s;}
+/* "Alle uker" mini-overview — topic identity is a swatch dot (.plan-week-mini-swatch),
+   same as everywhere else topic-is-colour, not the emoji this used to carry. */
+.plan-week-mini{display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:var(--r-btn);cursor:pointer;transition:background .15s;font-size:var(--t-sm);}
+.plan-week-mini:hover{background:var(--surface-sunk);}
+.plan-week-mini.cur{background:var(--green-tint);font-weight:700;}
+.plan-week-mini-num{min-width:26px;font-size:var(--t-sm);color:var(--ink-3);font-weight:700;}
+.plan-week-mini-swatch{width:9px;height:9px;border-radius:var(--r-pill);flex:none;}
+.plan-week-mini-topic{flex:1;font-weight:600;color:var(--ink);}
 .plan-week-mini-dots{display:flex;gap:3px;}
-.plan-week-mini-dot{width:8px;height:8px;border-radius:50%;background:var(--color-border-light);}
-.plan-week-mini-dot.done{background:#1a6b4a;}
+.plan-week-mini-dot{width:8px;height:8px;border-radius:50%;background:var(--line-strong);}
+.plan-week-mini-dot.done{background:var(--green);}
 /* ── Print / PDF export ── */
 #pdf-print-area{display:none;}
 @media print{
@@ -1231,7 +1212,7 @@ async function saveCurrentEssay(){
     }
   }catch{}
   trackEvent("essay_saved",{title:entry.title,topic:entry.topic,topicName:entry.topicName,wordCount:entry.wordCount,promptId:entry.promptId});
-  toast("✅ Essayet er lagret!");
+  toast("✅ Stilen er lagret!");
   refreshEssayBank();
 }
 
@@ -1278,14 +1259,14 @@ async function loadEssayIntoEditor(entry){
     }
   }
 
-  toast("📂 Essay lastet inn!");
+  toast("📂 Stil lastet inn!");
 }
 
 function exportEssayPDF(){
   const ta=$("essay-ta");
   const essayText=(ta?ta.value:state.essay).trim();
   if(!essayText){toast("Ingen tekst å eksportere!");return;}
-  const title=state.currentPrompt?.title||"Essay";
+  const title=state.currentPrompt?.title||"Stil";
   const topicMeta=state.currentTopic?TOPICS[state.currentTopic]:null;
   const topicLabel=topicMeta?`${topicMeta.emoji} ${topicMeta.name}`:"";
   const promptTxt=state.currentPrompt?.text||"";
@@ -1302,30 +1283,37 @@ function exportEssayPDF(){
   window.print();
 }
 
-function refreshEssayBank(){
-  const panel=$("essay-bank-list"); if(!panel) return;
+// Takes an explicit container rather than looking one up by id, so it works
+// whether or not that container is attached to the document yet — a plain
+// document.getElementById lookup silently found nothing (and rendered an empty
+// list) the first time a screen with this panel opened, before its own markup
+// had been appended to #content. renderEssayRows() is used both for that first
+// render and by refreshEssayBank() (id lookup, for the three already-attached
+// call sites: syncEssaysFromServer, saveCurrentEssay, deleteEssay).
+function renderEssayRows(panel){
+  if(!panel) return;
   panel.innerHTML="";
   const bank=loadEssayBank();
   if(bank.length===0){
-    panel.appendChild(el("div",{class:"essay-bank-empty"},"Ingen lagrede essayer ennå."));
+    panel.appendChild(el("div",{class:"essay-bank-empty"},"Ingen lagrede stiler ennå."));
     return;
   }
   bank.forEach(entry=>{
     const row=el("div",{class:"saved-essay-row",click(){loadEssayIntoEditor(entry);}});
     const info=el("div",{class:"saved-essay-info"});
     const titleDiv=el("div",{class:"saved-essay-title"});
-    titleDiv.textContent=entry.title;
+    titleDiv.appendChild(document.createTextNode(entry.title));
     if(entry.claudeLevel){
+      // CEFR level — a fixed, meaningful set of values, not decoration, so it keeps
+      // its own colour per level rather than folding into a single status token.
       const LEVEL_COLORS={"A1":"#e74c3c","A2":"#e67e22","B1":"#f39c12","B2":"#2ecc71","C1":"#27ae60","C2":"#1abc9c"};
-      const lv=el("span",{class:"saved-essay-level",style:{background:(LEVEL_COLORS[entry.claudeLevel]||"#ccc")+"22",color:(LEVEL_COLORS[entry.claudeLevel]||"var(--color-text-muted)")}},entry.claudeLevel);
+      const lv=el("span",{class:"saved-essay-level",style:{background:(LEVEL_COLORS[entry.claudeLevel]||"#ccc")+"22",color:(LEVEL_COLORS[entry.claudeLevel]||"var(--ink-3)")}},entry.claudeLevel);
       titleDiv.appendChild(lv);
     }
     if(entry.teacherReview?.liked){
-      titleDiv.appendChild(el("span",{style:{background:"#e8f8f0",color:"#27ae60",borderRadius:"var(--radius-sm)",
-        padding:"2px 7px",fontSize:"var(--font-xs)",fontWeight:"600",marginLeft:"6px"}},"✓ Godkjent av lærer"));
+      const st=el("span",{class:"status status--learned"}); st.appendChild(el("span",{class:"status__dot"})); st.appendChild(document.createTextNode("godkjent av lærer")); titleDiv.appendChild(st);
     } else if(entry.teacherReview?.comment){
-      titleDiv.appendChild(el("span",{style:{background:"#eaf2fb",color:"#2980b9",borderRadius:"var(--radius-sm)",
-        padding:"2px 7px",fontSize:"var(--font-xs)",fontWeight:"600",marginLeft:"6px"}},"💬 Kommentar fra lærer"));
+      titleDiv.appendChild(el("span",{class:"tag"},"kommentar fra lærer"));
     }
     info.appendChild(titleDiv);
     const metaDiv=el("div",{class:"saved-essay-meta"});
@@ -1333,13 +1321,41 @@ function refreshEssayBank(){
     metaDiv.textContent=`${entry.topicName||entry.topic||"–"} · ${entry.wordCount} ord · ${dateStr}`;
     info.appendChild(metaDiv);
     row.appendChild(info);
-    const delBtn=el("button",{class:"btn-destructive",click(e){
+    const delBtn=el("button",{class:"icon-btn",title:"Slett stil",click(e){
       e.stopPropagation();
-      if(confirm("Slette dette essayet?")) deleteEssay(entry.id);
-    }},"🗑️");
+      if(confirm("Slette denne stilen?")) deleteEssay(entry.id);
+    }},icon("trash"));
     row.appendChild(delBtn);
     panel.appendChild(row);
   });
+}
+function refreshEssayBank(){ renderEssayRows($("essay-bank-list")); }
+
+// Shared "Mine lagrede stiler" panel — the Oppgaver landing screen (reached
+// directly from the Skrive nav item) and the active Skriv editor both show it,
+// so essays are findable before picking a prompt, not just after (FR: earlier
+// feedback that saved essays had become impossible to find once the only copy
+// of this panel ended up buried at the bottom of the editor, behind a prompt pick).
+function buildEssayBankPanel(){
+  const panel=el("div",{class:"card"});
+  const bankList=el("div",{id:"essay-bank-list",style:{marginTop:"var(--s-3)"}});
+  const chevron=el("span",{style:{marginLeft:"auto",transition:"transform 0.2s"}},icon("chevronDown"));
+  const hdrBtn=el("button",{style:{width:"100%",background:"none",border:"none",cursor:"pointer",
+    display:"flex",alignItems:"center",gap:"8px",padding:"0",textAlign:"left"},
+    click: async ()=>{
+      const open = bankList.style.display !== "none";
+      bankList.style.display = open ? "none" : "";
+      chevron.style.transform = open ? "rotate(-90deg)" : "rotate(0deg)";
+      if(!open){ await syncEssaysFromServer(); }
+    }
+  });
+  hdrBtn.appendChild(el("span",{class:"card__title"},"Mine lagrede stiler"));
+  hdrBtn.appendChild(el("span",{class:"card__note"},`(${loadEssayBank().length})`));
+  hdrBtn.appendChild(chevron);
+  panel.appendChild(hdrBtn);
+  panel.appendChild(bankList);
+  renderEssayRows(bankList);
+  return panel;
 }
 loadStorage();
 // Not a sync: loadStorage() restores only state.words, never the session token, so at
@@ -2240,11 +2256,34 @@ function openNewWordDialog(){
 
 // Flashcards/Setninger/Setningsbygging are not destinations, they are things you
 // do to a filtered word set (specs/Web app redesign consultation.zip § Runde 3)
-// — the current Ordbank topic filter travels with the learner into whichever
-// practice mode they pick, instead of being re-applied from scratch there.
+// — the current Ordbank filters travel with the learner into whichever practice
+// mode they pick, instead of being re-applied from scratch there.
+//
+// This only forwards a filter where the destination has a genuine equivalent —
+// it used to forward topic alone (a bug: the panel promised "Filtrene følger
+// med", plural, but only one of Ordbank's five filters actually did). The two
+// still not forwarded, on purpose:
+//  - practicedFilter ("Ikke øvd ennå") has no destination equivalent. It hides
+//    words used in a sentence *or* correct in flashcards — a cross-exercise
+//    definition neither exercise's own filter vocabulary can express (Flashcards'
+//    closest concept, excluding learnt words, is already its default pool).
+//  - Setningsbygging only has a topic filter at all, because it doesn't draw
+//    from the word bank — it extracts sentences from reading texts by *text*
+//    topic. Tag/time/learnt-status describe word-bank entries, which this game
+//    never touches, so there is nothing to forward them into.
 function launchPracticeWithFilter(mode){
-  if(mode==="flashcards"){ fc.topicFilter=state.topicFilter; setTab("flashcards"); }
-  else if(mode==="setninger"){ state.sentTopicFilter=state.topicFilter; setTab("setninger"); }
+  if(mode==="flashcards"){
+    fc.topicFilter=state.topicFilter;
+    fc.tagFilter=state.ordTagFilter||"";
+    fc.timeFilter=state.timeFilter||0;
+    fc.includeLearnt=state.learntFilter!=="hide_learnt";
+    setTab("flashcards");
+  }
+  else if(mode==="setninger"){
+    state.sentTopicFilter=state.topicFilter;
+    state.tagFilter=state.ordTagFilter||"";
+    setTab("setninger");
+  }
   else if(mode==="ordstilling"){ ws.topicFilter=state.topicFilter; setTab("ordstilling"); }
 }
 
@@ -2783,9 +2822,13 @@ function buildWordDetailPanel(w){
   const fields=el("div",{style:{display:"flex",flexDirection:"column",gap:"var(--s-2)",marginBottom:"var(--s-3)"}});
   const wordIn=el("input",{id:"dp-word",class:"input",type:"text",value:w.word||""});
   fields.appendChild(buildField({label:"Ord",hint:false,inputEl:wordIn}));
-  const meaningIn=el("input",{id:"dp-meaning",class:"input",type:"text",value:w.meaning||""});
+  // Textarea, not a single-line input: both fields are AI-generated and can run
+  // longer than a field's width — a single line would just hide the rest of them.
+  const meaningIn=el("textarea",{id:"dp-meaning",class:"textarea"});
+  meaningIn.value=w.meaning||"";
   fields.appendChild(buildField({label:"Betydning",hint:false,inputEl:meaningIn}));
-  const explanationIn=el("input",{id:"dp-explanation",class:"input",type:"text",value:w.explanation||""});
+  const explanationIn=el("textarea",{id:"dp-explanation",class:"textarea"});
+  explanationIn.value=w.explanation||"";
   fields.appendChild(buildField({label:"Forklaring på norsk",hint:false,inputEl:explanationIn}));
   const topicSel=el("select",{id:"dp-topic",class:"select"});
   topicSel.appendChild(el("option",{value:""},"— Ingen tema —"));
@@ -2916,7 +2959,7 @@ function renderWordList(){
     const sec=el("div",{class:"cat-section"});
     const title=el("div",{class:"label-mono",style:{marginBottom:"8px"}},`${cat.label} (${cw.length})`);
     sec.appendChild(title);
-    const grid=el("div",{class:"word-grid"});
+    const grid=el("div",{class:"word-grid word-grid--fixed"});
     cw.forEach(w=>{
       if(w.id===state.openWordId) openWord=w;
       const wrap=el("div",{style:{gridColumn:"span 1"}});
@@ -2966,7 +3009,7 @@ function renderWordList(){
       // small bordered square top-right of the card, matching the reference
       // mockup exactly (specs/Web app redesign consultation.zip § Runde 4, 4a).
       const wordSpeak=ttsButton(()=>w.word,`Hør uttalen av «${w.word}»`);
-      if(wordSpeak){ wordSpeak.classList.add("icon-btn"); wordSpeak.style.flexShrink="0"; topRow.appendChild(wordSpeak); }
+      if(wordSpeak){ topRow.appendChild(wordSpeak); }
       chip.appendChild(topRow);
 
       // Divider row: tema tag left, status right (§ "Colour with a job") —
@@ -3664,28 +3707,34 @@ function buildOppgaver(){
   frag.appendChild(el("div",{class:"topbar__title",style:{marginBottom:"4px"}},"Skrive"));
   frag.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-4)"}},
     "Velg et tema, velg deretter en oppgave – eller skriv din egen."));
-  // Topic tiles: tema swatch + name, no big emoji (§ "Tema is colour"). Selection
-  // uses the same aria-selected green border+tint every other card in the app uses.
+  // Topic tiles: tema colour carries the identity, no emoji (§ "Tema is colour").
+  // A user report that this grid read as "pale" bumped the colour from a 10px
+  // swatch dot to a coloured top border + tinted background wash — still no
+  // icon, just more of the same colour doing more work. Selection still wins:
+  // the inline tint is skipped on the active tile so [aria-selected]'s own
+  // green border+tint (every other card in the app uses it) isn't fought.
   const grid=el("div",{class:"word-grid"});
   Object.entries(TOPICS).forEach(([key,meta])=>{
     const active=state.currentTopic===key;
     const tema=topicTema(key);
     const card=el("div",{
       class:"card",
-      style:{cursor:"pointer"},
+      style:{cursor:"pointer",borderTop:`3px solid ${tema.fg}`,background:active?"":tema.bg},
       click(){selectTopic(key);},
     });
     if(active) card.setAttribute("aria-selected","true");
-    const nameRow=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"var(--s-1)"}});
-    nameRow.appendChild(el("span",{class:"pill__swatch",style:{background:tema.bg,width:"10px",height:"10px"}}));
-    nameRow.appendChild(el("span",{class:"card__title"},meta.name));
-    card.appendChild(nameRow);
+    card.appendChild(el("div",{class:"card__title",style:{marginBottom:"var(--s-1)"}},meta.name));
     card.appendChild(el("div",{class:"card__note",style:{marginBottom:"var(--s-2)"}},PROMPTS[key].length+" oppgaver"));
     card.appendChild(el("div",{class:"status status--"+(active?"learned":"new")},
       el("span",{class:"status__dot"}), active?"valgt":"velg"));
     grid.appendChild(card);
   });
   frag.appendChild(grid);
+
+  // Saved essays — shown on this landing screen (reached directly from the
+  // Skrive nav item) so they're findable before picking a topic/prompt, not
+  // only after, buried at the bottom of the editor.
+  frag.appendChild(el("div",{style:{marginTop:"var(--s-4)"}},buildEssayBankPanel()));
 
   // Prompt selection panel (shown when a topic is selected)
   if(state.currentTopic){
@@ -3758,35 +3807,11 @@ function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=
 
 // ── SKRIV TAB ─────────────────────────────────────────────────────────
 function buildSkriv(){
-  if(!state.currentPrompt){
-    const frag = document.createDocumentFragment();
-    // Essay bank always visible even without a prompt
-    const bankPanel=el("div",{class:"essay-bank-panel",style:{maxWidth:"720px",margin:"0 auto var(--s-4)"}});
-    const bankList2=el("div",{id:"essay-bank-list"});
-    const chevron2=el("span",{style:{marginLeft:"auto",transition:"transform 0.2s"}},icon("chevronDown"));
-    const hdrBtn2=el("button",{style:{width:"100%",background:"none",border:"none",cursor:"pointer",
-      display:"flex",alignItems:"center",gap:"6px",padding:"0",textAlign:"left"},
-      click: async ()=>{
-        const open = bankList2.style.display !== "none";
-        bankList2.style.display = open ? "none" : "";
-        chevron2.style.transform = open ? "rotate(-90deg)" : "rotate(0deg)";
-        if(!open){ await syncEssaysFromServer(); }
-      }
-    });
-    hdrBtn2.appendChild(el("span",{class:"card__title",style:{fontSize:"var(--t-base)"}},"Mine lagrede essayer"));
-    hdrBtn2.appendChild(el("span",{class:"card__note"},`(${loadEssayBank().length})`));
-    hdrBtn2.appendChild(chevron2);
-    bankPanel.appendChild(hdrBtn2);
-    bankPanel.appendChild(bankList2);
-    refreshEssayBank();
-    frag.appendChild(bankPanel);
-    frag.appendChild(el("div",{class:"empty-state",style:{padding:"40px 20px"}},
-      el("p",{class:"card__sub",style:{marginBottom:"var(--s-3)"}},"Velg et tema for å begynne å skrive."),
-      el("button",{class:"btn btn--primary",
-        click(){setTab("oppgaver");}
-      },"Velg oppgave")));
-    return frag;
-  }
+  // Every path that sets state.tab="skriv" (goToPrompt, pickPrompt, loading a
+  // saved essay) also sets state.currentPrompt in the same step — there is no
+  // way to land here without one. This is the safety net for if that ever stops
+  // being true, not a real screen (the "no prompt yet" screen is buildOppgaver()).
+  if(!state.currentPrompt){ setTab("oppgaver"); return document.createDocumentFragment(); }
 
   const meta=TOPICS[state.currentTopic];
   const tema=topicTema(state.currentTopic);
@@ -3857,7 +3882,7 @@ function buildSkriv(){
   }},"Tøm tekst"));
   ar.appendChild(el("button",{class:"btn",click(){setTab("oppgaver");}},"Bytt tema"));
   ar.appendChild(el("button",{class:"btn btn--accent",
-    click:saveCurrentEssay},"Lagre essay"));
+    click:saveCurrentEssay},"Lagre stil"));
   ar.appendChild(el("button",{class:"btn",
     click:exportEssayPDF},"Eksporter PDF"));
   ar.appendChild(el("button",{
@@ -3899,26 +3924,7 @@ function buildSkriv(){
     left.appendChild(revBox);
   }
 
-  // ── Essay bank panel ──
-  const bankPanel=el("div",{class:"essay-bank-panel"});
-  const bankList=el("div",{id:"essay-bank-list"});
-  const chevron=el("span",{style:{marginLeft:"auto",transition:"transform 0.2s"}},icon("chevronDown"));
-  const hdrBtn=el("button",{style:{width:"100%",background:"none",border:"none",cursor:"pointer",
-    display:"flex",alignItems:"center",gap:"6px",padding:"0",textAlign:"left"},
-    click: async ()=>{
-      const open = bankList.style.display !== "none";
-      bankList.style.display = open ? "none" : "";
-      chevron.style.transform = open ? "rotate(-90deg)" : "rotate(0deg)";
-      if(!open){ await syncEssaysFromServer(); }
-    }
-  });
-  hdrBtn.appendChild(el("span",{class:"card__title",style:{fontSize:"var(--t-base)"}}, "Mine lagrede essayer"));
-  hdrBtn.appendChild(el("span",{class:"card__note"},`(${loadEssayBank().length})`));
-  hdrBtn.appendChild(chevron);
-  bankPanel.appendChild(hdrBtn);
-  bankPanel.appendChild(bankList);
-  refreshEssayBank();
-  left.appendChild(bankPanel);
+  left.appendChild(el("div",{style:{marginTop:"var(--s-3)"}},buildEssayBankPanel()));
 
   layout.appendChild(left);
 
@@ -4786,6 +4792,48 @@ function fcGetOptions(word){
 }
 
 // ── PRINT ─────────────────────────────────────────────────────────────
+// Shared print-document shell for every Ordsky/Ordliste variant (student, error-word,
+// teacher-aggregate). The print window is opened via window.open("","_blank") and
+// populated with document.write() — a *separate* document that does not inherit the
+// parent page's <style> or :root custom properties. Every var(--color-danger)-style
+// reference used here used to resolve to nothing in that document (silently rendering
+// as black/default), and the 🇳🇴 flag emoji stood in for a "logo" that was never the
+// real one — both fixed by building the page from real hex values and no emoji, once,
+// in one place, rather than fixing three near-identical templates separately.
+const PRINT_CLOUD_COLORS=["#6b4a12","#2c4d7a","#7a3a56","#8a3030","#5f5320","#1a5c41","#2f5d3a","#4a3a7a","#1f5a63","#3d4a7a","#7a4a1f"];
+const PRINT_ERROR_COLORS=["#8a3030","#7a3a56","#7a4a1f","#5f5320"];
+const PRINT_CLOUD_SIZES=[16,18,20,22,26,30,34,38,44,50];
+function buildPrintDoc({title, heading, subtitle, bodyHtml, accent}){
+  const c=accent||"#1a5c41";
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Instrument Sans',system-ui,sans-serif;background:#fff;padding:30px;margin:0;color:#14201a;}
+  h1{text-align:center;color:${c};font-size:24px;font-weight:700;margin:0 0 6px;}
+  .sub{text-align:center;color:#5d6b63;font-size:13px;margin-bottom:28px;}
+  .cloud{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;padding:20px 10px;max-width:720px;margin:0 auto;}
+  table{width:100%;border-collapse:collapse;}
+  th{background:${c};color:#fff;padding:10px 14px;text-align:left;font-size:13px;font-weight:600;}
+  td{padding:9px 14px;border-bottom:1px solid #f0f3f1;font-size:14.5px;color:#3d4a43;}
+  tr:nth-child(even) td{background:#fbfcfb;}
+  .word-cell{font-weight:700;color:${c};}
+  .tema-tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;margin-left:7px;}
+  @media print{@page{margin:1.5cm;}body{padding:10px;}}
+</style></head><body>
+<h1>${heading}</h1>
+<div class="sub">${subtitle}</div>
+${bodyHtml}
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`;
+}
+function printWordCloudHtml(words, colors){
+  return `<div class="cloud">${words.map(w=>{
+    const size=PRINT_CLOUD_SIZES[Math.floor(Math.random()*PRINT_CLOUD_SIZES.length)];
+    const color=colors[Math.floor(Math.random()*colors.length)];
+    const rot=Math.floor(Math.random()*26)-13;
+    return `<span style="font-size:${size}px;color:${color};transform:rotate(${rot}deg);display:inline-block;font-weight:700;margin:8px 14px;line-height:1.2;white-space:nowrap">${escapeHtml(w.word)}</span>`;
+  }).join("")}</div>`;
+}
+
 function printWords(mode){
   const filtered=getFilteredWords();
   if(!filtered.length){toast("Ingen ord å skrive ut med gjeldende filter.");return;}
@@ -4799,49 +4847,23 @@ function printWords(mode){
   if(!win){toast("Popup ble blokkert – tillat popup for å skrive ut.");return;}
 
   if(mode==="cloud"){
-    const colors=["#1a6b4a","#4f6ef7","var(--color-warning)","#7c4dff","var(--color-danger)","#2d9e6b","#1a9ec4","var(--color-warning)","var(--color-danger)","#16a085"];
-    const sizes=[16,18,20,22,26,30,34,38,44,50];
-    const wordsHtml=filtered.map(w=>{
-      const size=sizes[Math.floor(Math.random()*sizes.length)];
-      const color=colors[Math.floor(Math.random()*colors.length)];
-      const rot=Math.floor(Math.random()*26)-13;
-      return `<span style="font-size:${size}px;color:${color};transform:rotate(${rot}deg);display:inline-block;font-weight:700;margin:8px 14px;line-height:1.2;white-space:nowrap">${w.word}</span>`;
-    }).join("");
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordsky</title>
-<style>
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
-  h1{text-align:center;color:#1a6b4a;font-size:26px;margin-bottom:6px;}
-  .sub{text-align:center;color:var(--color-text-muted);font-size:var(--font-sm);margin-bottom:30px;}
-  .cloud{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;padding:20px 10px;max-width:720px;margin:0 auto;}
-  @media print{@page{margin:1.5cm;}body{padding:10px;}}
-</style></head><body>
-<h1>🇳🇴 Norsk Ordsky</h1>
-<div class="sub">${filterDesc} &nbsp;·&nbsp; ${filtered.length} ord</div>
-<div class="cloud">${wordsHtml}</div>
-<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
-</body></html>`);
+    win.document.write(buildPrintDoc({
+      title:"Ordsky", heading:"Norsk Ordsky",
+      subtitle:`${filterDesc} &nbsp;·&nbsp; ${filtered.length} ord`,
+      bodyHtml:printWordCloudHtml(filtered, PRINT_CLOUD_COLORS),
+    }));
     win.document.close();
-
   } else {
     const rows=filtered.map(w=>{
-      const tag=w.topic?`<span style="padding:1px 7px;border-radius:var(--radius-md);background:#f0e68c;color:#776;font-size:var(--font-xs);margin-left:7px">${w.topic}</span>`:"";
-      return `<tr><td style="font-weight:700;color:#1a6b4a;padding:9px 14px;border-bottom:1px solid var(--color-border-light);font-size:var(--font-base)">${w.word}${tag}</td><td style="color:#555;padding:9px 14px;border-bottom:1px solid var(--color-border-light);font-size:var(--font-base)">${w.meaning||""}</td></tr>`;
+      const tema=w.topic?topicTema(w.topic):null;
+      const tag=tema?`<span class="tema-tag" style="background:${tema.bg};color:${tema.fg}">${escapeHtml(w.topic)}</span>`:"";
+      return `<tr><td class="word-cell">${escapeHtml(w.word)}${tag}</td><td>${escapeHtml(w.meaning||"")}</td></tr>`;
     }).join("");
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordliste</title>
-<style>
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
-  h1{text-align:center;color:#1a6b4a;font-size:26px;margin-bottom:6px;}
-  .sub{text-align:center;color:var(--color-text-muted);font-size:var(--font-sm);margin-bottom:24px;}
-  table{width:100%;border-collapse:collapse;}
-  th{background:#1a6b4a;color:#fff;padding:10px 14px;text-align:left;font-size:var(--font-sm);font-weight:700;}
-  tr:nth-child(even) td{background:#f9fdf9;}
-  @media print{@page{margin:1.5cm;}body{padding:0;}}
-</style></head><body>
-<h1>🇳🇴 Norsk Ordliste</h1>
-<div class="sub">${filterDesc} &nbsp;·&nbsp; ${filtered.length} ord</div>
-<table><thead><tr><th>Norsk ord / uttrykk</th><th>Betydning</th></tr></thead><tbody>${rows}</tbody></table>
-<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
-</body></html>`);
+    win.document.write(buildPrintDoc({
+      title:"Ordliste", heading:"Norsk Ordliste",
+      subtitle:`${filterDesc} &nbsp;·&nbsp; ${filtered.length} ord`,
+      bodyHtml:`<table><thead><tr><th>Norsk ord / uttrykk</th><th>Betydning</th></tr></thead><tbody>${rows}</tbody></table>`,
+    }));
     win.document.close();
   }
 }
@@ -4850,49 +4872,23 @@ function printMissedWords(mode, words){
   if(!words.length){toast("Ingen feilede ord å skrive ut.");return;}
   const win=window.open("","_blank");
   if(!win){toast("Popup ble blokkert – tillat popup for å skrive ut.");return;}
-  const subtitle=`${state.userName||state.userEmail} · ${words.length} ord med feil`;
+  const subtitle=`${escapeHtml(state.userName||state.userEmail)} · ${words.length} ord med feil`;
   if(mode==="cloud"){
-    const colors=["var(--color-danger)","var(--color-danger)","var(--color-warning)","var(--color-warning)","#7c4dff","#4f6ef7","#1a9ec4","#1a6b4a","#2d9e6b","#16a085"];
-    const sizes=[16,18,20,22,26,30,34,38,44,50];
-    const wordsHtml=words.map(w=>{
-      const size=sizes[Math.floor(Math.random()*sizes.length)];
-      const color=colors[Math.floor(Math.random()*colors.length)];
-      const rot=Math.floor(Math.random()*26)-13;
-      return `<span style="font-size:${size}px;color:${color};transform:rotate(${rot}deg);display:inline-block;font-weight:700;margin:8px 14px;line-height:1.2;white-space:nowrap">${w.word}</span>`;
-    }).join("");
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordsky – feil</title>
-<style>
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
-  h1{text-align:center;color:var(--color-danger);font-size:26px;margin-bottom:6px;}
-  .sub{text-align:center;color:var(--color-text-muted);font-size:var(--font-sm);margin-bottom:30px;}
-  .cloud{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;padding:20px 10px;max-width:720px;margin:0 auto;}
-  @media print{@page{margin:1.5cm;}body{padding:10px;}}
-</style></head><body>
-<h1>❌ Vanskelige ord</h1>
-<div class="sub">${subtitle}</div>
-<div class="cloud">${wordsHtml}</div>
-<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
-</body></html>`);
+    win.document.write(buildPrintDoc({
+      title:"Ordsky – feil", heading:"Vanskelige ord", accent:"#8a3030",
+      subtitle,
+      bodyHtml:printWordCloudHtml(words, PRINT_ERROR_COLORS),
+    }));
     win.document.close();
   } else {
-    const rows=words.map(w=>{
-      return `<tr><td style="font-weight:700;color:var(--color-danger);padding:9px 14px;border-bottom:1px solid var(--color-border-light);font-size:var(--font-base)">${w.word}</td><td style="color:#555;padding:9px 14px;border-bottom:1px solid var(--color-border-light);font-size:var(--font-base)">${w.meaning||""}</td></tr>`;
-    }).join("");
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Feil-ordliste</title>
-<style>
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
-  h1{text-align:center;color:var(--color-danger);font-size:26px;margin-bottom:6px;}
-  .sub{text-align:center;color:var(--color-text-muted);font-size:var(--font-sm);margin-bottom:24px;}
-  table{width:100%;border-collapse:collapse;}
-  th{background:var(--color-danger);color:#fff;padding:10px 14px;text-align:left;font-size:var(--font-sm);font-weight:700;}
-  tr:nth-child(even) td{background:#fff5f5;}
-  @media print{@page{margin:1.5cm;}body{padding:0;}}
-</style></head><body>
-<h1>❌ Vanskelige ord</h1>
-<div class="sub">${subtitle}</div>
-<table><thead><tr><th>Norsk ord / uttrykk</th><th>Betydning</th></tr></thead><tbody>${rows}</tbody></table>
-<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
-</body></html>`);
+    const rows=words.map(w=>
+      `<tr><td class="word-cell">${escapeHtml(w.word)}</td><td>${escapeHtml(w.meaning||"")}</td></tr>`
+    ).join("");
+    win.document.write(buildPrintDoc({
+      title:"Feil-ordliste", heading:"Vanskelige ord", accent:"#8a3030",
+      subtitle,
+      bodyHtml:`<table><thead><tr><th>Norsk ord / uttrykk</th><th>Betydning</th></tr></thead><tbody>${rows}</tbody></table>`,
+    }));
     win.document.close();
   }
 }
@@ -4915,7 +4911,6 @@ function printAggregateWords(mode, words, filterDesc){
   if(!win){toast("Popup ble blokkert – tillat popup for å skrive ut.");return;}
 
   if(mode==="cloud"){
-    const colors=["#1a6b4a","#4f6ef7","var(--color-warning)","#7c4dff","var(--color-danger)","#2d9e6b","#1a9ec4","var(--color-warning)","var(--color-danger)","#16a085"];
     const counts=words.map(w=>w.count);
     const maxC=Math.max(...counts), minC=Math.min(...counts);
     const sizeFor=c=>{
@@ -4923,25 +4918,17 @@ function printAggregateWords(mode, words, filterDesc){
       const t=Math.sqrt(c-minC)/Math.sqrt(maxC-minC);
       return Math.round(16 + t*(50-16));
     };
-    const wordsHtml=words.map((w,i)=>{
+    const wordsHtml=`<div class="cloud">${words.map((w,i)=>{
       const size=sizeFor(w.count);
-      const color=colors[i%colors.length];
+      const color=PRINT_CLOUD_COLORS[i%PRINT_CLOUD_COLORS.length];
       const rot=Math.floor(Math.random()*26)-13;
-      return `<span style="font-size:${size}px;color:${color};transform:rotate(${rot}deg);display:inline-block;font-weight:700;margin:8px 14px;line-height:1.2;white-space:nowrap" title="${w.count} elev${w.count===1?"":"er"}">${w.word}</span>`;
-    }).join("");
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordsky</title>
-<style>
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
-  h1{text-align:center;color:#1a6b4a;font-size:26px;margin-bottom:6px;}
-  .sub{text-align:center;color:var(--color-text-muted);font-size:var(--font-sm);margin-bottom:30px;}
-  .cloud{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;padding:20px 10px;max-width:720px;margin:0 auto;}
-  @media print{@page{margin:1.5cm;}body{padding:10px;}}
-</style></head><body>
-<h1>🇳🇴 Norsk Ordsky — elevenes ord</h1>
-<div class="sub">${filterDesc} &nbsp;·&nbsp; ${words.length} ord &nbsp;·&nbsp; størrelse = antall elever</div>
-<div class="cloud">${wordsHtml}</div>
-<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
-</body></html>`);
+      return `<span style="font-size:${size}px;color:${color};transform:rotate(${rot}deg);display:inline-block;font-weight:700;margin:8px 14px;line-height:1.2;white-space:nowrap" title="${w.count} elev${w.count===1?"":"er"}">${escapeHtml(w.word)}</span>`;
+    }).join("")}</div>`;
+    win.document.write(buildPrintDoc({
+      title:"Ordsky", heading:"Norsk Ordsky — elevenes ord",
+      subtitle:`${filterDesc} &nbsp;·&nbsp; ${words.length} ord &nbsp;·&nbsp; størrelse = antall elever`,
+      bodyHtml:wordsHtml,
+    }));
     win.document.close();
   } else {
     // List print shows a translation/description/forms, like "Mine ord" — the
@@ -4950,23 +4937,13 @@ function printAggregateWords(mode, words, filterDesc){
       const meaning=escapeHtml(w.meaning||"");
       const explanation=escapeHtml(w.explanation||"");
       const forms=escapeHtml((w.forms||[]).join(", "));
-      return `<tr><td style="font-weight:700;color:#1a6b4a;padding:9px 14px;border-bottom:1px solid var(--color-border-light);font-size:var(--font-base)">${escapeHtml(w.word)}</td><td style="color:#555;padding:9px 14px;border-bottom:1px solid var(--color-border-light);font-size:var(--font-base)">${meaning}</td><td style="color:#555;padding:9px 14px;border-bottom:1px solid var(--color-border-light);font-size:var(--font-base)">${explanation}</td><td style="color:#555;padding:9px 14px;border-bottom:1px solid var(--color-border-light);font-size:var(--font-base)">${forms}</td></tr>`;
+      return `<tr><td class="word-cell">${escapeHtml(w.word)}</td><td>${meaning}</td><td>${explanation}</td><td>${forms}</td></tr>`;
     }).join("");
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ordliste</title>
-<style>
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;padding:30px;margin:0;}
-  h1{text-align:center;color:#1a6b4a;font-size:26px;margin-bottom:6px;}
-  .sub{text-align:center;color:var(--color-text-muted);font-size:var(--font-sm);margin-bottom:24px;}
-  table{width:100%;border-collapse:collapse;}
-  th{background:#1a6b4a;color:#fff;padding:10px 14px;text-align:left;font-size:var(--font-sm);font-weight:700;}
-  tr:nth-child(even) td{background:#f9fdf9;}
-  @media print{@page{margin:1.5cm;}body{padding:0;}}
-</style></head><body>
-<h1>🇳🇴 Norsk Ordliste — elevenes ord</h1>
-<div class="sub">${filterDesc} &nbsp;·&nbsp; ${words.length} ord</div>
-<table><thead><tr><th>Norsk ord / uttrykk</th><th>Oversettelse</th><th>Forklaring</th><th>Bøyningsformer</th></tr></thead><tbody>${rows}</tbody></table>
-<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
-</body></html>`);
+    win.document.write(buildPrintDoc({
+      title:"Ordliste", heading:"Norsk Ordliste — elevenes ord",
+      subtitle:`${filterDesc} &nbsp;·&nbsp; ${words.length} ord`,
+      bodyHtml:`<table><thead><tr><th>Norsk ord / uttrykk</th><th>Oversettelse</th><th>Forklaring</th><th>Bøyningsformer</th></tr></thead><tbody>${rows}</tbody></table>`,
+    }));
     win.document.close();
   }
 }
@@ -6502,19 +6479,22 @@ function buildPlanView(){
     fcCorrectSetAll.has(w.word.toLowerCase()) && state.sentences[w.id]?.trim()
   ).length;
 
-  const sumGrid = el("div",{class:"plan-summary-grid"});
-  const sbox=(val,lbl)=>{const b=el("div",{class:"plan-summary-box"});b.appendChild(el("div",{class:"plan-summary-val"},String(val)));b.appendChild(el("div",{class:"plan-summary-lbl"},lbl));return b;};
+  // Same .stat-grid/.stat-box component Statistikk uses — one KPI-grid look
+  // across the app rather than a Plan-specific twin.
+  const sumGrid = el("div",{class:"stat-grid"});
+  const sbox=(val,lbl)=>{const b=el("div",{class:"stat-box"});b.appendChild(el("div",{class:"stat-val"},String(val)));b.appendChild(el("div",{class:"stat-lbl"},lbl));return b;};
   sumGrid.appendChild(sbox(weeks.length,"uker totalt"));
   sumGrid.appendChild(sbox(`${doneTexts}/${totalTexts}`,"tekster lest"));
   sumGrid.appendChild(sbox(state.words.length,"ord i ordbank"));
   sumGrid.appendChild(sbox(totalMastered,"ord mestret"));
   hdr.appendChild(sumGrid);
 
-  // Overall progress bar (reading)
+  // Overall progress bar (reading) — same thin token-colored track as
+  // Flashcards/Setningsbygging's in-session progress bar.
   const progPct = totalTexts ? Math.round(doneTexts/totalTexts*100) : 0;
-  hdr.appendChild(el("div",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",marginBottom:"4px"}},`Lesefremdrift: ${progPct}%`));
-  const pw = el("div",{class:"plan-prog-wrap"});
-  pw.appendChild(el("div",{class:"plan-prog-fill",style:{width:progPct+"%"}}));
+  hdr.appendChild(el("div",{class:"card__note",style:{marginBottom:"4px"}},`Lesefremdrift: ${progPct}%`));
+  const pw = el("div",{style:{height:"5px",background:"var(--line)",borderRadius:"var(--r-pill)",overflow:"hidden"}});
+  pw.appendChild(el("div",{style:{height:"100%",background:"var(--green)",borderRadius:"var(--r-pill)",transition:"width .35s",width:progPct+"%"}}));
   hdr.appendChild(pw);
   frag.appendChild(hdr);
 
@@ -6522,13 +6502,13 @@ function buildPlanView(){
   const todayISO = new Date().toISOString().slice(0,10);
   const curWeekIdx = findLastIdx(weeks, w=>w.weekStartISO<=todayISO);
 
-  const nav = el("div",{class:"plan-nav"});
-  nav.appendChild(el("button",{class:"plan-nav-btn",disabled:planState.viewWeek===0?true:null,
+  const nav = el("div",{style:{display:"flex",alignItems:"center",gap:"var(--s-3)",marginBottom:"var(--s-3)"}});
+  nav.appendChild(el("button",{class:"btn",disabled:planState.viewWeek===0?true:null,
     click(){planState.viewWeek--;renderContent();}
   },"← Forrige"));
-  nav.appendChild(el("div",{class:"plan-nav-center"},
+  nav.appendChild(el("div",{class:"card__note",style:{flex:"1",textAlign:"center",fontWeight:"600",color:"var(--ink)"}},
     `Uke ${weeks[planState.viewWeek].weekNum} av ${weeks.length}`));
-  nav.appendChild(el("button",{class:"plan-nav-btn",disabled:planState.viewWeek===weeks.length-1?true:null,
+  nav.appendChild(el("button",{class:"btn",disabled:planState.viewWeek===weeks.length-1?true:null,
     click(){planState.viewWeek++;renderContent();}
   },"Neste →"));
 
@@ -6543,17 +6523,21 @@ function buildPlanView(){
   // ── Current week detail card
   const week = weeks[planState.viewWeek];
   const isCurrent = planState.viewWeek === curWeekIdx;
-  const weekCard = el("div",{class:"plan-week-card"+(isCurrent?" current":"")});
+  const weekCard = el("div",{class:"card",style:{padding:"0",overflow:"hidden"}});
+  if(isCurrent) weekCard.style.borderColor="var(--green)";
 
-  const weekHdr = el("div",{class:"plan-week-hdr"+(isCurrent?" current":"")});
-  weekHdr.appendChild(el("div",{class:"plan-week-num"},"Uke "+week.weekNum));
-  weekHdr.appendChild(el("div",{class:"plan-week-topic"},
-    week.topicEmoji+" "+week.topicName));
+  const weekHdr = el("div",{style:{padding:"14px 18px",display:"flex",alignItems:"center",gap:"var(--s-3)",
+    background:isCurrent?"var(--green-tint)":"var(--surface-head)",borderBottom:"1px solid var(--line-soft)"}});
+  weekHdr.appendChild(el("span",{class:"label-mono",style:{minWidth:"52px"}},"Uke "+week.weekNum));
+  const weekTopic=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",flex:"1",fontWeight:"700",fontSize:"var(--t-base)",color:"var(--ink)"}});
+  weekTopic.appendChild(el("span",{class:"pill__swatch",style:{background:topicTema(week.topicKey).bg,width:"10px",height:"10px"}}));
+  weekTopic.appendChild(document.createTextNode(week.topicName));
+  weekHdr.appendChild(weekTopic);
   if(isCurrent) weekHdr.appendChild(el("span",{class:"tag",style:{background:"var(--green)",color:"#fff",whiteSpace:"nowrap",flexShrink:"0"}},"Nåværende uke"));
-  weekHdr.appendChild(el("div",{class:"plan-week-dates"},week.dateRange));
+  weekHdr.appendChild(el("span",{class:"card__note",style:{flexShrink:"0"}},week.dateRange));
   weekCard.appendChild(weekHdr);
 
-  const body = el("div",{class:"plan-week-body"});
+  const body = el("div",{style:{padding:"var(--s-1) 18px 18px"}});
 
   // Session 1: Reading. No icon in the section title (§ "Icons": never in
   // headings) — the per-item status dot carries the done/not-done distinction.
@@ -6615,18 +6599,21 @@ function buildPlanView(){
   }
   wordSess.appendChild(wTitle);
 
-  // Three sub-steps with individual progress bars
+  // Three sub-steps with individual progress bars. Three parallel, non-hierarchical
+  // categories (not stages of one bar), so each keeps its own colour to stay
+  // tellable apart at a glance — same reasoning as the essay bank's CEFR-level
+  // colours — rather than collapsing to a single status token.
   const steps = [
-    {label:"Lagt til i ordbank", val:mastery.inBank,    color:"#4f6ef7"},
-    {label:"Riktig i flashcards",val:mastery.fcCorrect, color:"#e8901a"},
-    {label:"Brukt i setning",    val:mastery.inSentence,color:"#2d9e6b"},
+    {label:"Lagt til i ordbank", val:mastery.inBank,    color:"var(--tema-demokrati-fg)"},
+    {label:"Riktig i flashcards",val:mastery.fcCorrect, color:"var(--status-doing)"},
+    {label:"Brukt i setning",    val:mastery.inSentence,color:"var(--green)"},
   ];
   const stepsWrap = el("div",{style:{display:"grid",gap:"8px",marginBottom:"12px"}});
   steps.forEach(s=>{
     const pct = Math.min(100, week.wordTarget ? Math.round(s.val/week.wordTarget*100) : 0);
     const done = s.val >= week.wordTarget;
     const row = el("div",{});
-    row.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",fontSize:"var(--font-xs)",color:done?"#1a6b4a":"#666",fontWeight:done?"700":"400",marginBottom:"3px"}},
+    row.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",fontSize:"var(--t-sm)",color:done?"var(--green)":"var(--ink-2)",fontWeight:done?"700":"400",marginBottom:"3px"}},
       el("span",{},(done?"✓ ":"")+s.label),
       el("span",{},`${s.val}/${week.wordTarget}`)
     ));
@@ -6639,7 +6626,7 @@ function buildPlanView(){
 
   // Overall mastery bar
   const mastPct = week.wordTarget ? Math.min(100,Math.round(mastery.mastered/week.wordTarget*100)) : 0;
-  wordSess.appendChild(el("div",{style:{fontSize:"var(--font-xs)",color:"var(--color-text-muted)",marginBottom:"3px"}},
+  wordSess.appendChild(el("div",{class:"card__note",style:{marginBottom:"3px"}},
     `Totalt mestret (alle tre steg): ${mastery.mastered}/${week.wordTarget} (${mastPct}%)`));
   const mpw = el("div",{class:"plan-prog-wrap",style:{height:"10px"}});
   mpw.appendChild(el("div",{class:"plan-prog-fill",style:{width:mastPct+"%",height:"10px"}}));
@@ -6662,8 +6649,8 @@ function buildPlanView(){
   frag.appendChild(weekCard);
 
   // ── Mini week overview (all weeks as dots)
-  const overviewCard = el("div",{class:"card",style:{marginTop:"14px"}});
-  overviewCard.appendChild(el("div",{style:{fontWeight:"700",fontSize:"var(--font-base)",color:"#333",marginBottom:"10px"}},"Alle uker"));
+  const overviewCard = el("div",{class:"card",style:{marginTop:"var(--s-4)"}});
+  overviewCard.appendChild(el("div",{class:"card__title",style:{marginBottom:"var(--s-2)"}},"Alle uker"));
   weeks.forEach((w,i)=>{
     const dots = w.texts.map(t=>{
       const tx=getPlanText(t.topicKey,t.textSlot);
@@ -6673,7 +6660,8 @@ function buildPlanView(){
       click(){planState.viewWeek=i;renderContent();}
     });
     row.appendChild(el("div",{class:"plan-week-mini-num"},"U"+w.weekNum));
-    row.appendChild(el("div",{class:"plan-week-mini-topic"},w.topicEmoji+" "+w.topicName));
+    row.appendChild(el("span",{class:"plan-week-mini-swatch",style:{background:topicTema(w.topicKey).bg}}));
+    row.appendChild(el("div",{class:"plan-week-mini-topic"},w.topicName));
     const dotWrap=el("div",{class:"plan-week-mini-dots"});
     dots.forEach(d=>dotWrap.appendChild(el("div",{class:"plan-week-mini-dot"+(d?" done":"")})));
     row.appendChild(dotWrap);
@@ -6732,7 +6720,7 @@ function buildStatistik(){
     };
     grid.appendChild(box(textsToday.length, "tekster i dag", `${readIds.size} totalt`));
     grid.appendChild(box(fcToday.length+wsToday.length, "spill i dag", `${fcAll.length+wsAll.length} totalt`));
-    grid.appendChild(box(essaysToday.length, "essays i dag", `${essaysAll.length} totalt`));
+    grid.appendChild(box(essaysToday.length, "stiler i dag", `${essaysAll.length} totalt`));
     const totalCorrect = fcCorrectAll+wsCorrectAll;
     const totalAnswered = fcTotalAll+wsTotalAll;
     const pct = totalAnswered ? Math.round(totalCorrect/totalAnswered*100) : "–";
@@ -6770,7 +6758,7 @@ function buildStatistik(){
 
     // ── Essay topics
     if(essaysAll.length){
-      hdr.appendChild(el("div",{class:"label-mono",style:{marginTop:"var(--s-4)",marginBottom:"var(--s-2)"}},"Essays etter tema"));
+      hdr.appendChild(el("div",{class:"label-mono",style:{marginTop:"var(--s-4)",marginBottom:"var(--s-2)"}},"Stiler etter tema"));
       const etCount={};
       essaysAll.forEach(e=>{ const t=e.topicName||e.topic||"Ukjent"; etCount[t]=(etCount[t]||0)+1; });
       const maxE=Math.max(...Object.values(etCount));
@@ -6821,7 +6809,7 @@ function buildStatistik(){
       const segments=[
         {label:"Riktig i flashcards", val:masteredFc, color:"var(--green)"},
         {label:"Brukt i setninger",   val:usedInSents, color:"#4f6ef7"},
-        {label:"Brukt i essays",      val:usedInEssays,color:"#e8901a"},
+        {label:"Brukt i stiler",      val:usedInEssays,color:"#e8901a"},
         {label:"Ikke øvd ennå",       val:notYet,      color:"var(--color-border-light)"},
       ];
       const R=54, cx=70, cy=70, stroke=22;
@@ -6934,7 +6922,7 @@ function buildStatistik(){
     if(!events.length){
       hdr.innerHTML="";
       hdr.appendChild(el("div",{class:"card__title"},"Framgang"));
-      hdr.appendChild(el("p",{class:"card__note"},"Ingen aktivitet registrert ennå. Start med å lese en tekst, spille flashcards eller skrive et essay!"));
+      hdr.appendChild(el("p",{class:"card__note"},"Ingen aktivitet registrert ennå. Start med å lese en tekst, spille flashcards eller skrive en stil!"));
     }
   });
 
@@ -8102,14 +8090,14 @@ function buildPromptTestPanel(student, getDraft){
       panel.style.display = willOpen ? "" : "none";
       if(willOpen) renderResults();
     }
-  },"Test mot essay");
+  },"Test mot stil");
   wrap.appendChild(toggleBtn);
 
   const panel = el("div",{style:{marginTop:"var(--s-3)",display:"none"}});
   wrap.appendChild(panel);
 
   panel.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}},
-    "Kjør den ulagrede layouten over mot et ekte essay. Testen lagres ikke til eleven og påvirker ikke det eleven ser."));
+    "Kjør den ulagrede layouten over mot en ekte stil. Testen lagres ikke til eleven og påvirker ikke det eleven ser."));
 
   const sourceRow = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-2)"}});
   const essaySelect = el("select",{class:"select",style:{flex:"1"}});
@@ -8556,7 +8544,7 @@ function buildLaererAiFokusHub(){
       previewEssaySelect.appendChild(el("option",{value:""},"Velg elev først"));
       return;
     }
-    previewEssaySelect.appendChild(el("option",{value:""},"Laster essays…"));
+    previewEssaySelect.appendChild(el("option",{value:""},"Laster stiler…"));
     const r = await api(`/api/teacher/students/${encodeURIComponent(studentId)}/essays`).catch(()=>null);
     const essays = r?.ok ? await r.json() : [];
     previewEssaySelect.innerHTML="";
@@ -8742,13 +8730,12 @@ function buildLaererPlan(){
           body.style.display=body.style.display==="none"?"block":"none";
         }
       });
-      // week.topicEmoji is a known, deliberately-deferred emoji source shared by
-      // three render call sites (see app/CLAUDE.md "Deliberately not done yet") —
-      // this is one of them; fixing it here alone would leave the other two
-      // inconsistent, so it stays untouched until all three are done together.
       if(isCurrent) hdrRow.appendChild(el("span",{class:"tag",style:{background:"var(--green)",color:"#fff",whiteSpace:"nowrap",flexShrink:"0"}},"Nåværende uke"));
       hdrRow.appendChild(el("span",{style:{fontWeight:"700",minWidth:"60px"}},`Uke ${week.weekNum}`));
-      hdrRow.appendChild(el("span",{class:"card__note",style:{flex:"1"}},$esc(week.topicEmoji+" "+week.topicName)));
+      const teacherWeekTopic=el("span",{class:"card__note",style:{flex:"1",display:"flex",alignItems:"center",gap:"6px"}});
+      teacherWeekTopic.appendChild(el("span",{class:"pill__swatch",style:{background:topicTema(week.topicKey).bg,width:"9px",height:"9px"}}));
+      teacherWeekTopic.appendChild(document.createTextNode(week.topicName));
+      hdrRow.appendChild(teacherWeekTopic);
       hdrRow.appendChild(el("span",{class:"card__note",style:{whiteSpace:"nowrap"}},$esc(week.dateRange||"")));
       hdrRow.appendChild(el("span",{style:{fontSize:"var(--t-sm)",marginLeft:"var(--s-2)"}},
         `${weekDone}/${weekTexts.length} tekster`+(essayPrompts.length?` · ${essaysDoneCount}/${essayPrompts.length} stiler`:"")));
@@ -11053,7 +11040,7 @@ function renderAdminDashboard(container, data){
     ["👩‍🏫 Lærere", teachers.length],
     ["📚 Ord opprettet", users.reduce((s,u)=>s+u.words,0)],
     ["✍️ Setninger", users.reduce((s,u)=>s+u.sentences,0)],
-    ["📝 Essays", users.reduce((s,u)=>s+u.essays,0)],
+    ["📝 Stiler", users.reduce((s,u)=>s+u.essays,0)],
   ].forEach(([label, val]) => {
     const card = h("div",{style:"background:#f8f9fa;border-radius:var(--radius-md);padding:14px 20px;min-width:120px;text-align:center"});
     card.appendChild(h("div",{style:"font-size:22px;font-weight:700;color:#1a6b4a"},String(val)));
@@ -11082,7 +11069,7 @@ function renderAdminDashboard(container, data){
   // Students section
   container.appendChild(h("h2",{style:"font-size:var(--font-base);margin:24px 0 10px"},"🎓 Elever"));
   const sTable = buildAdminTable(h,
-    ["Navn","E-post","Lærer","Ord","Setninger","Essays","Sammendrag","Plan","Hendelser","Sist aktiv","Opprettet"],
+    ["Navn","E-post","Lærer","Ord","Setninger","Stiler","Sammendrag","Plan","Hendelser","Sist aktiv","Opprettet"],
     students.map(u => [
       u.name,
       u.email,

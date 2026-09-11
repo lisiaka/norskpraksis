@@ -195,7 +195,7 @@ a:hover { color: var(--green-hover); text-decoration: underline; }
 .sidebar { width: 212px; flex: none; background: var(--surface); border-right: 1px solid var(--line); }
 .sidebar__brand { height: 60px; display: flex; align-items: center; gap: 9px; padding: 0 20px;
   border-bottom: 1px solid var(--line-soft); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
-.sidebar__brand img { width: 26px; height: 26px; flex: none; }
+.sidebar__brand img { width: 38px; height: 38px; flex: none; }
 .nav-item {
   display: flex; align-items: center; gap: 9px; height: 34px; padding: 0 10px;
   border-radius: 6px; color: var(--ink-2); font-size: var(--t-base); text-decoration: none;
@@ -227,16 +227,20 @@ a:hover { color: var(--green-hover); text-decoration: underline; }
 /* Every word card is the same height regardless of how much text it holds —
    title/meaning/explanation each clamp to one line with an ellipsis instead
    of growing the card, so a grid row never has a mix of tall and short
-   cards. Scoped to .word-grid so it never touches .card__title/__sub/__note
-   used elsewhere (dialogs, teacher views, etc.) where content-driven height
-   is correct. */
-.word-grid .card { height: 176px; display: flex; flex-direction: column; overflow: hidden; }
-.word-grid .card__title, .word-grid .card__sub, .word-grid .card__note {
+   cards. Scoped to .word-grid--fixed (Ordbank only — set alongside .word-grid,
+   never replacing it) so it never touches .word-grid's other two users, Lesing's
+   text-card grid and Skriv's topic-tile grid, where cards hold different content
+   and a fixed 176px/1-line-clamp squeezed both unreadable (e.g. long text titles
+   losing their line-clamp budget to a topic+status row and a grammar-tag row that
+   Ordbank's cards don't have) — nor .card__title/__sub/__note used elsewhere
+   (dialogs, teacher views, etc.) where content-driven height is correct. */
+.word-grid--fixed .card { height: 176px; display: flex; flex-direction: column; overflow: hidden; }
+.word-grid--fixed .card__title, .word-grid--fixed .card__sub, .word-grid--fixed .card__note {
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 /* The card has two .card__foot rows (tema+status, then actions) — margin-top:
    auto on the first one pushes both to the bottom together as a flex child,
    with the second following it in normal flow right underneath. */
-.word-grid .card__foot:first-of-type { margin-top: auto; }
+.word-grid--fixed .card__foot:first-of-type { margin-top: auto; }
 
 /* Ordbank main grid + side detail panel — same grid/sticky-column technique
    as Lesing's reader + lookup panel (.lesing-reader-layout/.lesing-lookup-panel):
