@@ -371,7 +371,7 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
   </div>
 </div>
 
-<div id="admin-screen" style="display:none;padding:24px;max-width:1200px;margin:0 auto;font-family:system-ui,sans-serif"></div>
+<div id="admin-screen" style="display:none;padding:24px;max-width:1200px;margin:0 auto"></div>
 
 <div id="app" style="display:none">
   <div class="header" id="main-header">
@@ -3533,6 +3533,11 @@ async function checkWithClaude(word, sentence, container, wordId){
 // arrive with the proposal. This covers the two paths a proposal cannot reach — bulk
 // import, and the "✨ Generer med AI" button on an existing word.
 //
+// forms/flashcard_options are always refreshed. meaning/explanation/topic/examples
+// are backfilled only where the backend found them still blank on the word (see the
+// enrich endpoint's own docstring) — merging them here is always safe, since the
+// backend already never overwrites a field the learner or lookup already filled in.
+//
 // Returns true on success so the button can report failure. The automatic callers
 // ignore the result: enrichment is a bonus, and a learner who imported 40 words
 // should not be shown an error about the fifth.
@@ -3542,7 +3547,13 @@ async function enrichWord(wordId){
     if(!r.ok) return false;
     const sv=await r.json();
     const idx=state.words.findIndex(w=>w.id===wordId);
-    if(idx>=0){state.words[idx]={...state.words[idx],forms:sv.forms,flashcard_options:sv.flashcard_options};}
+    if(idx>=0){
+      state.words[idx]={...state.words[idx],
+        forms:sv.forms, flashcard_options:sv.flashcard_options,
+        meaning:sv.meaning, explanation:sv.explanation,
+        topic:sv.topic, examples:sv.examples,
+      };
+    }
     saveStorage();
     return true;
   }catch{ return false; }
@@ -10654,7 +10665,7 @@ function buildLaererBankPrompts(){
 
   const screen = document.getElementById("admin-screen");
   screen.style.display = "block";
-  screen.innerHTML = "<p style='color:var(--color-text-muted)'>Laster admin-oversikt…</p>";
+  screen.innerHTML = "<p class='card__note'>Laster admin-oversikt…</p>";
 
   const get = path => fetch(`${API_BASE}${path}?secret=${encodeURIComponent(secret)}`)
     .then(r => {
@@ -10687,7 +10698,7 @@ function buildLaererBankPrompts(){
       if(templates) renderPromptTemplates(screen, templates);
     })
     .catch(err => {
-      screen.innerHTML = `<p style='color:var(--color-danger);font-weight:600'>Feil: ${err.message}</p>`;
+      screen.innerHTML = `<p style='color:var(--danger);font-weight:600'>Feil: ${err.message}</p>`;
     });
 })();
 
@@ -11047,34 +11058,36 @@ function renderAdminDashboard(container, data){
     children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
     return el;
   };
-  const t = s => document.createTextNode(s);
 
   container.innerHTML = "";
 
-  // Header
-  container.appendChild(h("h1",{style:"margin:0 0 4px;font-size:22px"},"Admin — Brukeroversikt"));
-  container.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-sm);margin:0 0 24px"},`Generert: ${generated} · ${users.length} brukere totalt`));
+  // Header — same .topbar shape as buildLaererProgress's student header.
+  const topbar = h("div",{class:"topbar",style:"margin-bottom:var(--s-4)"});
+  topbar.appendChild(h("div",{class:"topbar__title"},"Admin — Brukeroversikt"));
+  topbar.appendChild(h("div",{class:"topbar__meta"},`Generert: ${generated} · ${users.length} brukere totalt`));
+  container.appendChild(topbar);
 
-  // Summary cards
-  const summary = h("div",{style:"display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px"});
+  // Summary cards — the same .stat-grid/.stat-box component Statistikk and
+  // Studieplan already use for a KPI grid, not a page-local twin.
+  const summary = h("div",{class:"stat-grid"});
   [
-    ["👥 Brukere totalt", users.length],
-    ["🎓 Elever", students.length],
-    ["👩‍🏫 Lærere", teachers.length],
-    ["📚 Ord opprettet", users.reduce((s,u)=>s+u.words,0)],
-    ["✍️ Setninger", users.reduce((s,u)=>s+u.sentences,0)],
-    ["📝 Stiler", users.reduce((s,u)=>s+u.essays,0)],
+    ["Brukere totalt", users.length],
+    ["Elever", students.length],
+    ["Lærere", teachers.length],
+    ["Ord opprettet", users.reduce((s,u)=>s+u.words,0)],
+    ["Setninger", users.reduce((s,u)=>s+u.sentences,0)],
+    ["Stiler", users.reduce((s,u)=>s+u.essays,0)],
   ].forEach(([label, val]) => {
-    const card = h("div",{style:"background:#f8f9fa;border-radius:var(--radius-md);padding:14px 20px;min-width:120px;text-align:center"});
-    card.appendChild(h("div",{style:"font-size:22px;font-weight:700;color:#1a6b4a"},String(val)));
-    card.appendChild(h("div",{style:"font-size:var(--font-xs);color:var(--color-text-muted);margin-top:2px"},label));
-    summary.appendChild(card);
+    const box = h("div",{class:"stat-box"});
+    box.appendChild(h("div",{class:"stat-val"},String(val)));
+    box.appendChild(h("div",{class:"stat-lbl"},label));
+    summary.appendChild(box);
   });
   container.appendChild(summary);
 
   // Teachers section
   if(teachers.length){
-    container.appendChild(h("h2",{style:"font-size:var(--font-base);margin:0 0 10px"},"👩‍🏫 Lærere"));
+    container.appendChild(h("div",{class:"card__title",style:"margin:0 0 var(--s-2)"},"Lærere"));
     const tTable = buildAdminTable(h,
       ["Navn","E-post","Elever","Oppgaver gitt","Sist aktiv","Opprettet"],
       teachers.map(u => [
@@ -11090,7 +11103,7 @@ function renderAdminDashboard(container, data){
   }
 
   // Students section
-  container.appendChild(h("h2",{style:"font-size:var(--font-base);margin:24px 0 10px"},"🎓 Elever"));
+  container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-4) 0 var(--s-2)"},"Elever"));
   const sTable = buildAdminTable(h,
     ["Navn","E-post","Lærer","Ord","Setninger","Stiler","Sammendrag","Plan","Hendelser","Sist aktiv","Opprettet"],
     students.map(u => [
@@ -11110,13 +11123,15 @@ function renderAdminDashboard(container, data){
   container.appendChild(sTable);
 }
 
+// Native <table>, not the .table/.table__row grid component — same call as
+// buildLaererWords()'s table (see app/CLAUDE.md): a plain flat table needs no
+// restructuring to a CSS-grid, only its styling moved onto tokens.
 function buildAdminTable(h, headers, rows){
-  const style = "border-collapse:collapse;width:100%;font-size:var(--font-sm);margin-bottom:16px";
-  const thStyle = "background:#1a6b4a;color:#fff;padding:8px 12px;text-align:left;white-space:nowrap";
-  const tdStyle = "padding:7px 12px;border-bottom:1px solid var(--color-border-light);vertical-align:top";
-  const trEvenStyle = "background:#f9f9f9";
+  const wrap = h("div",{class:"card",style:"overflow-x:auto;padding:0;margin-bottom:var(--s-4)"});
+  const style = "border-collapse:collapse;width:100%;font-size:var(--t-sm)";
+  const thStyle = "background:var(--surface-head);color:var(--ink-3);padding:9px var(--s-4);text-align:left;white-space:nowrap;font:400 10.5px/1 var(--mono);letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid var(--line)";
+  const tdStyle = "padding:8px var(--s-4);border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-2)";
 
-  const table = h("div",{style:"overflow-x:auto"});
   const t = document.createElement("table");
   t.setAttribute("style", style);
 
@@ -11130,9 +11145,9 @@ function buildAdminTable(h, headers, rows){
   });
 
   const tbody = t.createTBody();
-  rows.forEach((row, i) => {
+  rows.forEach(row => {
     const tr = tbody.insertRow();
-    if(i % 2 === 1) tr.setAttribute("style", trEvenStyle);
+    tr.setAttribute("style", "background:var(--surface)");
     row.forEach(cell => {
       const td = tr.insertCell();
       td.setAttribute("style", tdStyle);
@@ -11140,8 +11155,8 @@ function buildAdminTable(h, headers, rows){
     });
   });
 
-  table.appendChild(t);
-  return table;
+  wrap.appendChild(t);
+  return wrap;
 }
 </script>
 </body>
