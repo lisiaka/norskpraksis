@@ -10685,8 +10685,9 @@ function buildLaererBankPrompts(){
     get("/api/admin/failures").catch(() => null),
     get("/api/admin/calls").catch(() => null),
     get("/api/admin/templates").catch(() => null),
+    get("/api/admin/word-lookups").catch(() => null),
   ])
-    .then(([overview, adoption, failures, calls, templates]) => {
+    .then(([overview, adoption, failures, calls, templates, wordLookups]) => {
       renderAdminDashboard(screen, overview);
       if(adoption) renderAdoption(screen, adoption);
       if(failures) renderFailureLog(screen, failures);
@@ -10696,6 +10697,7 @@ function buildLaererBankPrompts(){
       // here is the whole reason the registry is deduplicated.
       if(calls) renderAiCalls(screen, calls, templates);
       if(templates) renderPromptTemplates(screen, templates);
+      if(wordLookups) renderWordLookups(screen, wordLookups);
     })
     .catch(err => {
       screen.innerHTML = `<p style='color:var(--danger);font-weight:600'>Feil: ${err.message}</p>`;
@@ -11045,6 +11047,45 @@ function renderPromptTemplates(container, data){
     box.appendChild(h("pre",{style:PRE}, t.body || "(tom — eldre prompt sendt ferdig sammensatt)"));
     container.appendChild(box);
   });
+}
+
+// ── Ord slått opp med AI: hva koster faktisk penger (028) ─────────────────
+// A dictionary-lookup term is shown in the clear, not hashed — see
+// specs/028-ai-lookup-word-tracking/spec.md. real_ai_calls is what this
+// exists to answer ("what's costing us"), so the table is sorted by it, with
+// total_lookups shown alongside so "asked often" and "costing money" can be
+// told apart (a term served entirely from cache costs nothing despite being
+// looked up often).
+function renderWordLookups(container, data){
+  const h = (tag, attrs, ...children) => {
+    const el = document.createElement(tag);
+    Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+    children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return el;
+  };
+
+  container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-5) 0 var(--s-1)"},"Ord slått opp"));
+  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
+    `Siste ${data.days} dager, sortert etter faktiske AI-kall.`
+    + (data.excluded_test_users ? ` ${data.excluded_test_users} testkonto(er) holdt utenfor.` : "")));
+
+  const rows = data.terms || [];
+  if(!rows.length){
+    container.appendChild(h("p",{class:"card__note"},"Ingen oppslag registrert i perioden."));
+    return;
+  }
+
+  container.appendChild(buildAdminTable(h,
+    ["Ord","AI-kall","Cache-treff","Fra ordbanken","Ikke tilgjengelig","Oppslag totalt"],
+    rows.map(r => [
+      r.term,
+      r.real_ai_calls,
+      r.cache_hits,
+      r.shared_bank_hits,
+      r.misses,
+      r.total_lookups,
+    ])
+  ));
 }
 
 function renderAdminDashboard(container, data){
