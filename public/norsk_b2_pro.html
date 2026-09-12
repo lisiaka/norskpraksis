@@ -10667,18 +10667,97 @@ function buildLaererBankPrompts(){
   screen.style.display = "block";
   screen.innerHTML = "<p class='card__note'>Laster admin-oversikt…</p>";
 
-  const get = path => fetch(`${API_BASE}${path}?secret=${encodeURIComponent(secret)}`)
-    .then(r => {
+  // 029: params merges onto {secret} so drill-down calls can add user_id
+  // without every existing call site having to know about it.
+  const get = (path, params) => {
+    const qs = new URLSearchParams(Object.assign({secret}, params||{}));
+    return fetch(`${API_BASE}${path}?${qs.toString()}`).then(r => {
       if(r.status === 403) throw new Error("Feil hemmelig nøkkel.");
       if(!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     });
+  };
 
-  // Adoption is fetched beside the user overview, not instead of it — they
-  // answer different questions ("is this feature alive" vs "what has this
-  // learner done") and neither substitutes for the other. It is allowed to
-  // fail on its own: a backend without the endpoint should still render the
-  // user table rather than a bare error page.
+  // 029: real navigation replaces the old single continuous scroll —
+  // adminState drives which section/sub-view/drill-down is visible, the
+  // same pattern teacherState.view already uses for the teacher sidebar.
+  const adminState = {section:"overview", aiLogView:"adoption", drillUserId:null, drillUserName:null};
+  let overviewData=null, adoptionData=null, failuresData=null, callsData=null, templatesData=null, wordLookupsData=null;
+
+  const nav = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-3)"}});
+  const subNav = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-4)",flexWrap:"wrap"}});
+  const content = el("div",{});
+
+  const AI_LOG_VIEWS = [
+    ["adoption","Funksjonsbruk"],
+    ["failures","AI-feil"],
+    ["calls","AI-kall"],
+    ["templates","Promptmaler"],
+    ["word-lookups","Ord slått opp"],
+  ];
+
+  function renderNav(){
+    nav.innerHTML = "";
+    nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="overview"?"true":"false",
+      click(){ adminState.section="overview"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
+      "Oversikt"));
+    nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="ai-logger"?"true":"false",
+      click(){ adminState.section="ai-logger"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
+      "AI-logger"));
+
+    subNav.innerHTML = "";
+    subNav.style.display = adminState.section === "ai-logger" ? "flex" : "none";
+    AI_LOG_VIEWS.forEach(([key,label]) => {
+      subNav.appendChild(el("button",{class:"pill","aria-pressed":adminState.aiLogView===key?"true":"false",
+        click(){ adminState.aiLogView=key; renderNav(); renderContentArea(); }}, label));
+    });
+  }
+
+  function missingNote(){
+    return el("p",{class:"card__note"},"Ingen data tilgjengelig (endepunktet svarte ikke).");
+  }
+
+  function openUserDrilldown(userId, userName){
+    adminState.drillUserId = userId;
+    adminState.drillUserName = userName;
+    renderContentArea();
+    Promise.all([
+      get("/api/admin/calls", {user_id:userId}).catch(() => null),
+      get("/api/admin/adoption", {user_id:userId}).catch(() => null),
+      get("/api/admin/word-lookups", {user_id:userId}).catch(() => null),
+    ]).then(([calls, adoptionEvents, wordLookups]) => {
+      const body = content.querySelector("[data-drilldown-body]");
+      if(body) renderUserDrilldownBody(body, calls, adoptionEvents, wordLookups);
+    });
+  }
+
+  function renderContentArea(){
+    content.innerHTML = "";
+    if(adminState.drillUserId){
+      renderUserDrilldownShell(content, adminState.drillUserName || adminState.drillUserId,
+        () => { adminState.drillUserId=null; renderContentArea(); });
+      return;
+    }
+    if(adminState.section === "overview"){
+      if(overviewData) renderAdminDashboard(content, overviewData, openUserDrilldown);
+      else content.appendChild(missingNote());
+      return;
+    }
+    // ai-logger — one active sub-view at a time (FR-003/FR-004), each
+    // existing render*() function reused completely unchanged (FR-013).
+    if(adminState.aiLogView === "adoption") adoptionData ? renderAdoption(content, adoptionData) : content.appendChild(missingNote());
+    else if(adminState.aiLogView === "failures") failuresData ? renderFailureLog(content, failuresData) : content.appendChild(missingNote());
+    else if(adminState.aiLogView === "calls") callsData ? renderAiCalls(content, callsData, templatesData) : content.appendChild(missingNote());
+    else if(adminState.aiLogView === "templates") templatesData ? renderPromptTemplates(content, templatesData) : content.appendChild(missingNote());
+    else if(adminState.aiLogView === "word-lookups") wordLookupsData ? renderWordLookups(content, wordLookupsData) : content.appendChild(missingNote());
+  }
+
+  // Adoption/failures/calls/templates/word-lookups are fetched beside the
+  // user overview, not instead of it — they answer different questions
+  // ("is this feature alive" vs "what has this learner done") and neither
+  // substitutes for the other. Each is allowed to fail on its own: a
+  // backend without one endpoint should still render everything else
+  // rather than a bare error page.
   Promise.all([
     get("/api/admin/overview"),
     get("/api/admin/adoption").catch(() => null),
@@ -10688,21 +10767,72 @@ function buildLaererBankPrompts(){
     get("/api/admin/word-lookups").catch(() => null),
   ])
     .then(([overview, adoption, failures, calls, templates, wordLookups]) => {
-      renderAdminDashboard(screen, overview);
-      if(adoption) renderAdoption(screen, adoption);
-      if(failures) renderFailureLog(screen, failures);
-      // Calls need the templates to show a prompt body: the calls endpoint
-      // carries only the template's hash, because the alternative is repeating
-      // the same long Norwegian prompt on every single row. Joining the two
-      // here is the whole reason the registry is deduplicated.
-      if(calls) renderAiCalls(screen, calls, templates);
-      if(templates) renderPromptTemplates(screen, templates);
-      if(wordLookups) renderWordLookups(screen, wordLookups);
+      overviewData=overview; adoptionData=adoption; failuresData=failures;
+      callsData=calls; templatesData=templates; wordLookupsData=wordLookups;
+
+      screen.innerHTML = "";
+      screen.appendChild(nav);
+      screen.appendChild(subNav);
+      screen.appendChild(content);
+      renderNav();
+      renderContentArea();
     })
     .catch(err => {
       screen.innerHTML = `<p style='color:var(--danger);font-weight:600'>Feil: ${err.message}</p>`;
     });
 })();
+
+// ── Per-user drill-down (029) ─────────────────────────────────────────────
+// Opened from an Oversikt row. Combines three existing data sources scoped
+// to one user_id — never AI-failure data, which stays aggregate-only by
+// explicit decision (specs/029-admin-view-refactor/spec.md FR-010).
+function renderUserDrilldownShell(container, userLabel, onBack){
+  const topbar = el("div",{class:"topbar",style:{marginBottom:"var(--s-4)"}});
+  topbar.appendChild(el("button",{class:"btn",click:onBack},"← Tilbake"));
+  topbar.appendChild(el("div",{class:"topbar__title"}, `Aktivitet — ${userLabel}`));
+  container.appendChild(topbar);
+  container.appendChild(el("div",{"data-drilldown-body":"1"}, el("p",{class:"card__note"},"Laster…")));
+}
+
+function renderUserDrilldownBody(body, calls, adoptionEvents, wordLookups){
+  body.innerHTML = "";
+
+  // AI calls — fully supported today (GET /api/admin/calls already accepted
+  // an unused user_id filter; this drill-down is simply its first caller).
+  body.appendChild(el("div",{class:"card__title",style:{margin:"0 0 var(--s-1)"}},"AI-kall"));
+  if(calls && (calls.recent||[]).length) renderAiCalls(body, calls, null);
+  else body.appendChild(el("p",{class:"card__note"},"Ingen registrerte AI-kall for denne brukeren."));
+
+  // Adoption events — needs the backend's user_id-scoped raw-event mode
+  // (contracts/admin-adoption.md). Detected by shape: a scoped response has
+  // an `events` array, the aggregate shape does not — never render the
+  // aggregate here as if it were this user's own timeline.
+  body.appendChild(el("div",{class:"card__title",style:{margin:"var(--s-5) 0 var(--s-1)"}},"Hendelser (funksjonsbruk)"));
+  if(adoptionEvents && Array.isArray(adoptionEvents.events)){
+    if(adoptionEvents.events.length){
+      body.appendChild(buildAdminTable(el,
+        ["Hendelse","Tidspunkt"],
+        adoptionEvents.events.map(e => [e.event_type, new Date(e.created_at).toLocaleString("no")])
+      ));
+    } else {
+      body.appendChild(el("p",{class:"card__note"},"Ingen registrerte hendelser for denne brukeren."));
+    }
+  } else {
+    body.appendChild(el("p",{class:"card__note"},
+      "⚠️ Krever en backend-endring (user_id-filter på /api/admin/adoption — se specs/029-admin-view-refactor) — ikke tilgjengelig ennå."));
+  }
+
+  // Word lookups — the response shape is identical whether or not the
+  // backend actually scopes it (contracts/admin-word-lookups.md), so this
+  // cannot self-detect the way adoption events can. Show an explicit
+  // caveat rather than silently presenting every user's terms as this
+  // user's own.
+  body.appendChild(el("div",{class:"card__title",style:{margin:"var(--s-5) 0 var(--s-1)"}},"Ord slått opp"));
+  body.appendChild(el("p",{class:"card__note"},
+    "⚠️ Krever en backend-endring (user_id-filter på /api/admin/word-lookups — se specs/029-admin-view-refactor). Tabellen under er ikke filtrert på denne brukeren før den endringen er på plass."));
+  if(wordLookups) renderWordLookups(body, wordLookups);
+  else body.appendChild(el("p",{class:"card__note"},"Ingen data tilgjengelig."));
+}
 
 // ── Feature adoption (019) ────────────────────────────────────────────────
 // Renders one row per *declared* feature, including ones nobody has touched.
@@ -11088,7 +11218,7 @@ function renderWordLookups(container, data){
   ));
 }
 
-function renderAdminDashboard(container, data){
+function renderAdminDashboard(container, data, onOpenUser){
   const users = data.users || [];
   const generated = data.generated_at ? new Date(data.generated_at).toLocaleString("no") : "";
 
@@ -11101,6 +11231,13 @@ function renderAdminDashboard(container, data){
     children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
     return el;
   };
+
+  // 029: opens the per-user drill-down (AI calls, adoption events, word
+  // lookups). Built with the global el() helper, not the local h() above,
+  // since only el() wires up a click handler.
+  const drilldownButton = u => el("button",
+    {class:"btn",style:{padding:"2px 10px",fontSize:"12px"},click(){ onOpenUser(u.id, u.name); }},
+    "Vis");
 
   container.innerHTML = "";
 
@@ -11132,7 +11269,7 @@ function renderAdminDashboard(container, data){
   if(teachers.length){
     container.appendChild(h("div",{class:"card__title",style:"margin:0 0 var(--s-2)"},"Lærere"));
     const tTable = buildAdminTable(h,
-      ["Navn","E-post","Elever","Oppgaver gitt","Sist aktiv","Opprettet"],
+      ["Navn","E-post","Elever","Oppgaver gitt","Sist aktiv","Opprettet","Aktivitet"],
       teachers.map(u => [
         u.name,
         u.email,
@@ -11140,6 +11277,7 @@ function renderAdminDashboard(container, data){
         u.assignments_given || 0,
         u.last_active ? new Date(u.last_active).toLocaleDateString("no") : "—",
         new Date(u.created_at).toLocaleDateString("no"),
+        drilldownButton(u),
       ])
     );
     container.appendChild(tTable);
@@ -11148,7 +11286,7 @@ function renderAdminDashboard(container, data){
   // Students section
   container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-4) 0 var(--s-2)"},"Elever"));
   const sTable = buildAdminTable(h,
-    ["Navn","E-post","Lærer","Ord","Setninger","Stiler","Sammendrag","Plan","Hendelser","Sist aktiv","Opprettet"],
+    ["Navn","E-post","Lærer","Ord","Setninger","Stiler","Sammendrag","Plan","Hendelser","Sist aktiv","Opprettet","Aktivitet"],
     students.map(u => [
       u.name,
       u.email,
@@ -11161,6 +11299,7 @@ function renderAdminDashboard(container, data){
       u.events,
       u.last_active ? new Date(u.last_active).toLocaleDateString("no") : "—",
       new Date(u.created_at).toLocaleDateString("no"),
+      drilldownButton(u),
     ])
   );
   container.appendChild(sTable);
@@ -11194,7 +11333,10 @@ function buildAdminTable(h, headers, rows){
     row.forEach(cell => {
       const td = tr.insertCell();
       td.setAttribute("style", tdStyle);
-      td.textContent = String(cell);
+      // 029: a cell may be a DOM node (e.g. the per-user drill-down button) —
+      // existing string/number callers are unaffected.
+      if(cell instanceof Node) td.appendChild(cell);
+      else td.textContent = String(cell);
     });
   });
 
