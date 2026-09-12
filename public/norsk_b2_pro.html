@@ -10716,27 +10716,27 @@ function renderAdoption(container, data){
   };
   const dt = iso => iso ? new Date(iso).toLocaleDateString("no") : "aldri";
 
-  container.appendChild(h("h2",{style:"font-size:var(--font-base);margin:32px 0 6px"},"📊 Funksjonsbruk"));
+  container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-5) 0 var(--s-1)"},"Funksjonsbruk"));
 
   // The honesty line. Without it the first read looks like proof that half the
   // product is dead, when it is really proof that we only started counting.
   const started = new Date(data.recording_started_on).toLocaleDateString("no");
-  container.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:0 0 4px;line-height:1.5"},
+  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 4px"},
     `Registrering startet ${started}. «Aldri» for tiden før dette betyr at ingenting ble målt — ikke at funksjonen er ubrukt. `
     + "Der en dato kan utledes fra lagrede data (ord, setninger, stiler, gjenfortellinger) vises den, merket «utledet»."));
   if(data.excluded_test_users){
-    container.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:0 0 14px"},
+    container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-3)"},
       `${data.excluded_test_users} testkonto(er) holdt utenfor.`));
   }
 
-  const tdStyle = "padding:7px 12px;border-bottom:1px solid var(--color-border-light);vertical-align:top";
-  const thStyle = "background:#1a6b4a;color:#fff;padding:8px 12px;text-align:left;white-space:nowrap";
+  const tdStyle = "padding:8px var(--s-4);border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-2)";
+  const thStyle = "background:var(--surface-head);color:var(--ink-3);padding:9px var(--s-4);text-align:left;white-space:nowrap;font:400 10.5px/1 var(--mono);letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid var(--line)";
 
   (data.areas||[]).forEach(area => {
-    container.appendChild(h("h3",{style:"font-size:var(--font-sm);margin:18px 0 6px;color:#1a6b4a"},area.area));
-    const wrap = h("div",{style:"overflow-x:auto"});
+    container.appendChild(h("div",{class:"label-mono",style:"margin:var(--s-3) 0 var(--s-1)"},area.area));
+    const wrap = h("div",{class:"card",style:"overflow-x:auto;padding:0;margin-bottom:var(--s-3)"});
     const t = document.createElement("table");
-    t.setAttribute("style","border-collapse:collapse;width:100%;font-size:var(--font-sm)");
+    t.setAttribute("style","border-collapse:collapse;width:100%;font-size:var(--t-sm)");
 
     const hr = t.createTHead().insertRow();
     ["Funksjon","Brukt","Brukere","Sist brukt"].forEach(label => {
@@ -10747,38 +10747,40 @@ function renderAdoption(container, data){
     });
 
     const tbody = t.createTBody();
-    area.surfaces.forEach((s, i) => {
+    area.surfaces.forEach(s => {
       const tr = tbody.insertRow();
       // Declared a fortnight ago and never once seen is more likely an unwired
       // emit call than a genuinely unloved feature — and for browser-emitted
-      // features this is the only drift signal there is.
-      if(s.never_observed) tr.setAttribute("style","background:#fff6e5");
-      else if(i % 2 === 1) tr.setAttribute("style","background:#f9f9f9");
+      // features this is the only drift signal there is. A light tint of
+      // --status-doing (the same amber used for "under arbeid" everywhere
+      // else), not a one-off hex, and not a topic-tema color that would
+      // imply an unrelated meaning.
+      tr.setAttribute("style", s.never_observed ? "background:rgba(160,116,8,0.08)" : "background:var(--surface)");
 
       const name = tr.insertCell();
       name.setAttribute("style", tdStyle);
       name.appendChild(document.createTextNode(s.label));
-      name.appendChild(h("div",{style:"color:var(--color-text-muted);font-size:var(--font-xs);font-family:ui-monospace,monospace"}, s.id));
+      name.appendChild(h("div",{class:"card__note",style:"font-family:var(--mono)"}, s.id));
 
       const uses = tr.insertCell();
-      uses.setAttribute("style", tdStyle + (s.uses ? "" : ";color:var(--color-text-muted)"));
+      uses.setAttribute("style", tdStyle + (s.uses ? "" : ";color:var(--ink-3)"));
       uses.textContent = String(s.uses);
 
       const users = tr.insertCell();
-      users.setAttribute("style", tdStyle + (s.distinct_users ? "" : ";color:var(--color-text-muted)"));
+      users.setAttribute("style", tdStyle + (s.distinct_users ? "" : ";color:var(--ink-3)"));
       users.textContent = String(s.distinct_users);
 
       const last = tr.insertCell();
-      last.setAttribute("style", tdStyle + (s.last_used ? "" : ";color:var(--color-text-muted)"));
+      last.setAttribute("style", tdStyle + (s.last_used ? "" : ";color:var(--ink-3)"));
       last.textContent = dt(s.last_used);
       if(s.last_used_is_derived){
-        last.appendChild(h("span",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin-left:6px"},"(utledet)"));
+        last.appendChild(h("span",{class:"card__note",style:"margin-left:6px"},"(utledet)"));
       }
       if(s.never_observed){
         // A hint, not a verdict. Only browser-emitted features reach here —
         // server ones are proved wired by a test, so guessing from traffic
         // would only produce false positives on the rare-by-nature ones.
-        last.appendChild(h("div",{style:"color:var(--color-warning);font-size:var(--font-xs);margin-top:2px"},
+        last.appendChild(h("div",{style:"color:var(--status-doing);font-size:12.5px;margin-top:2px"},
           `registrert ${new Date(s.registered_on).toLocaleDateString("no")}, aldri observert — sjekk om den er koblet opp`));
       }
     });
@@ -10791,9 +10793,9 @@ function renderAdoption(container, data){
   // shown here rather than discarded, so a missing registration is visible
   // instead of lossy.
   if((data.unknown_types||[]).length){
-    container.appendChild(h("h3",{style:"font-size:var(--font-sm);margin:22px 0 6px;color:var(--color-warning)"},
+    container.appendChild(h("div",{class:"label-mono",style:"color:var(--status-doing);margin:var(--s-4) 0 var(--s-1)"},
       `Ukjente hendelsestyper (${data.unknown_types.length})`));
-    container.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:0 0 8px"},
+    container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
       "Registrert, men ikke deklarert i koden — sannsynligvis en funksjon som mangler oppføring."));
     container.appendChild(buildAdminTable(h,
       ["Type","Brukt","Sist sett"],
@@ -10814,13 +10816,13 @@ function renderFailureLog(container, data){
     return el;
   };
 
-  container.appendChild(h("h2",{style:"font-size:var(--font-base);margin:32px 0 6px"},"⚠️ AI-feil"));
-  container.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:0 0 12px"},
+  container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-5) 0 var(--s-1)"},"AI-feil"));
+  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
     `Siste ${data.days} dager.`
     + (data.excluded_test_users ? ` ${data.excluded_test_users} testkonto(er) holdt utenfor.` : "")));
 
   if(!(data.by_reason||[]).length){
-    container.appendChild(h("p",{style:"color:#1a6b4a;font-size:var(--font-sm)"},"Ingen registrerte feil i perioden."));
+    container.appendChild(h("p",{style:"color:var(--green);font-size:var(--t-sm)"},"Ingen registrerte feil i perioden."));
     return;
   }
 
@@ -10829,7 +10831,7 @@ function renderFailureLog(container, data){
     data.by_reason.map(r => [r.reason, r.count, r.distinct_users])
   ));
 
-  container.appendChild(h("h3",{style:"font-size:var(--font-sm);margin:18px 0 6px;color:#1a6b4a"},"Siste feil"));
+  container.appendChild(h("div",{class:"label-mono",style:"margin:var(--s-3) 0 var(--s-1)"},"Siste feil"));
   container.appendChild(buildAdminTable(h,
     ["Tid","Flate","Årsak","Oppdaget","HTTP","stop_reason","Tokens inn/ut","Lengder sys/bruker/svar","Svarhale"],
     (data.recent||[]).map(f => [
@@ -10868,23 +10870,23 @@ function renderAiCalls(container, data, templates){
     children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
     return el;
   };
-  const PRE = "white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;"
-    + "background:#fbfbfa;border:1px solid #e8e8e4;border-radius:var(--radius-sm);padding:10px;margin:4px 0 12px;max-height:340px;overflow:auto";
-  const LABEL = "font-size:var(--font-xs);font-weight:700;color:#1a6b4a;margin:10px 0 2px";
+  const PRE = "white-space:pre-wrap;word-break:break-word;font:12px/1.5 var(--mono);"
+    + "background:var(--surface-sunk);border:1px solid var(--line);border-radius:var(--r-btn);padding:10px;margin:4px 0 var(--s-3);max-height:340px;overflow:auto";
+  const LABEL = "font-size:12.5px;font-weight:700;color:var(--green);margin:10px 0 2px";
 
   // Join on the hash: the calls endpoint carries the template's fingerprint,
   // the registry carries its text.
   const bodyByHash = {};
   (templates && templates.templates || []).forEach(t => { bodyByHash[t.content_hash] = t; });
 
-  container.appendChild(h("h2",{style:"font-size:var(--font-base);margin:32px 0 6px"},"🤖 AI-kall"));
-  container.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:0 0 12px"},
+  container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-5) 0 var(--s-1)"},"AI-kall"));
+  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
     `Vellykkede kall siste ${data.days} dager.`
     + (data.excluded_test_users ? ` ${data.excluded_test_users} testkonto(er) holdt utenfor.` : "")
     + " Feilede kall står under AI-feil."));
 
   if(!(data.recent||[]).length){
-    container.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-sm)"},"Ingen registrerte kall i perioden."));
+    container.appendChild(h("p",{class:"card__note"},"Ingen registrerte kall i perioden."));
     return;
   }
 
@@ -10895,7 +10897,7 @@ function renderAiCalls(container, data, templates){
     ));
   }
 
-  container.appendChild(h("h3",{style:"font-size:var(--font-sm);margin:18px 0 6px;color:#1a6b4a"},"Siste kall — klikk for å se prompt og svar"));
+  container.appendChild(h("div",{class:"label-mono",style:"margin:var(--s-3) 0 var(--s-1)"},"Siste kall — klikk for å se prompt og svar"));
 
   data.recent.forEach(c => {
     const tpl = bodyByHash[c.template && c.template.content_hash];
@@ -10904,8 +10906,8 @@ function renderAiCalls(container, data, templates){
       + ` · ${c.input_tokens ?? "—"}/${c.output_tokens ?? "—"} tokens`
       + (c.template && c.template.verified ? "" : " · ⚠️ uverifisert mal");
 
-    const box = h("details",{style:"border:1px solid #e8e8e4;border-radius:var(--radius-md);padding:8px 12px;margin-bottom:8px"});
-    box.appendChild(h("summary",{style:"cursor:pointer;font-size:var(--font-sm)"}, head));
+    const box = h("details",{class:"card",style:"margin-bottom:var(--s-2)"});
+    box.appendChild(h("summary",{style:"cursor:pointer;font-size:var(--t-sm)"}, head));
 
     const meta = [
       ["Modell", c.model],
@@ -10929,14 +10931,14 @@ function renderAiCalls(container, data, templates){
     if(c.system_composed){
       const exact = c.template && c.template.verified && c.steering_drifted !== true;
       box.appendChild(h("div",{style:LABEL},
-        exact ? "📄 Hele prompten — nøyaktig som modellen fikk den"
-              : "📄 Hele prompten — satt sammen på nytt"));
-      box.appendChild(h("p",{style:`font-size:var(--font-xs);margin:2px 0 4px;color:${exact ? "#1a6b4a" : "#a06000"}`},
+        exact ? "Hele prompten — nøyaktig som modellen fikk den"
+              : "Hele prompten — satt sammen på nytt"));
+      box.appendChild(h("p",{style:`font-size:12.5px;margin:2px 0 4px;color:${exact ? "var(--green)" : "var(--status-doing)"}`},
         exact
           ? "Grunnmal + lærerinstruks, satt sammen slik serveren gjorde det. Sjekksummene stemmer, så dette er ordrett."
           : "⚠️ Noe har endret seg siden kallet, så dette er dagens deler satt sammen — ikke et referat av selve kallet."));
       box.appendChild(h("pre",{style:PRE}, c.system_composed));
-      box.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:-6px 0 12px"},
+      box.appendChild(h("p",{class:"card__note",style:"margin:-6px 0 var(--s-2)"},
         "Elevens egen tekst kommer i tillegg til dette, som en egen melding. Den lagres aldri."));
     }
 
@@ -10949,17 +10951,17 @@ function renderAiCalls(container, data, templates){
       // is `must-revalidate`, so a reload fixes it, but an already-open tab keeps
       // running the old build indefinitely. Saying only "this is pre-020" leaves
       // the operator to work that out at exactly the wrong moment.
-      const warn = h("p",{style:"color:#a06000;font-size:var(--font-xs);margin:2px 0 12px"},
+      const warn = h("p",{style:"color:var(--status-doing);font-size:12.5px;margin:2px 0 var(--s-2)"},
         "Dette kallet sendte prompten ferdig sammensatt, slik appen gjorde før 020. "
         + "Grunnmalen kan derfor ikke skilles ut, og er ikke lagret.");
       warn.appendChild(h("br"));
-      warn.appendChild(h("span",{style:"color:#666"},
+      warn.appendChild(h("span",{style:"color:var(--ink-3)"},
         "Er kallet nyere enn frontend-deployen? Da kjørte fanen fortsatt den gamle "
         + "bygningen. Last siden på nytt (Cmd/Ctrl+Shift+R) og prøv igjen — nye kall "
         + "lagrer malen."));
       box.appendChild(warn);
     }else{
-      box.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:2px 0 12px"},"Malen er ikke funnet."));
+      box.appendChild(h("p",{class:"card__note",style:"margin:2px 0 var(--s-2)"},"Malen er ikke funnet."));
     }
 
     // The steering block is not stored, but it is *resolvable* — the record
@@ -10973,11 +10975,11 @@ function renderAiCalls(container, data, templates){
           ? "Prompt — lærerinstruks (nøyaktig som sendt)"
           : "Prompt — lærerinstruks"));
       if(c.steering_text && c.steering_drifted === false){
-        box.appendChild(h("p",{style:"color:#1a6b4a;font-size:var(--font-xs);margin:2px 0 4px"},
+        box.appendChild(h("p",{style:"color:var(--green);font-size:12.5px;margin:2px 0 4px"},
           "Sjekksummen stemmer, så dette er ordrett teksten som ble sendt."));
         box.appendChild(h("pre",{style:PRE}, c.steering_text));
       }else if(c.steering_text){
-        box.appendChild(h("p",{style:"color:#a06000;font-size:var(--font-xs);margin:2px 0 4px"},
+        box.appendChild(h("p",{style:"color:var(--status-doing);font-size:12.5px;margin:2px 0 4px"},
           "⚠️ Instruksen er endret etter kallet. Teksten under er den som gjelder "
           + "nå — ikke den som ble sendt. Originalen er ikke lagret."));
         box.appendChild(h("pre",{style:PRE}, c.steering_text));
@@ -10985,19 +10987,19 @@ function renderAiCalls(container, data, templates){
         // Not "deleted" — this call type (a teacher's prompt-test) records the
         // teacher as the caller, not the student whose steering was actually
         // resolved and applied, so it genuinely cannot be looked back up here.
-        box.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:2px 0 12px"},
+        box.appendChild(h("p",{class:"card__note",style:"margin:2px 0 var(--s-2)"},
           "Instruksen ble brukt (dette var en lærers forhåndsvisning for en elev), "
           + "men kan ikke vises her — denne kalltypen lagrer ikke hvilken elev "
           + "det gjaldt."));
       }else{
-        box.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:2px 0 12px"},
+        box.appendChild(h("p",{class:"card__note",style:"margin:2px 0 var(--s-2)"},
           "Instruksen som gjaldt er slettet, så teksten kan ikke hentes fram."));
       }
     }
 
     // What genuinely cannot be shown, and why.
     box.appendChild(h("div",{style:LABEL},"Elevens egen tekst"));
-    box.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:2px 0 12px"},
+    box.appendChild(h("p",{class:"card__note",style:"margin:2px 0 var(--s-2)"},
       "Lagres aldri — bare en sjekksum, slik at det er mulig å se om teksten er "
       + "endret etterpå. Det er derfor prompten ikke kan gjenskapes ord for ord i "
       + "sin helhet, og det er med vilje."));
@@ -11020,24 +11022,24 @@ function renderPromptTemplates(container, data){
     children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
     return el;
   };
-  const PRE = "white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;"
-    + "background:#fbfbfa;border:1px solid #e8e8e4;border-radius:var(--radius-sm);padding:10px;margin:4px 0 0;max-height:340px;overflow:auto";
+  const PRE = "white-space:pre-wrap;word-break:break-word;font:12px/1.5 var(--mono);"
+    + "background:var(--surface-sunk);border:1px solid var(--line);border-radius:var(--r-btn);padding:10px;margin:4px 0 0;max-height:340px;overflow:auto";
 
   const rows = data.templates || [];
-  container.appendChild(h("h2",{style:"font-size:var(--font-base);margin:32px 0 6px"},"📝 Promptmaler"));
-  container.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-xs);margin:0 0 12px"},
+  container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-5) 0 var(--s-1)"},"Promptmaler"));
+  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
     "Én rad per distinkt promptekst. To rader med samme navn og versjon, men "
     + "ulik sjekksum, betyr at teksten er endret uten at versjonen ble satt opp — "
     + "det er nettopp det denne tabellen skal avsløre."));
 
   if(!rows.length){
-    container.appendChild(h("p",{style:"color:var(--color-text-muted);font-size:var(--font-sm)"},"Ingen maler registrert ennå."));
+    container.appendChild(h("p",{class:"card__note"},"Ingen maler registrert ennå."));
     return;
   }
 
   rows.forEach(t => {
-    const box = h("details",{style:"border:1px solid #e8e8e4;border-radius:var(--radius-md);padding:8px 12px;margin-bottom:8px"});
-    box.appendChild(h("summary",{style:"cursor:pointer;font-size:var(--font-sm)"},
+    const box = h("details",{class:"card",style:"margin-bottom:var(--s-2)"});
+    box.appendChild(h("summary",{style:"cursor:pointer;font-size:var(--t-sm)"},
       `${t.declared_id} v${t.declared_version} · ${t.call_count} kall · ${t.content_hash.slice(0,12)}…`
       + (t.verified ? "" : " · ⚠️ uverifisert")));
     box.appendChild(h("pre",{style:PRE}, t.body || "(tom — eldre prompt sendt ferdig sammensatt)"));
