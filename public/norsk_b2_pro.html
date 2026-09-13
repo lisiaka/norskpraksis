@@ -10822,14 +10822,9 @@ function renderUserDrilldownBody(body, calls, adoptionEvents, wordLookups){
       "⚠️ Krever en backend-endring (user_id-filter på /api/admin/adoption — se specs/029-admin-view-refactor) — ikke tilgjengelig ennå."));
   }
 
-  // Word lookups — the response shape is identical whether or not the
-  // backend actually scopes it (contracts/admin-word-lookups.md), so this
-  // cannot self-detect the way adoption events can. Show an explicit
-  // caveat rather than silently presenting every user's terms as this
-  // user's own.
+  // Word lookups — GET /api/admin/word-lookups now accepts user_id and
+  // scopes the aggregation server-side (feature 029, US3).
   body.appendChild(el("div",{class:"card__title",style:{margin:"var(--s-5) 0 var(--s-1)"}},"Ord slått opp"));
-  body.appendChild(el("p",{class:"card__note"},
-    "⚠️ Krever en backend-endring (user_id-filter på /api/admin/word-lookups — se specs/029-admin-view-refactor). Tabellen under er ikke filtrert på denne brukeren før den endringen er på plass."));
   if(wordLookups) renderWordLookups(body, wordLookups);
   else body.appendChild(el("p",{class:"card__note"},"Ingen data tilgjengelig."));
 }
