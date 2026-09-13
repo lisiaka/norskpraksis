@@ -10799,9 +10799,14 @@ function renderUserDrilldownBody(body, calls, adoptionEvents, wordLookups){
 
   // AI calls — fully supported today (GET /api/admin/calls already accepted
   // an unused user_id filter; this drill-down is simply its first caller).
-  body.appendChild(el("div",{class:"card__title",style:{margin:"0 0 var(--s-1)"}},"AI-kall"));
-  if(calls && (calls.recent||[]).length) renderAiCalls(body, calls, null);
-  else body.appendChild(el("p",{class:"card__note"},"Ingen registrerte AI-kall for denne brukeren."));
+  // renderAiCalls() renders its own "AI-kall" title, so only the empty-state
+  // fallback below needs to add one.
+  if(calls && (calls.recent||[]).length){
+    renderAiCalls(body, calls, null);
+  } else {
+    body.appendChild(el("div",{class:"card__title",style:{margin:"0 0 var(--s-1)"}},"AI-kall"));
+    body.appendChild(el("p",{class:"card__note"},"Ingen registrerte AI-kall for denne brukeren."));
+  }
 
   // Adoption events — needs the backend's user_id-scoped raw-event mode
   // (contracts/admin-adoption.md). Detected by shape: a scoped response has
@@ -10823,10 +10828,15 @@ function renderUserDrilldownBody(body, calls, adoptionEvents, wordLookups){
   }
 
   // Word lookups — GET /api/admin/word-lookups now accepts user_id and
-  // scopes the aggregation server-side (feature 029, US3).
-  body.appendChild(el("div",{class:"card__title",style:{margin:"var(--s-5) 0 var(--s-1)"}},"Ord slått opp"));
-  if(wordLookups) renderWordLookups(body, wordLookups);
-  else body.appendChild(el("p",{class:"card__note"},"Ingen data tilgjengelig."));
+  // scopes the aggregation server-side (feature 029, US3). renderWordLookups()
+  // renders its own "Ord slått opp" title, so only the no-data fallback below
+  // needs to add one.
+  if(wordLookups){
+    renderWordLookups(body, wordLookups);
+  } else {
+    body.appendChild(el("div",{class:"card__title",style:{margin:"var(--s-5) 0 var(--s-1)"}},"Ord slått opp"));
+    body.appendChild(el("p",{class:"card__note"},"Ingen data tilgjengelig."));
+  }
 }
 
 // ── Feature adoption (019) ────────────────────────────────────────────────
