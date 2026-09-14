@@ -3519,11 +3519,18 @@ async function checkWithClaude(word, sentence, container, wordId){
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
     renderClaudeResult(result, container);
-    // Feature 031: stash so saveSentences() can persist it alongside the
-    // sentence text it describes — cleared the moment the text changes
-    // again (see onSentenceInput), so a save can never pair it with a
-    // different sentence than the one that produced it.
-    if(wordId) state.sentenceFeedback[wordId]=jsonText;
+    // Feature 031: persisted the moment feedback arrives — no separate
+    // "Lagre" click required, matching how checkEssayWithClaude() already
+    // auto-PATCHes essay feedback back on receipt. Without this, a student
+    // who checks a sentence and navigates away without an explicit save
+    // loses the feedback entirely, even though the check itself succeeded.
+    // Cleared the moment the text changes again (see onSentenceInput), so a
+    // save can never pair it with a different sentence than the one that
+    // produced it.
+    if(wordId){
+      state.sentenceFeedback[wordId]=jsonText;
+      saveSentences();
+    }
 
   }catch(err){
     container.innerHTML="";
