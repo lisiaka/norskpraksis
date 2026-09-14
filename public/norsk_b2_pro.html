@@ -7567,9 +7567,11 @@ const teacherState = {
   aggClassFilter: "",    // class id, or "" for all classes
   aggSourceFilter: "",   // "" | "none" | "<source_text_id>|<source_text_kind>"
 
-  reportConfigs: {essay:null, reading_summary:null}, // cached GET .../report-config per surface (021)
-  reportConfigSurface: "essay", // which surface tab is open in the AI-fokus screen
-  promptTestResults: [], // session-scoped list of {source, reply} from "Test mot essay" (021, US2)
+  // cached GET .../report-config per surface (021). `essay` never gets
+  // populated any more — feature 030 follow-up retired it from this system —
+  // the key is kept only so a stale reference to it reads as "empty", not "undefined".
+  reportConfigs: {essay:null, reading_summary:null},
+  promptTestResults: [], // session-scoped list of {source, reply} from "Test mot essay" (021, US2) — dead, buildPromptTestPanel() is unreachable now
   // ── AI-fokus hub (021 teacher/class scope) ──────────────────────────────
   // Draft instructions/blocks are NOT cached here — buildLaererAiFokusHub()
   // reloads them fresh from the server every time it's built, so the editor
@@ -8092,30 +8094,30 @@ const REPORT_BLOCK_LABELS = {
 function buildReportLayoutCard(student){
   const card = el("div",{class:"card",style:{marginTop:"var(--s-4)"}});
   card.appendChild(el("div",{class:"card__title"},"Rapportlayout"));
+
+  // Feature 030 follow-up (2026-09-14): essay retired from this system — it
+  // always uses the fixed 4-criteria structure now (Innhold og formidling,
+  // Tekstoppbygging, Ord og uttrykk, Grammatikk), for every student, and can
+  // no longer be tailored here. The backend refuses surface=essay on every
+  // one of these endpoints now (routers/teacher.py's
+  // _reject_essay_report_config), so there is nothing left to offer a
+  // teacher a tab for — only reading-summary is still block-configurable.
+  // The previous two-tab toggle (Stil / Gjenfortelling) is gone; this card
+  // is reading-summary-only now.
+  card.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-2)"}},
+    "Stil-tilbakemelding følger nå faste kriterier (Innhold og formidling, Tekstoppbygging, Ord og uttrykk, Grammatikk) og kan ikke lenger tilpasses her."));
   card.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}},
-    "Velg hvilke seksjoner denne eleven får i tilbakemeldingen, og i hvilken rekkefølge. Uten endringer her ser eleven akkurat det samme som før."));
+    "Velg hvilke seksjoner denne eleven får i tilbakemeldingen på gjenfortelling, og i hvilken rekkefølge. Uten endringer her ser eleven akkurat det samme som før."));
 
-  // Two mutually exclusive surfaces — a toggle, styled like any other filter
-  // pill pair rather than two competing primary/secondary buttons.
-  const tabRow = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-3)"}});
-  card.appendChild(tabRow);
-
+  const surface = "reading_summary";
   const bodyHost = el("div",{});
   card.appendChild(bodyHost);
 
   const err = el("p",{class:"card__note",style:{color:"var(--danger)",marginTop:"var(--s-2)",display:"none"}});
 
-  [["essay","Stil"],["reading_summary","Gjenfortelling"]].forEach(([surface,label])=>{
-    const active = teacherState.reportConfigSurface===surface;
-    tabRow.appendChild(el("button",{
-      class:"pill", "aria-pressed": active?"true":"false",
-      click: ()=>{ teacherState.reportConfigSurface=surface; renderBody(); }
-    }, label));
-  });
-
   // The draft being edited — starts from whatever is loaded (saved config or
   // default), and is only sent to the server on "Lagre". Nothing here writes
-  // until then, so switching tabs or reloading discards an unsaved change.
+  // until then, so reloading discards an unsaved change.
   let draft = null;
 
   async function loadConfig(surface){
@@ -8144,7 +8146,6 @@ function buildReportLayoutCard(student){
   function renderBody(){
     bodyHost.innerHTML="";
     err.style.display="none";
-    const surface = teacherState.reportConfigSurface;
     bodyHost.appendChild(el("p",{class:"card__note"},"Laster…"));
 
     loadConfig(surface).then(cfg=>{
@@ -8230,13 +8231,13 @@ function buildReportLayoutCard(student){
         },"Tilbakestill til standard"));
       }
       bodyHost.appendChild(btnRow);
-
-      // Prompt testing only covers essay today — the backend has no way to
-      // resolve a reading text server-side to test against (see
-      // PromptTestRequest.surface's docstring in the backend).
-      if(surface==="essay"){
-        bodyHost.appendChild(buildPromptTestPanel(student, ()=>draft));
-      }
+      // No prompt-test panel any more — it only ever covered essay
+      // (reading-summary was never supported; see
+      // PromptTestRequest.surface's docstring in the backend), and essay
+      // has no draft block config left to preview. buildPromptTestPanel()
+      // is unreachable now, left defined rather than deleted — same call
+      // the backend made keeping the endpoint in place, permanently
+      // refusing, instead of removing it outright.
     });
   }
 
