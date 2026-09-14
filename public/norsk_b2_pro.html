@@ -4059,20 +4059,64 @@ async function checkEssayWithClaude(essay, container){
       const currentText=(ta?ta.value:state.essay).trim();
       const bank=loadEssayBank();
       const idx=bank.findIndex(e=>e.text.trim()===currentText);
+      const feedbackJson=JSON.stringify(result);
       if(idx>=0){
         bank[idx].claudeLevel=result.level;
-        bank[idx].claudeFeedback=JSON.stringify(result);
+        bank[idx].claudeFeedback=feedbackJson;
         saveEssayBank(bank);
         refreshEssayBank();
-        // Persist feedback to backend if the essay has a server id
+        // Persist feedback to backend if the essay has a server id — a
+        // not-yet-synced local entry's id is "essay_"+timestamp (the scheme
+        // saveCurrentEssay() actually uses), never "local-"; the old check
+        // here tested for a prefix nothing in this codebase ever produces,
+        // so it always attempted the PATCH and silently 404'd whenever the
+        // essay hadn't synced yet (swallowed by .catch(()=>{})).
         const serverId=bank[idx].id;
-        if(serverId && !serverId.startsWith("local-")){
+        if(serverId && !serverId.startsWith("essay_")){
           api(`/api/essays/${encodeURIComponent(serverId)}`,{
             method:"PATCH",
             headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({claude_feedback:JSON.stringify(result)}),
+            body:JSON.stringify({claude_feedback:feedbackJson}),
           }).catch(()=>{});
         }
+      }else{
+        // Feature 030 fix: the essay was never saved at all, so there is no
+        // bank entry to attach feedback to — without this, a student who
+        // checks an essay before pressing "Lagre stil" loses the feedback
+        // entirely, and an explicit save afterward doesn't recover it either
+        // (saveCurrentEssay() builds a fresh entry that never carries
+        // claudeFeedback over). Create the bank entry AND the server row in
+        // one step, feedback included from the start, using the same entry
+        // shape saveCurrentEssay() uses — so an explicit save later still
+        // works the same as it always has.
+        const entry={
+          id:"essay_"+Date.now(),
+          title: state.currentPrompt?.title||"Uten tittel",
+          topic: state.currentTopic||"",
+          topicName: state.currentTopic?(TOPICS[state.currentTopic]?.name||state.currentTopic):"",
+          promptId: state.currentPrompt?.id||"",
+          promptText: state.currentPrompt?.text||"",
+          text: currentText,
+          wordCount: wcCount(currentText),
+          savedAt: new Date().toISOString(),
+          claudeLevel: result.level,
+          claudeFeedback: feedbackJson,
+        };
+        bank.unshift(entry);
+        saveEssayBank(bank);
+        refreshEssayBank();
+        api("/api/essays",{method:"POST",body:JSON.stringify({
+          title:entry.title, text:entry.text, topic:entry.topic||"annet",
+          prompt_id:entry.promptId||null, claude_level:entry.claudeLevel,
+          claude_feedback:entry.claudeFeedback,
+        })}).then(async r=>{
+          if(r.ok){
+            const sv=await r.json();
+            const b=loadEssayBank();
+            const i=b.findIndex(e=>e.id===entry.id);
+            if(i>=0){ b[i].id=sv.id; saveEssayBank(b); }
+          }
+        }).catch(()=>{});
       }
     }
   }catch(err){
