@@ -594,13 +594,16 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   // shareSelected — a new send starts from no tags picked, not the last send's.
   shareTagSelection:new Set(), shareNewTagInput:"",
   tagFilter:"", // Setninger tag-chip filter, mirrors topicFilter's shape
-  wordIdx:0, sentences:{}, sentTopicFilter:"", openWordId:null,
+  wordIdx:0, sentences:{}, sentenceFeedback:{}, sentTopicFilter:"", openWordId:null,
   subscription: null, // loaded after login: { status, provider, renewalDate, ... } | null
   freeAccess: { openedTexts: [], topicsUsed: [] }, // free tier tracking (localStorage per user)
   loadedEssayReview: null, // teacher review for the currently loaded essay
   userRole: "student", // "student" | "teacher" — set from JWT after login
   // aiSteeringContext removed in 020 — the backend composes the steering block now.
 }; // sentences: {wordId: "written sentence"}
+// sentenceFeedback (feature 031): {wordId: "raw JSON string from checkWithClaude()"} —
+// cleared for a word the moment its sentence text changes (see the sentence-textarea
+// change handler), so it never describes a version of the text other than the current one.
 
 // Flashcard game state (separate from main state so it survives tab switches)
 // `includeLearnt` is off by default: practice excludes learnt words unless the learner
@@ -1115,9 +1118,18 @@ function saveStorage(){
 
 function saveSentences(){
   try{ if(state.userId) localStorage.setItem(skSents(state.userId), JSON.stringify(state.sentences)); }catch{}
+  // Feature 031: send each word's current feedback (if any) alongside its
+  // text, so the backend can never persist a text/feedback pairing that
+  // wasn't true at save time. state.sentenceFeedback is cleared for a word
+  // the moment its text is edited (see the sentence-textarea change
+  // handler), so an edited-but-not-rechecked sentence sends null here.
+  const payload={};
+  for(const wordId in state.sentences){
+    payload[wordId]={text:state.sentences[wordId], claude_feedback:state.sentenceFeedback[wordId]||null};
+  }
   api("/api/sentences", {
     method:"POST",
-    body:JSON.stringify(state.sentences),
+    body:JSON.stringify(payload),
   }).catch(()=>{});
 }
 
@@ -3420,6 +3432,7 @@ function buildSetninger(){
     actions.appendChild(el("button",{class:"btn",
       click(){
         const t=$("sent-ta"); if(t){t.value="";state.sentences[word.id]="";}
+        delete state.sentenceFeedback[word.id];
         saveSentences(); updateSentencePanel();
       }
     },"Slett setning"));
@@ -3506,6 +3519,11 @@ async function checkWithClaude(word, sentence, container, wordId){
     const jsonText=rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
     const result=JSON.parse(jsonText);
     renderClaudeResult(result, container);
+    // Feature 031: stash so saveSentences() can persist it alongside the
+    // sentence text it describes — cleared the moment the text changes
+    // again (see onSentenceInput), so a save can never pair it with a
+    // different sentence than the one that produced it.
+    if(wordId) state.sentenceFeedback[wordId]=jsonText;
 
   }catch(err){
     container.innerHTML="";
@@ -3668,6 +3686,10 @@ function exportSentencesByTopic(){
 function onSentenceInput(e){
   const word=getSentWords()[state.wordIdx]; if(!word)return;
   state.sentences[word.id]=e.target.value;
+  // Feature 031, FR-004: any stored feedback described the PREVIOUS text —
+  // clear it the moment the text changes, so a save right after an edit
+  // (with no re-check) never sends stale feedback alongside new text.
+  delete state.sentenceFeedback[word.id];
   const fb=$("sent-feedback"); if(fb)fillSentenceFeedback(fb,e.target.value,word);
   const grammarDiv=$("grammar-result");
   if(grammarDiv)grammarDiv.style.display="none";
@@ -4070,6 +4092,22 @@ const REPORT_BLOCK_META={
   improvements:{icon:"💡",label:"Forbedring",color:"var(--color-warning)",bg:"#fffdf0"},
 };
 
+// Shared by renderReportBlock() (feature 021) and renderEssayCriteria()
+// (feature 030) — one error-item / bullet-item renderer each, so the two
+// callers show identical item markup instead of drifting copies of it.
+function renderErrorItems(items, container){
+  (items||[]).forEach(e=>{
+    const card=el("div",{class:"claude-error-card"});
+    if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
+    if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
+    if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
+    container.appendChild(card);
+  });
+}
+function renderBulletItems(items, container, bullet){
+  (items||[]).forEach(s=>container.appendChild(el("div",{style:{fontSize:"var(--font-xs)",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},bullet+s)));
+}
+
 function renderReportBlock(block, body){
   const meta=REPORT_BLOCK_META[block.type];
   if(block.type==="errors"||block.type==="rules"){
@@ -4078,15 +4116,9 @@ function renderReportBlock(block, body){
     const sec=el("div",{});
     sec.appendChild(el("div",{style:{fontSize:"var(--font-xs)",fontWeight:"700",color:meta.color,textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},`${meta.icon} ${meta.label}`));
     if(block.type==="errors"){
-      items.forEach(e=>{
-        const card=el("div",{class:"claude-error-card"});
-        if(e.text)  card.appendChild(el("div",{class:"claude-error-text"},`"${e.text}"`));
-        if(e.issue) card.appendChild(el("div",{class:"claude-error-issue"},e.issue));
-        if(e.fix)   card.appendChild(el("div",{class:"claude-error-fix"},`→ ${e.fix}`));
-        sec.appendChild(card);
-      });
+      renderErrorItems(items, sec);
     }else{
-      items.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"var(--font-xs)",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},"• "+s)));
+      renderBulletItems(items, sec, "• ");
     }
     body.appendChild(sec);
   }else if(block.type==="strengths"||block.type==="improvements"){
@@ -4095,7 +4127,7 @@ function renderReportBlock(block, body){
     const sec=el("div",{style:{background:meta.bg,borderRadius:"var(--radius-md)",padding:"10px 12px"}});
     sec.appendChild(el("div",{style:{fontSize:"var(--font-xs)",fontWeight:"700",color:meta.color,textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},`${meta.icon} ${meta.label}`));
     const bullet=block.type==="strengths"?"• ":"→ ";
-    items.forEach(s=>sec.appendChild(el("div",{style:{fontSize:"var(--font-xs)",color:"#333",marginBottom:"3px",lineHeight:"1.4"}},bullet+s)));
+    renderBulletItems(items, sec, bullet);
     body.appendChild(sec);
   }else if(block.type==="prose"){
     const p=block.items||{};
@@ -4112,6 +4144,53 @@ function renderReportBlock(block, body){
 
 function renderReportBlocks(blocks, body){
   (blocks||[]).forEach(b=>renderReportBlock(b, body));
+}
+
+// ── Essay criteria (feature 030) ────────────────────────────────────────
+// An UNCONFIGURED student's essay reply (no StudentReportConfig row) now
+// carries a `criteria` array instead of the old flat grammarErrors/
+// strengths/improvements keys — see backend/app/services/
+// report_block_defaults.py's DEFAULT_PROMPT_BODY["essay"]. A configured
+// student's reply is untouched (still `r.blocks`, above); an essay saved
+// before this feature shipped carries neither key and keeps rendering via
+// the flat-shape branch in renderEssayClaudeResult() below (FR-005, dual
+// shape forever — the same rule 021 already established for `blocks`).
+//
+// `key` here is the fixed, canonical identifier — must name exactly what
+// backend/app/services/report_block_defaults.py's essay prompt asks for,
+// in exactly this order (Constitution Principle III). `label` is this
+// table's own Norwegian text, rendered instead of the reply's own `label`
+// field, so a model that reworded or translated its echo of the label
+// never changes what the student sees.
+const ESSAY_CRITERIA=[
+  {key:"content",label:"Innhold og formidling"},
+  {key:"structure",label:"Tekstoppbygging"},
+  {key:"vocabulary",label:"Ord og uttrykk"},
+  {key:"grammar",label:"Grammatikk, rettskriving og tegnsetting"},
+];
+
+function renderEssayCriteria(criteria, body){
+  const byKey={};
+  (criteria||[]).forEach(c=>{ if(c&&c.key) byKey[c.key]=c; });
+  // Iterates ESSAY_CRITERIA, not the reply array — this is what actually
+  // guarantees the fixed order (FR-001), since nothing parses or reorders
+  // the model's JSON server-side.
+  ESSAY_CRITERIA.forEach(meta=>{
+    const c=byKey[meta.key];
+    // A key missing from the reply (malformed/incomplete — FR-008) is
+    // skipped, not fabricated. The rest of the feedback still renders.
+    if(!c) return;
+    const sec=el("div",{style:{background:"#f8f9fa",borderRadius:"var(--radius-md)",padding:"10px 12px"}});
+    sec.appendChild(el("div",{style:{fontSize:"var(--font-xs)",fontWeight:"700",color:"#444",textTransform:"uppercase",letterSpacing:".6px",marginBottom:"6px"}},meta.label));
+    // `note` is always requested from the model, even when a criterion has
+    // nothing to flag — this is what makes an all-clear criterion read as
+    // "considered and fine" rather than as a suspiciously empty box.
+    if(c.note) sec.appendChild(el("div",{style:{fontSize:"var(--font-sm)",color:"#333",lineHeight:"1.5",marginBottom:c.errors?.length||c.strengths?.length||c.improvements?.length?"8px":"0"}},c.note));
+    if(c.errors&&c.errors.length) renderErrorItems(c.errors, sec);
+    if(c.strengths&&c.strengths.length) renderBulletItems(c.strengths, sec, "✓ ");
+    if(c.improvements&&c.improvements.length) renderBulletItems(c.improvements, sec, "→ ");
+    body.appendChild(sec);
+  });
 }
 
 function renderEssayClaudeResult(r, container){
@@ -4139,7 +4218,14 @@ function renderEssayClaudeResult(r, container){
     // A teacher has configured this student's report (feature 021) — the
     // reply's shape is the ordered blocks array, not the flat keys below.
     renderReportBlocks(r.blocks, body);
+  }else if(Array.isArray(r.criteria)){
+    // An unconfigured student's new default reply (feature 030) — four
+    // named criteria instead of the flat keys below.
+    renderEssayCriteria(r.criteria, body);
   }else{
+    // Flat shape — essays saved before feature 030 shipped (FR-005: this
+    // branch is never reachable for a newly-generated unconfigured reply
+    // going forward, but must keep rendering old saved feedback forever).
     // Grammar errors
     if(r.grammarErrors&&r.grammarErrors.length){
       const errSec=el("div",{});
@@ -6972,7 +7058,7 @@ async function onLoginSuccess(token, user){
   statsCache = null;
   fc.started = false; fc.queue = []; fc.log = [];
   ws.started = false; ws.sentences = [];
-  state.words = []; state.sentences = {}; state.essay = "";
+  state.words = []; state.sentences = {}; state.sentenceFeedback = {}; state.essay = "";
   state.currentTopic = null; state.currentPrompt = null;
   state.loadedEssayReview = null;
   planState.weeks = []; planState.setup = null; planState.viewWeek = 0;
@@ -6983,9 +7069,12 @@ async function onLoginSuccess(token, user){
   loadSubscription(user.id).then(()=>{ if(isActiveSubscriber()) state.freeAccess={openedTexts:[],topicsUsed:[]}; });
 
   // Load all user data in parallel
-  const [wordsR, sentsR, summariesR] = await Promise.all([
+  const [wordsR, sentsR, sentFeedbackR, summariesR] = await Promise.all([
     api("/api/words").catch(()=>null),
     api("/api/sentences").catch(()=>null),
+    // Feature 031, separate endpoint on purpose — never widen GET /sentences
+    // itself, see backend/app/routers/sentences.py's docstring on it.
+    api("/api/sentences/feedback").catch(()=>null),
     api("/api/reading-summaries").catch(()=>null),
   ]);
   if(wordsR?.ok){
@@ -6999,6 +7088,10 @@ async function onLoginSuccess(token, user){
     if(s && typeof s==="object") state.sentences=s;
   } else {
     try{ state.sentences=JSON.parse(localStorage.getItem(skSents(user.id))||"{}"); }catch{}
+  }
+  if(sentFeedbackR?.ok){
+    const sf=await sentFeedbackR.json();
+    if(sf && typeof sf==="object") state.sentenceFeedback=sf;
   }
   if(summariesR?.ok){
     const sm=await summariesR.json();
@@ -9020,6 +9113,17 @@ function buildLaererSentences(){
       top.appendChild(el("span",{class:"card__note",style:{marginLeft:"auto"}},new Date(sent.created_at).toLocaleDateString("nb-NO")));
       card.appendChild(top);
       card.appendChild(el("div",{style:{fontSize:"var(--t-base)",lineHeight:"1.5"}},$esc(sent.text)));
+      // Feature 031: claude_feedback is null for a sentence never AI-checked,
+      // or checked before this feature shipped — an ordinary state, so no
+      // placeholder is shown when absent. When present, reuse the same
+      // renderer the student's own Setninger view uses (never raw JSON).
+      if(sent.claude_feedback){
+        const fbWrap=el("div",{style:{marginTop:"var(--s-2)"}});
+        try{
+          renderClaudeResult(JSON.parse(sent.claude_feedback), fbWrap);
+          card.appendChild(fbWrap);
+        }catch{}
+      }
       wrap.appendChild(card);
     });
   }

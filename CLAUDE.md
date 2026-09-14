@@ -926,6 +926,19 @@ app, not from code review):
 
 `renderEssayClaudeResult(result, container)` renders formatted essay feedback — used both on the student side (Skriv tab) and in the teacher essay detail view (`buildLaererEssayDetail`). Always use this function to display essay AI feedback; never dump raw JSON as text.
 
+**Three reply shapes, checked in this order (feature 030 added the second)**: `r.blocks` (a
+teacher has a saved per-student report config, feature 021 — `renderReportBlocks()`) →
+`r.criteria` (an unconfigured student's new default — four named sections matching the real
+teacher's grading rubric: Innhold og formidling / Tekstoppbygging / Ord og uttrykk /
+Grammatikk, rettskriving og tegnsetting — `renderEssayCriteria()`, iterating the frontend's
+own `ESSAY_CRITERIA` table by `key`, never the reply array's order) → flat `grammarErrors`/
+`strengths`/`improvements` (essays saved before feature 030 shipped; never generated for a
+new unconfigured request going forward, but must keep rendering forever — same dual-shape
+rule 021 already established for `blocks`). The backend's default essay prompt lives in
+`backend/app/services/report_block_defaults.py`'s `DEFAULT_PROMPT_BODY["essay"]`; its four
+`criteria[].key` values must match `ESSAY_CRITERIA` here exactly (Constitution Principle
+III — neither file is generated from the other).
+
 `renderGjenfortellResult(result, container)` renders formatted reading-summary AI feedback (level badge, comprehension, vocabulary, grammar errors, overall). Used in the student Lesing tab and in the teacher `buildLaererSummaries()` view. Always use this function; never dump raw JSON.
 
 Reading summaries are persisted via `PUT /api/reading-summaries/{textId}`. AI feedback is
