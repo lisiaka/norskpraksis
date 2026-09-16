@@ -758,6 +758,20 @@ const skPlan = id => `b2_plan_${id}`;
  */
 const SUBSCRIPTION_ENABLED = false;
 
+/**
+ * Master switch for the AI-access subscription (feature 032), mirroring
+ * SUBSCRIPTION_ENABLED above. Off until the company's Vipps merchant account
+ * actually exists (as of 2026-09-16, registration hasn't happened yet) —
+ * while false, Innstillinger shows no "AI-tilgang" card at all, so no
+ * student is offered a subscribe button that would just fail against
+ * unconfigured Vipps credentials. The backend's matching
+ * `ai_access_gating_enabled` (default off) is the one that actually decides
+ * whether anyone gets capped; this flag only controls whether the frontend
+ * *offers* a subscription. Flip both together — see config.py's docstring
+ * on the backend flag for why the order matters.
+ */
+const AI_ACCESS_ENABLED = false;
+
 const skFreeAccess = id => `b2_free_access_${id}`;
 
 function loadFreeAccess(userId){
@@ -7640,7 +7654,12 @@ function buildInnstillinger(){
   // subscriptions (reading-text paywall vs. AI-feedback cap), two independent
   // backends (Cloudflare KV vs. this FastAPI service). See
   // specs/032-teacher-approval-ai-gating/plan.md "Subscription purchase path".
-  if(state.userRole !== "teacher"){
+  //
+  // Gated on AI_ACCESS_ENABLED — no Vipps merchant account exists yet, so
+  // this card stays hidden rather than offering a subscribe button that
+  // would fail. See that constant's own comment for the flip-both-together
+  // ordering with the backend's matching flag.
+  if(AI_ACCESS_ENABLED && state.userRole !== "teacher"){
     const aiCard = el("div",{class:"card"});
     aiCard.appendChild(el("div",{class:"card__title"},"AI-tilgang"));
     if(isAiAccessSubscribed()){
