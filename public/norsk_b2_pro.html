@@ -11015,6 +11015,17 @@ function buildLaererBankPrompts(){
     });
   };
 
+  // 032: the approve/revoke actions are the first admin writes this page
+  // makes — same secret-as-query-param auth as get(), just POST.
+  const post = (path) => {
+    const qs = new URLSearchParams({secret});
+    return fetch(`${API_BASE}${path}?${qs.toString()}`, {method:"POST"}).then(r => {
+      if(r.status === 403) throw new Error("Feil hemmelig nøkkel.");
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    });
+  };
+
   // 029: real navigation replaces the old single continuous scroll —
   // adminState drives which section/sub-view/drill-down is visible, the
   // same pattern teacherState.view already uses for the teacher sidebar.
@@ -11041,6 +11052,9 @@ function buildLaererBankPrompts(){
     nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="ai-logger"?"true":"false",
       click(){ adminState.section="ai-logger"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
       "AI-logger"));
+    nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="teachers"?"true":"false",
+      click(){ adminState.section="teachers"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
+      "Lærere"));
 
     subNav.innerHTML = "";
     subNav.style.display = adminState.section === "ai-logger" ? "flex" : "none";
@@ -11080,6 +11094,11 @@ function buildLaererBankPrompts(){
       else content.appendChild(missingNote());
       return;
     }
+    if(adminState.section === "teachers"){
+      if(overviewData) renderAdminTeachers(content, overviewData.users, post, refreshOverview);
+      else content.appendChild(missingNote());
+      return;
+    }
     // ai-logger — one active sub-view at a time (FR-003/FR-004), each
     // existing render*() function reused completely unchanged (FR-013).
     if(adminState.aiLogView === "adoption") adoptionData ? renderAdoption(content, adoptionData) : content.appendChild(missingNote());
@@ -11087,6 +11106,17 @@ function buildLaererBankPrompts(){
     else if(adminState.aiLogView === "calls") callsData ? renderAiCalls(content, callsData, templatesData) : content.appendChild(missingNote());
     else if(adminState.aiLogView === "templates") templatesData ? renderPromptTemplates(content, templatesData) : content.appendChild(missingNote());
     else if(adminState.aiLogView === "word-lookups") wordLookupsData ? renderWordLookups(content, wordLookupsData) : content.appendChild(missingNote());
+  }
+
+  // 032: after an approve/revoke action. Re-fetches the whole overview
+  // (cheap — it's already what loads on open) rather than patching the one
+  // row locally, so the "Lærere" table can never drift from what the
+  // backend actually did.
+  function refreshOverview(){
+    return get("/api/admin/overview").then(overview => {
+      overviewData = overview;
+      renderContentArea();
+    });
   }
 
   // Adoption/failures/calls/templates/word-lookups are fetched beside the
@@ -11650,6 +11680,64 @@ function renderAdminDashboard(container, data, onOpenUser){
 // Native <table>, not the .table/.table__row grid component — same call as
 // buildLaererWords()'s table (see app/CLAUDE.md): a plain flat table needs no
 // restructuring to a CSS-grid, only its styling moved onto tokens.
+// ── Lærere (feature 032) ─────────────────────────────────────────────────
+// Approve/revoke teacher accounts from the admin page instead of curl.
+// Built from /api/admin/overview's existing per-user rows (role, is_approved)
+// rather than a separate listing endpoint — that data is already fetched for
+// the "Oversikt" tab, so this view costs nothing extra to load, only to act on.
+function renderAdminTeachers(container, users, post, onChanged){
+  const teachers = (users||[]).filter(u => u.role === "teacher")
+    .sort((a,b) => (a.is_approved === b.is_approved) ? 0 : (a.is_approved ? 1 : -1));
+  const pendingCount = teachers.filter(t => !t.is_approved).length;
+
+  container.appendChild(el("div",{class:"card__title",style:{margin:"0 0 var(--s-1)"}},"Lærere"));
+  container.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}},
+    pendingCount ? `${pendingCount} venter på godkjenning av ${teachers.length} lærere totalt.`
+                 : `Ingen venter på godkjenning (${teachers.length} lærere totalt).`));
+
+  if(!teachers.length){
+    container.appendChild(el("p",{class:"card__note"},"Ingen lærerkontoer ennå."));
+    return;
+  }
+
+  const errorMsg = el("p",{class:"card__note",style:{color:"var(--danger)",display:"none",marginBottom:"var(--s-2)"}});
+  container.appendChild(errorMsg);
+
+  function runAction(btn, path, confirmText){
+    if(confirmText && !confirm(confirmText)) return;
+    errorMsg.style.display = "none";
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "…";
+    post(path).then(() => onChanged()).catch(err => {
+      btn.disabled = false;
+      btn.textContent = original;
+      errorMsg.textContent = err.message || "Handlingen feilet.";
+      errorMsg.style.display = "";
+    });
+  }
+
+  const rows = teachers.map(t => {
+    const actionBtn = t.is_approved
+      ? el("button",{class:"btn btn--destructive",
+          click(e){ runAction(e.target, `/api/admin/teachers/${t.id}/revoke`,
+            `Trekke tilbake godkjenningen for ${t.name}? Læreren mister tilgang til Klassen min, bankene og AI-fokus umiddelbart, og lærerkoden slutter å virke.`); }},
+          "Trekk tilbake")
+      : el("button",{class:"btn btn--primary",
+          click(e){ runAction(e.target, `/api/admin/teachers/${t.id}/approve`); }},
+          "Godkjenn");
+    return [
+      t.name,
+      t.email,
+      new Date(t.created_at).toLocaleDateString("nb-NO"),
+      t.is_approved ? "Godkjent" : "Venter",
+      actionBtn,
+    ];
+  });
+
+  container.appendChild(buildAdminTable(el, ["Navn","E-post","Registrert","Status","Handling"], rows));
+}
+
 function buildAdminTable(h, headers, rows){
   const wrap = h("div",{class:"card",style:"overflow-x:auto;padding:0;margin-bottom:var(--s-4)"});
   const style = "border-collapse:collapse;width:100%;font-size:var(--t-sm)";
