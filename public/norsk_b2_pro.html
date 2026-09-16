@@ -4,6 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>B2 Norsk Trening</title>
+<link rel="icon" href="/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/png" href="/logo.png"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
 <!-- B2 Norsk design system (see specs/DESIGN-RULES.md in the monorepo root) -->
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -582,6 +585,15 @@ const TIPS = [
 
 // ── STATE ─────────────────────────────────────────────────────────────
 const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", learntFilter:"", ordTagFilter:"", currentTopic:null, currentPrompt:null, essay:"",
+  // Feature 032. Meaningful only when userRole==="teacher" — a not-yet-approved
+  // teacher sees a "venter på godkjenning" state instead of any teacher tab/
+  // sidebar item. Always false until GET /api/me confirms otherwise (see
+  // onLoginSuccess) — never assume approved while unknown.
+  isApproved:false,
+  // Feature 032. A student's AI-access subscription end date (ISO string) or
+  // null. Independent of `subscription` above, which is the reading-text
+  // paywall. See isAiAccessSubscribed().
+  aiSubscriptionValidUntil:null,
   // Feature 018. myClass is {class, classmates} — a null `class` means the student
   // is in no class, which is ordinary and must be explained rather than hidden.
   myClass:null, sharedInbox:null, shareOpen:false,
@@ -745,6 +757,20 @@ const skPlan = id => `b2_plan_${id}`;
  * Set back to true to re-enable Vipps/PayPal gating — no other code changes needed.
  */
 const SUBSCRIPTION_ENABLED = false;
+
+/**
+ * Master switch for the AI-access subscription (feature 032), mirroring
+ * SUBSCRIPTION_ENABLED above. Off until the company's Vipps merchant account
+ * actually exists (as of 2026-09-16, registration hasn't happened yet) —
+ * while false, Innstillinger shows no "AI-tilgang" card at all, so no
+ * student is offered a subscribe button that would just fail against
+ * unconfigured Vipps credentials. The backend's matching
+ * `ai_access_gating_enabled` (default off) is the one that actually decides
+ * whether anyone gets capped; this flag only controls whether the frontend
+ * *offers* a subscription. Flip both together — see config.py's docstring
+ * on the backend flag for why the order matters.
+ */
+const AI_ACCESS_ENABLED = false;
 
 const skFreeAccess = id => `b2_free_access_${id}`;
 
@@ -986,11 +1012,48 @@ async function requestAiFeedback(surface, userMsg, truncatedHint, meta){
   });
   if(!res.ok){
     const body=await res.json().catch(()=>({}));
+    // Feature 032. A capped, unsponsored/unsubscribed student — distinct from
+    // the five upstream AI failures aiFailureMessage() covers: nothing failed,
+    // the request was refused before Claude was ever called (FR-016/FR-017).
+    if(res.status===403 && body?.detail?.error==="ai_access_capped"){
+      const err=new Error("Du har brukt opp de gratis AI-tilbakemeldingene dine. Abonner på AI-tilgang for ubegrenset bruk.");
+      err.aiHandled=true;
+      err.aiAccessCapped=true;
+      throw err;
+    }
     const err=new Error(aiFailureMessage(res.status, body?.detail?.reason||"", truncatedHint));
     err.aiHandled=true;
     throw err;
   }
   return res.json();
+}
+
+// Feature 032. Whether the caller's AI-access subscription is currently
+// active — compares state.aiSubscriptionValidUntil against now, rather than
+// trusting a stale boolean the backend might have sent (it doesn't send one;
+// see UserProfile.ai_subscription_valid_until's own docstring for why).
+function isAiAccessSubscribed(){
+  return !!state.aiSubscriptionValidUntil && new Date(state.aiSubscriptionValidUntil) > new Date();
+}
+
+// Feature 032. Shared by the three AI feedback call sites' catch blocks — a
+// single "Abonner med Vipps" action, appended after the capped error message.
+// Not built into requestAiFeedback() itself: each call site renders its error
+// into a differently-styled container, and only the button needs sharing.
+function appendAiAccessUpsellButton(container){
+  const btn=el("button",{class:"btn btn--primary",style:{marginTop:"var(--s-2)"},click: async ()=>{
+    btn.disabled=true; btn.textContent="Kobler til Vipps…";
+    try{
+      const r=await api("/api/me/ai-subscription",{method:"POST"});
+      if(r.ok){
+        const d=await r.json();
+        window.location.href=d.redirect_url;
+        return;
+      }
+    }catch{}
+    btn.disabled=false; btn.textContent="Abonner med Vipps — 300 kr/mnd";
+  }},"Abonner med Vipps — 300 kr/mnd");
+  container.appendChild(btn);
 }
 
 // ── AI STEERING (teacher AI-fokus instructions + feedback ratings) ─────────
@@ -1575,6 +1638,16 @@ function renderTabs(){
 
   if(state.userRole==="teacher"){
     const wrap=el("div",{style:{padding:"14px 12px",display:"flex",flexDirection:"column",gap:"3px"}});
+    // Feature 032. A not-yet-approved teacher gets no teacher-only nav at all —
+    // just Innstillinger, where the pending state and (once approved) the join
+    // code live. Mirrors the backend's single-choke-point guard on
+    // require_teacher: nothing here assumes approved.
+    if(!state.isApproved){
+      wrap.appendChild(buildNavItem({iconName:"sliders",label:"Innstillinger",
+        active:state.tab==="innstillinger",click(){setTab("innstillinger");}}));
+      c.appendChild(wrap);
+      return;
+    }
     const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts"].includes(teacherState.view);
 
     wrap.appendChild(el("div",{class:"label-mono",style:{padding:"6px 10px 4px"}},"Lærer"));
@@ -3537,6 +3610,7 @@ async function checkWithClaude(word, sentence, container, wordId){
     container.appendChild(el("p",{class:"card__note",style:{color:"var(--danger)",padding:"10px 14px",borderLeft:"3px solid var(--danger)"}},
       err.aiHandled ? err.message : `Feil: ${err.message}. Prøv igjen om litt.`
     ));
+    if(err.aiAccessCapped) appendAiAccessUpsellButton(container);
     // Only the failures the backend cannot see. `aiHandled` means the request
     // itself failed, and the server already recorded that — reporting it again
     // here would double-count it.
@@ -4124,6 +4198,7 @@ async function checkEssayWithClaude(essay, container){
     container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid var(--color-danger)",borderRadius:"var(--radius-md)",padding:"10px 14px",fontSize:"var(--font-sm)",color:"#555"}},
       err.aiHandled ? `❌ ${err.message}` : `❌ Feil: ${err.message}. Prøv igjen.`
     ));
+    if(err.aiAccessCapped) appendAiAccessUpsellButton(container);
     if(!err.aiHandled) reportAiFailure(AI_SURFACE.ESSAY, aiFailureReasonFor(diag), diag);
     appendClaudeDiag(container, diag);
   }
@@ -4366,6 +4441,7 @@ async function checkGjenfortellWithClaude(text, summary, container){
     const msg=err instanceof Error?err.message:"Ukjent feil";
     container.appendChild(el("div",{style:{background:"#fff5f5",borderLeft:"3px solid var(--color-danger)",borderRadius:"var(--radius-md)",padding:"10px 14px",fontSize:"var(--font-sm)",color:"#555"}},
       err.aiHandled ? msg : `Klarte ikke å hente tilbakemelding. Prøv igjen. (${msg})`));
+    if(err.aiAccessCapped) appendAiAccessUpsellButton(container);
     if(!err.aiHandled) reportAiFailure(AI_SURFACE.READING_SUMMARY, aiFailureReasonFor(diag), diag);
     appendClaudeDiag(container, diag);
   }
@@ -7114,10 +7190,26 @@ async function onLoginSuccess(token, user){
   state.loadedEssayReview = null;
   planState.weeks = []; planState.setup = null; planState.viewWeek = 0;
   state.subscription = null;
+  state.isApproved = false;
 
   // Load subscription status + free access tracking
   loadFreeAccess(user.id);
   loadSubscription(user.id).then(()=>{ if(isActiveSubscriber()) state.freeAccess={openedTexts:[],topicsUsed:[]}; });
+
+  // Feature 032. The login/register response (UserInToken) doesn't carry
+  // is_approved or ai_subscription_valid_until — fetch the full profile once
+  // per login. is_approved matters only for a teacher; ai_subscription only
+  // for a student — fetched together since it's the same one request either
+  // way.
+  state.aiSubscriptionValidUntil = null;
+  try{
+    const meR = await api("/api/me");
+    if(meR.ok){
+      const me = await meR.json();
+      state.isApproved = !!me.is_approved;
+      state.aiSubscriptionValidUntil = me.ai_subscription_valid_until || null;
+    }
+  }catch{}
 
   // Load all user data in parallel
   const [wordsR, sentsR, sentFeedbackR, summariesR] = await Promise.all([
@@ -7180,8 +7272,9 @@ async function onLoginSuccess(token, user){
     setTab("innstillinger");
   }
 
-  // Show app — teachers land on the Lærer dashboard
-  if(state.userRole==="teacher") state.tab="laerer";
+  // Show app — an approved teacher lands on the Lærer dashboard; a pending one
+  // lands on Innstillinger, where the "venter på godkjenning" state lives.
+  if(state.userRole==="teacher") state.tab = state.isApproved ? "laerer" : "innstillinger";
   $("login-screen").style.display="none";
   $("app").style.display="";
   renderHeader(); renderTabs(); renderContent();
@@ -7477,49 +7570,124 @@ function buildInnstillinger(){
   userCard.appendChild(el("button",{class:"btn",style:{width:"100%"},click:switchUser},"Logg ut"));
   frag.appendChild(userCard);
 
-  // ── Din lærer (students only) ──
+  // ── Din lærer (students) / Lærerkode (teachers) — feature 032 ──
+  //
+  // Replaces the old open "pick any teacher from a list" dropdown. A student
+  // now needs the teacher's own code; a teacher sees and manages that code
+  // here instead. See specs/032-teacher-approval-ai-gating/plan.md.
   if(state.userRole !== "teacher"){
     const teacherCard = el("div",{class:"card"});
     teacherCard.appendChild(el("div",{class:"card__title"},"Din lærer"));
-    const teacherMsg = el("p",{class:"card__note",style:{margin:"var(--s-2) 0 var(--s-3)"}},"Laster lærere…");
-    const teacherSel = el("select",{class:"select",style:{marginBottom:"var(--s-3)",display:"none"}});
-    const teacherSaveBtn = el("button",{class:"btn btn--primary",style:{width:"100%",display:"none"},
+    teacherCard.appendChild(el("p",{class:"card__sub",style:{marginBottom:"var(--s-3)"}},
+      "Skriv inn koden læreren din har gitt deg for å bli tilknyttet klassen."));
+    const teacherMsg = el("p",{class:"card__note",style:{margin:"0 0 var(--s-3)",display:"none"}});
+    const codeInput = el("input",{class:"input",placeholder:"XXXX-XXXX",style:{marginBottom:"var(--s-3)",textTransform:"uppercase"}});
+    const teacherSaveBtn = el("button",{class:"btn btn--primary",style:{width:"100%"},
       click: async ()=>{
-        const val = teacherSel.value;
-        if(!val){ return; }
-        teacherSaveBtn.disabled=true; teacherSaveBtn.textContent="Lagrer…";
-        const r = await api("/api/me/teacher",{method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({teacher_id:val})});
-        if(r.ok){
-          teacherMsg.textContent="Du er nå tilknyttet læreren. Læreren kan nå se fremgangen din.";
-          teacherMsg.style.color="var(--green)";
-        } else {
-          const d = await r.json().catch(()=>({detail:"Feil"}));
-          teacherMsg.textContent = d.detail||"Kunne ikke lagre.";
-          teacherMsg.style.color="var(--danger)";
+        const val = codeInput.value.trim();
+        if(!val) return;
+        teacherSaveBtn.disabled=true; teacherSaveBtn.textContent="Kobler til…";
+        try{
+          const r = await api("/api/me/teacher",{method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({code:val})});
+          teacherMsg.style.display="";
+          if(r.ok){
+            teacherMsg.textContent="Du er nå tilknyttet læreren. Læreren kan nå se fremgangen din.";
+            teacherMsg.style.color="var(--green)";
+            codeInput.value="";
+          } else {
+            const d = await r.json().catch(()=>({detail:"Ugyldig eller utløpt lærerkode"}));
+            teacherMsg.textContent = typeof d.detail==="string" ? d.detail : "For mange forsøk. Prøv igjen senere.";
+            teacherMsg.style.color="var(--danger)";
+          }
+        } catch{
+          teacherMsg.style.display=""; teacherMsg.textContent="Feil ved tilkobling."; teacherMsg.style.color="var(--danger)";
         }
-        teacherSaveBtn.disabled=false; teacherSaveBtn.textContent="Lagre valg";
+        teacherSaveBtn.disabled=false; teacherSaveBtn.textContent="Koble til";
       }
-    },"Lagre valg");
-    teacherCard.appendChild(teacherMsg);
-    teacherCard.appendChild(teacherSel);
+    },"Koble til");
+    teacherCard.appendChild(codeInput);
     teacherCard.appendChild(teacherSaveBtn);
-    // Load teachers async
-    api("/api/me/teachers").then(r=>r.ok?r.json():null).then(teachers=>{
-      if(!teachers||teachers.length===0){
-        teacherMsg.textContent="Ingen lærere er registrert ennå.";
-        return;
-      }
-      teacherSel.innerHTML="";
-      teacherSel.appendChild(el("option",{value:""},"— Velg din lærer —"));
-      teachers.forEach(t=>{
-        teacherSel.appendChild(el("option",{value:t.id},`${t.name} (${t.email})`));
-      });
-      teacherMsg.textContent="Velg læreren din fra listen:";
-      teacherSel.style.display=""; teacherSaveBtn.style.display="";
-    }).catch(()=>{ teacherMsg.textContent="Kunne ikke laste lærere."; });
+    teacherCard.appendChild(teacherMsg);
     frag.appendChild(teacherCard);
+  } else if(!state.isApproved){
+    const pendingCard = el("div",{class:"card"});
+    pendingCard.appendChild(el("div",{class:"card__title"},"Venter på godkjenning"));
+    pendingCard.appendChild(el("p",{class:"card__sub"},
+      "Lærerkontoen din venter på at driftsansvarlig godkjenner den. Du får en lærerkode å dele med elevene dine så snart kontoen er godkjent."));
+    frag.appendChild(pendingCard);
+  } else {
+    const codeCard = el("div",{class:"card"});
+    codeCard.appendChild(el("div",{class:"card__title"},"Din lærerkode"));
+    codeCard.appendChild(el("p",{class:"card__sub",style:{marginBottom:"var(--s-3)"}},
+      "Del denne koden med elevene dine — de skriver den inn under Innstillinger for å bli tilknyttet deg."));
+    const codeMsg = el("p",{class:"card__note",style:{margin:"0 0 var(--s-3)"}},"Laster kode…");
+    const codeDisplay = el("div",{class:"label-mono",style:{fontSize:"22px",letterSpacing:"2px",margin:"0 0 var(--s-3)",display:"none"}});
+    const btnRow = el("div",{style:{display:"flex",gap:"var(--s-2)"}});
+    const copyBtn = el("button",{class:"btn",style:{display:"none"},click:async ()=>{
+      try{ await navigator.clipboard.writeText(codeDisplay.textContent); copyBtn.textContent="Kopiert!"; setTimeout(()=>copyBtn.textContent="Kopier",1500); }catch{}
+    }},"Kopier");
+    const regenBtn = el("button",{class:"btn btn--danger",style:{display:"none"},click: async ()=>{
+      if(!confirm("Ny kode gjør at den gamle koden slutter å virke med én gang. Fortsette?")) return;
+      regenBtn.disabled=true;
+      const r = await api("/api/me/teacher-code/regenerate",{method:"POST"});
+      if(r.ok){ const d = await r.json(); codeDisplay.textContent=d.code; }
+      regenBtn.disabled=false;
+    }},"Ny kode");
+    btnRow.appendChild(copyBtn); btnRow.appendChild(regenBtn);
+    codeCard.appendChild(codeMsg);
+    codeCard.appendChild(codeDisplay);
+    codeCard.appendChild(btnRow);
+    api("/api/me/teacher-code").then(r=>r.ok?r.json():null).then(d=>{
+      if(!d){ codeMsg.textContent="Kunne ikke laste koden."; return; }
+      codeDisplay.textContent=d.code;
+      codeDisplay.style.display=""; copyBtn.style.display=""; regenBtn.style.display="";
+      codeMsg.style.display="none";
+    }).catch(()=>{ codeMsg.textContent="Kunne ikke laste koden."; });
+    frag.appendChild(codeCard);
+  }
+
+  // ── AI-tilgang (students only, feature 032) ──
+  //
+  // Separate from "Abonnement" below on purpose — two independent
+  // subscriptions (reading-text paywall vs. AI-feedback cap), two independent
+  // backends (Cloudflare KV vs. this FastAPI service). See
+  // specs/032-teacher-approval-ai-gating/plan.md "Subscription purchase path".
+  //
+  // Gated on AI_ACCESS_ENABLED — no Vipps merchant account exists yet, so
+  // this card stays hidden rather than offering a subscribe button that
+  // would fail. See that constant's own comment for the flip-both-together
+  // ordering with the backend's matching flag.
+  if(AI_ACCESS_ENABLED && state.userRole !== "teacher"){
+    const aiCard = el("div",{class:"card"});
+    aiCard.appendChild(el("div",{class:"card__title"},"AI-tilgang"));
+    if(isAiAccessSubscribed()){
+      const until = new Date(state.aiSubscriptionValidUntil).toLocaleDateString("nb-NO");
+      aiCard.appendChild(el("p",{class:"card__sub",style:{marginBottom:"var(--s-3)"}},
+        `Du har ubegrenset AI-tilbakemelding til ${until}.`));
+      const cancelBtn = el("button",{class:"btn btn--destructive",click: async ()=>{
+        if(!confirm("Avslutte AI-tilgang-abonnementet? Du beholder tilgangen ut perioden.")) return;
+        cancelBtn.disabled=true;
+        const r = await api("/api/me/ai-subscription/cancel",{method:"POST"});
+        if(r.ok){ aiCard.appendChild(el("p",{class:"card__note",style:{color:"var(--green)",marginTop:"var(--s-2)"}},"Abonnementet er avsluttet.")); }
+        cancelBtn.disabled=false;
+      }},"Avslutt abonnement");
+      aiCard.appendChild(cancelBtn);
+    } else {
+      aiCard.appendChild(el("p",{class:"card__sub",style:{marginBottom:"var(--s-3)"}},
+        "Uten godkjent lærer får du et begrenset antall gratis AI-tilbakemeldinger på setninger, stiler og gjenfortellinger. Abonner for ubegrenset tilgang."));
+      const subBtn = el("button",{class:"btn btn--primary",click: async ()=>{
+        subBtn.disabled=true; subBtn.textContent="Kobler til Vipps…";
+        try{
+          const r = await api("/api/me/ai-subscription",{method:"POST"});
+          if(r.ok){ const d = await r.json(); window.location.href=d.redirect_url; return; }
+        }catch{}
+        subBtn.disabled=false; subBtn.textContent="Abonner med Vipps — 300 kr/mnd";
+      }},"Abonner med Vipps — 300 kr/mnd");
+      aiCard.appendChild(subBtn);
+    }
+    frag.appendChild(aiCard);
   }
 
   // ── Abonnement ──
@@ -7588,6 +7756,19 @@ const teacherState = {
 
 function buildLaerer(){
   const frag = document.createDocumentFragment();
+  // Feature 032. Defense-in-depth alongside renderTabs()'s nav guard — even if
+  // state.tab somehow stays "laerer" for a pending teacher (e.g. a stale
+  // deep link), no roster/class/bank/student data ever renders here without
+  // is_approved. The backend enforces the real boundary (require_teacher);
+  // this only keeps the UI honest with it.
+  if(!state.isApproved){
+    const card = el("div",{class:"card",style:{maxWidth:"600px",margin:"32px auto"}});
+    card.appendChild(el("div",{class:"card__title"},"Venter på godkjenning"));
+    card.appendChild(el("p",{class:"card__sub"},
+      "Lærerkontoen din venter på godkjenning før du får tilgang til Klassen min, bankene og AI-fokus. Du får beskjed når kontoen er godkjent."));
+    frag.appendChild(card);
+    return frag;
+  }
   // Bank views put a sticky assign panel beside the list, so they need the extra width;
   // the reading views stay narrower to keep line length comfortable.
   const isWide = teacherState.view==="bank-texts" || teacherState.view==="bank-prompts";
