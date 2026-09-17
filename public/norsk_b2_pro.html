@@ -1563,7 +1563,25 @@ function buildField({label, req, hint, inputEl, hintText}){
 // same form and endpoint for both roles, no role branching here at all.
 function openFeedbackDialog(){
   openDialog(close=>{
-    let goodVal="", improveVal="", bugVal="";
+    let ratingVal=null, goodVal="", improveVal="", bugVal="";
+
+    // Plain "★" glyphs, not an SVG icon — the same established exception as
+    // the app's other monochrome Unicode controls (← ▾ ✕ ✓), not a new
+    // emoji use. Click sets the rating; there is no un-rate control, since
+    // the rating is optional and simply never clicking leaves it unset.
+    const starButtons = [1,2,3,4,5].map(i => el("button",{type:"button",
+      "aria-label":`${i} av 5 stjerner`,
+      style:{fontSize:"22px",lineHeight:"1",color:"var(--line-strong)",
+        background:"none",border:"none",cursor:"pointer",padding:"2px 3px"},
+      click(){ ratingVal=i; updateStars(); }},
+      "★"));
+    function updateStars(){
+      starButtons.forEach((btn,idx) => {
+        btn.style.color = (ratingVal && idx<ratingVal) ? "var(--green)" : "var(--line-strong)";
+      });
+    }
+    const starsRow = el("div",{style:{display:"flex",gap:"2px"}}, ...starButtons);
+
     const goodTa=el("textarea",{class:"textarea",style:{minHeight:"64px"},
       input(e){goodVal=e.target.value;}});
     const improveTa=el("textarea",{class:"textarea",style:{minHeight:"64px"},
@@ -1579,8 +1597,8 @@ function openFeedbackDialog(){
 
     async function submit(){
       const good=goodVal.trim(), improve=improveVal.trim(), bug=bugVal.trim();
-      if(!good && !improve && !bug){
-        err.textContent="Skriv inn minst ett felt";
+      if(!good && !improve && !bug && !ratingVal){
+        err.textContent="Skriv inn minst ett felt eller gi en vurdering";
         err.style.display="";
         return;
       }
@@ -1591,6 +1609,7 @@ function openFeedbackDialog(){
           good_text: good||null,
           improve_text: improve||null,
           bug_text: bug||null,
+          rating: ratingVal,
           publish_consent: consentCb.checked,
         })});
       if(r.ok){
@@ -1604,10 +1623,11 @@ function openFeedbackDialog(){
     }
 
     return buildDialog({title:"Gi tilbakemelding",
-      sub:"Fyll ut ett eller flere felt.",
+      sub:"Tilbakemeldingen din hjelper oss å forbedre B2 Norsk, slik at enda flere får mer igjen av appen.",
       body:el("div",{},
-        buildField({label:"Hva er bra?",inputEl:goodTa}),
-        buildField({label:"Hva kan bli bedre?",inputEl:improveTa}),
+        buildField({label:"Hvordan vil du vurdere opplevelsen din?",inputEl:starsRow}),
+        buildField({label:"Har B2 Norsk hjulpet deg å øve til prøven? Hvilke funksjoner har vært mest nyttige?",inputEl:goodTa}),
+        buildField({label:"Har du tanker eller forslag til hvordan vi kan gjøre systemet enda mer nyttig?",inputEl:improveTa}),
         buildField({label:"Meld en feil",inputEl:bugTa}),
         consentRow,
         err),
@@ -11673,11 +11693,18 @@ function renderFeedbackList(container, data){
   };
 
   container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-5) 0 var(--s-1)"},"Tilbakemeldinger"));
-  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
-    "Nyeste først."
-    + (data.excluded_test_users ? ` ${data.excluded_test_users} testkonto(er) holdt utenfor.` : "")));
 
   const rows = data.submissions || [];
+  const rated = rows.filter(s => s.rating != null);
+  const avgRating = rated.length
+    ? (rated.reduce((sum,s) => sum+s.rating, 0) / rated.length).toFixed(1)
+    : null;
+
+  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
+    "Nyeste først."
+    + (avgRating ? ` Snittvurdering: ${avgRating} av 5 (${rated.length} vurdert).` : "")
+    + (data.excluded_test_users ? ` ${data.excluded_test_users} testkonto(er) holdt utenfor.` : "")));
+
   if(!rows.length){
     container.appendChild(h("p",{class:"card__note"},"Ingen tilbakemeldinger registrert."));
     return;
@@ -11691,10 +11718,11 @@ function renderFeedbackList(container, data){
   };
 
   container.appendChild(buildAdminTable(h,
-    ["Sendt","Avsender","Hva er bra?","Hva kan bli bedre?","Meld en feil","Kan publiseres?"],
+    ["Sendt","Avsender","Vurdering","Hva er bra?","Hva kan bli bedre?","Meld en feil","Kan publiseres?"],
     rows.map(s => [
       s.created_at ? new Date(s.created_at).toLocaleString("no") : "",
       `${s.user_name} (${s.user_email})`,
+      s.rating != null ? `${s.rating}/5` : "—",
       s.good_text || "—",
       s.improve_text || "—",
       s.bug_text || "—",
