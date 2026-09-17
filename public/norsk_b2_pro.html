@@ -1487,6 +1487,7 @@ const ICON_PATHS = {
   filter: '<path d="M2.6 4.6h10.8M4.6 8h6.8M6.6 11.4h2.8"/>',
   sliders: '<path d="M2.6 5.4h10.8M2.6 10.6h10.8"/><circle cx="6" cy="5.4" r="1.7" fill="#ffffff"/><circle cx="10" cy="10.6" r="1.7" fill="#ffffff"/>',
   people: '<circle cx="6" cy="6.2" r="2.4"/><path d="M2.4 12.8c0-2 1.6-3.2 3.6-3.2s3.6 1.2 3.6 3.2"/><path d="M10.6 4.2a2.2 2.2 0 010 4.2M11.4 12.8c0-1.5-.6-2.5-1.6-3"/>',
+  message: '<path d="M2.6 3.6h10.8v7.2H6.8L4 13.4v-2.6H2.6z"/>',
 };
 function icon(name, extraClass){
   const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
@@ -1555,6 +1556,63 @@ function buildField({label, req, hint, inputEl, hintText}){
   f.appendChild(row);
   f.appendChild(inputEl);
   return f;
+}
+
+// ── FEEDBACK (feature 033) ──────────────────────────────────────────────
+// Reachable from both the student and teacher sidebars (renderTabs()) — the
+// same form and endpoint for both roles, no role branching here at all.
+function openFeedbackDialog(){
+  openDialog(close=>{
+    let goodVal="", improveVal="", bugVal="";
+    const goodTa=el("textarea",{class:"textarea",style:{minHeight:"64px"},
+      input(e){goodVal=e.target.value;}});
+    const improveTa=el("textarea",{class:"textarea",style:{minHeight:"64px"},
+      input(e){improveVal=e.target.value;}});
+    const bugTa=el("textarea",{class:"textarea",style:{minHeight:"64px"},
+      input(e){bugVal=e.target.value;}});
+    const consentCb=el("input",{type:"checkbox",id:"feedback-consent"});
+    const consentRow=el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginTop:"var(--s-2)"}},
+      consentCb,
+      el("label",{for:"feedback-consent",style:{fontSize:"var(--font-sm)",cursor:"pointer"}},
+        "Jeg godtar at tilbakemeldingen min kan publiseres på nettsiden"));
+    const err=el("p",{class:"card__note",style:{color:"var(--danger)",display:"none"}});
+
+    async function submit(){
+      const good=goodVal.trim(), improve=improveVal.trim(), bug=bugVal.trim();
+      if(!good && !improve && !bug){
+        err.textContent="Skriv inn minst ett felt";
+        err.style.display="";
+        return;
+      }
+      err.style.display="none";
+      const r = await api("/api/feedback",{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          good_text: good||null,
+          improve_text: improve||null,
+          bug_text: bug||null,
+          publish_consent: consentCb.checked,
+        })});
+      if(r.ok){
+        close();
+        toast("✓ Takk for tilbakemeldingen!");
+      } else {
+        const d=await r.json().catch(()=>({detail:"Ukjent feil"}));
+        err.textContent = (typeof d.detail==="string" && d.detail) || "Kunne ikke sende tilbakemeldingen";
+        err.style.display="";
+      }
+    }
+
+    return buildDialog({title:"Gi tilbakemelding",
+      sub:"Fyll ut ett eller flere felt.",
+      body:el("div",{},
+        buildField({label:"Hva er bra?",inputEl:goodTa}),
+        buildField({label:"Hva kan bli bedre?",inputEl:improveTa}),
+        buildField({label:"Meld en feil",inputEl:bugTa}),
+        consentRow,
+        err),
+      primaryLabel:"Send", onPrimary:submit, close});
+  });
 }
 
 // ── HELPER: Get unique topics ────────────────────────────────────────
@@ -1645,6 +1703,8 @@ function renderTabs(){
     if(!state.isApproved){
       wrap.appendChild(buildNavItem({iconName:"sliders",label:"Innstillinger",
         active:state.tab==="innstillinger",click(){setTab("innstillinger");}}));
+      wrap.appendChild(buildNavItem({iconName:"message",label:"Gi tilbakemelding",
+        click(){openFeedbackDialog();}}));
       c.appendChild(wrap);
       return;
     }
@@ -1670,6 +1730,8 @@ function renderTabs(){
     wrap.appendChild(el("div",{class:"label-mono",style:{padding:"10px 10px 4px"}},"Konto"));
     wrap.appendChild(buildNavItem({iconName:"sliders",label:"Innstillinger",
       active:state.tab==="innstillinger",click(){setTab("innstillinger");}}));
+    wrap.appendChild(buildNavItem({iconName:"message",label:"Gi tilbakemelding",
+      click(){openFeedbackDialog();}}));
 
     c.appendChild(wrap);
     return;
@@ -1708,6 +1770,8 @@ function renderTabs(){
   wrap.appendChild(el("div",{style:{height:"1px",background:"var(--line-soft)",margin:"8px 10px"}}));
   wrap.appendChild(buildNavItem({iconName:"sliders",label:"Innstillinger",
     active:state.tab==="innstillinger",click(){setTab("innstillinger");}}));
+  wrap.appendChild(buildNavItem({iconName:"message",label:"Gi tilbakemelding",
+    click(){openFeedbackDialog();}}));
 
   c.appendChild(wrap);
 }
@@ -11030,7 +11094,7 @@ function buildLaererBankPrompts(){
   // adminState drives which section/sub-view/drill-down is visible, the
   // same pattern teacherState.view already uses for the teacher sidebar.
   const adminState = {section:"overview", aiLogView:"adoption", drillUserId:null, drillUserName:null};
-  let overviewData=null, adoptionData=null, failuresData=null, callsData=null, templatesData=null, wordLookupsData=null;
+  let overviewData=null, adoptionData=null, failuresData=null, callsData=null, templatesData=null, wordLookupsData=null, feedbackData=null;
 
   const nav = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-3)"}});
   const subNav = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-4)",flexWrap:"wrap"}});
@@ -11055,6 +11119,9 @@ function buildLaererBankPrompts(){
     nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="teachers"?"true":"false",
       click(){ adminState.section="teachers"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
       "Lærere"));
+    nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="feedback"?"true":"false",
+      click(){ adminState.section="feedback"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
+      "Tilbakemeldinger"));
 
     subNav.innerHTML = "";
     subNav.style.display = adminState.section === "ai-logger" ? "flex" : "none";
@@ -11099,6 +11166,11 @@ function buildLaererBankPrompts(){
       else content.appendChild(missingNote());
       return;
     }
+    if(adminState.section === "feedback"){
+      if(feedbackData) renderFeedbackList(content, feedbackData);
+      else content.appendChild(missingNote());
+      return;
+    }
     // ai-logger — one active sub-view at a time (FR-003/FR-004), each
     // existing render*() function reused completely unchanged (FR-013).
     if(adminState.aiLogView === "adoption") adoptionData ? renderAdoption(content, adoptionData) : content.appendChild(missingNote());
@@ -11132,10 +11204,12 @@ function buildLaererBankPrompts(){
     get("/api/admin/calls").catch(() => null),
     get("/api/admin/templates").catch(() => null),
     get("/api/admin/word-lookups").catch(() => null),
+    get("/api/admin/feedback").catch(() => null),
   ])
-    .then(([overview, adoption, failures, calls, templates, wordLookups]) => {
+    .then(([overview, adoption, failures, calls, templates, wordLookups, feedback]) => {
       overviewData=overview; adoptionData=adoption; failuresData=failures;
       callsData=calls; templatesData=templates; wordLookupsData=wordLookups;
+      feedbackData=feedback;
 
       screen.innerHTML = "";
       screen.appendChild(nav);
@@ -11586,6 +11660,45 @@ function renderWordLookups(container, data){
       r.shared_bank_hits,
       r.misses,
       r.total_lookups,
+    ])
+  ));
+}
+
+function renderFeedbackList(container, data){
+  const h = (tag, attrs, ...children) => {
+    const el = document.createElement(tag);
+    Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+    children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return el;
+  };
+
+  container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-5) 0 var(--s-1)"},"Tilbakemeldinger"));
+  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
+    "Nyeste først."
+    + (data.excluded_test_users ? ` ${data.excluded_test_users} testkonto(er) holdt utenfor.` : "")));
+
+  const rows = data.submissions || [];
+  if(!rows.length){
+    container.appendChild(h("p",{class:"card__note"},"Ingen tilbakemeldinger registrert."));
+    return;
+  }
+
+  const consentCell = s => {
+    const dot = document.createElement("span");
+    dot.setAttribute("class", s.publish_consent ? "status status--learned" : "status");
+    dot.textContent = s.publish_consent ? "Ja" : "Nei";
+    return dot;
+  };
+
+  container.appendChild(buildAdminTable(h,
+    ["Sendt","Avsender","Hva er bra?","Hva kan bli bedre?","Meld en feil","Kan publiseres?"],
+    rows.map(s => [
+      s.created_at ? new Date(s.created_at).toLocaleString("no") : "",
+      `${s.user_name} (${s.user_email})`,
+      s.good_text || "—",
+      s.improve_text || "—",
+      s.bug_text || "—",
+      consentCell(s),
     ])
   ));
 }
