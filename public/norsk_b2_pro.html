@@ -621,7 +621,11 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
 // `includeLearnt` is off by default: practice excludes learnt words unless the learner
 // asks for them back (FR-032). The bank view is unaffected — exclusion is the default
 // for practice only.
-const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, learningFilter:"", tagFilter:"", includeLearnt:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false, autoLearnt:[]};
+const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, learningFilter:"", tagFilter:"", includeLearnt:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false, autoLearnt:[],
+  // Feature 034 (US3): "Til repetisjon i dag" fetches from the server instead
+  // of filtering state.words client-side — due-ness lives in word_memory_states,
+  // not in anything the browser already has loaded.
+  dueWords:[], dueNextAt:null, dueLoaded:false};
 
 // Words the learner is done with. `not_learnt_manual` is deliberately absent: it is a
 // learner saying "not learnt", so it stays in the practice pool.
@@ -1152,6 +1156,25 @@ async function loadStats(){
     statsCache = {events};
     return statsCache;
   }catch(e){ return {events:[]}; }
+}
+
+// Feature 034 (US3). Fetches the due-words list for the "Til repetisjon i dag"
+// Flashcards filter and re-renders. Emits repetisjon.nothing_due once the fetch
+// resolves to an empty list — never from inside renderContent(), which runs on
+// every tab switch and filter change (would count renders, not uses).
+async function loadDueWords(){
+  fc.dueLoaded=false;
+  try{
+    const r=await api("/api/words/due?limit=20");
+    const data=r.ok?await r.json():{due:[],next_due_at:null};
+    fc.dueWords=data.due||[];
+    fc.dueNextAt=data.next_due_at||null;
+  }catch(e){
+    fc.dueWords=[]; fc.dueNextAt=null;
+  }
+  fc.dueLoaded=true;
+  if(fc.dueWords.length===0) trackEvent("repetisjon.nothing_due",{});
+  renderContent();
 }
 
 // Returns the response body for callers that need it (the flashcard session reads
@@ -4794,10 +4817,12 @@ function buildFcSetup(frag){
       const facet=el("div",{class:"facet"});
       facet.appendChild(el("div",{class:"facet__label"},"Læring"));
       const opts=el("div",{class:"facet__options"});
-      [["","Alle ord"],["error_only","Flest feil"]].forEach(([val,label])=>
+      [["","Alle ord"],["error_only","Flest feil"],["due_today","Til repetisjon i dag"]].forEach(([val,label])=>
         opts.appendChild(buildFacetPill(label,fc.learningFilter===val,()=>{
           fc.learningFilter=val;
-          if(val) loadStats().then(()=>renderContent()); else renderContent();
+          if(val==="due_today"){ renderContent(); loadDueWords(); }
+          else if(val) loadStats().then(()=>renderContent());
+          else renderContent();
         })));
       opts.appendChild(buildFacetPill("Ta med lærte ord",fc.includeLearnt,()=>{fc.includeLearnt=!fc.includeLearnt;renderContent();}));
       facet.appendChild(opts);
@@ -4809,6 +4834,20 @@ function buildFcSetup(frag){
 
   const avail=getFcWords();
   const learntHidden=fc.includeLearnt?0:state.words.filter(isLearnt).length;
+  // Feature 034 (US3): due-ness is fetched, not derived from state.words, so it
+  // gets its own loading/empty copy instead of the generic count note.
+  if(fc.learningFilter==="due_today"){
+    if(!fc.dueLoaded){
+      card.appendChild(el("p",{class:"card__note"},"Henter ord til repetisjon…"));
+    }else if(avail.length===0){
+      const next=fc.dueNextAt
+        ? `Neste ord blir klart ${new Date(fc.dueNextAt).toLocaleDateString("nb-NO",{day:"numeric",month:"short"})}.`
+        : "Ingen ord har blitt øvd ennå.";
+      card.appendChild(el("p",{class:"card__note"},`Ingen ord til repetisjon nå. ${next}`));
+    }else{
+      card.appendChild(el("p",{class:"card__note"},`${avail.length} ord til repetisjon i dag`));
+    }
+  }else{
   card.appendChild(el("p",{class:"card__note"},
     `${avail.length} ord tilgjengelig med gjeldende filter`
     +(learntHidden?` (${learntHidden} lærte ord er holdt utenfor)`:"")));
@@ -4822,6 +4861,7 @@ function buildFcSetup(frag){
     hint.appendChild(el("button",{class:"btn",
       click(){fc.includeLearnt=true;renderContent();}},"Ta med lærte ord"));
     card.appendChild(hint);
+  }
   }
 
   card.appendChild(el("button",{
@@ -5043,6 +5083,12 @@ function getNetMissedWords(){
 }
 
 function getFcWords(){
+  // "Til repetisjon i dag" is exclusive — due-ness comes from the server, not
+  // from anything the other facets can compose with (research.md §10).
+  if(fc.learningFilter==="due_today"){
+    const byId=new Map(state.words.map(x=>[x.id,x]));
+    return fc.dueWords.map(d=>byId.get(d.word_id)).filter(Boolean);
+  }
   let w=state.words.slice();
   if(fc.topicFilter) w=w.filter(x=>x.topic===fc.topicFilter);
   if(fc.tagFilter) w=w.filter(x=>(x.tags||[]).includes(fc.tagFilter));
@@ -5063,6 +5109,7 @@ function getFcWords(){
 function startFlashcards(){
   const words=getFcWords();
   if(words.length<2){toast("Trenger minst 2 ord med gjeldende filter.");return;}
+  if(fc.learningFilter==="due_today") trackEvent("repetisjon.due_session_started",{count:words.length});
   // Randomly assign card type and pre-generate options so they never reshuffle on re-render
   fc.queue=shuffle(words).map(w=>{
     const type=Math.random()<0.5?"write":"choice";
