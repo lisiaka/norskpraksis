@@ -584,7 +584,12 @@ const TIPS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────
-const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", learntFilter:"", ordTagFilter:"", currentTopic:null, currentPrompt:null, essay:"",
+const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", learntFilter:"", ordTagFilter:"", sentDueFilter:"", currentTopic:null, currentPrompt:null, essay:"",
+  // Feature 034 follow-up: "Til repetisjon i dag" in Ordbank (practicedFilter="due_today")
+  // and Setninger (sentDueFilter="due_today") share this cache — same underlying set of
+  // due word ids regardless of which tab asks. Flashcards keeps its own separate fc.dueWords
+  // (a session-size-capped fetch, not a browsing filter — see loadDueWords() there).
+  dueWordIds:null, dueNextAt:null, dueLoaded:false,
   // Feature 032. Meaningful only when userRole==="teacher" — a not-yet-approved
   // teacher sees a "venter på godkjenning" state instead of any teacher tab/
   // sidebar item. Always false until GET /api/me confirms otherwise (see
@@ -1177,6 +1182,24 @@ async function loadDueWords(){
   renderContent();
 }
 
+// Feature 034 follow-up. Same endpoint as loadDueWords() above, but for the
+// "Til repetisjon i dag" browsing filter in Ordbank and Setninger — a larger
+// limit (these filter a list, not cap a practice session) and only the word
+// ids are kept, since that's all getFilteredWords()/getSentWords() need.
+async function loadDueWordIds(){
+  state.dueLoaded=false;
+  try{
+    const r=await api("/api/words/due?limit=100");
+    const data=r.ok?await r.json():{due:[],next_due_at:null};
+    state.dueWordIds=(data.due||[]).map(d=>d.word_id);
+    state.dueNextAt=data.next_due_at||null;
+  }catch(e){
+    state.dueWordIds=[]; state.dueNextAt=null;
+  }
+  state.dueLoaded=true;
+  renderContent();
+}
+
 // Returns the response body for callers that need it (the flashcard session reads
 // `auto_learnt` back), but never rejects — tracking must not break the app.
 function trackEvent(type, data){
@@ -1677,6 +1700,11 @@ function getSentWords(){
     ? state.words.filter(w=>w.topic===state.sentTopicFilter)
     : state.words;
   if(state.tagFilter) words = words.filter(w=>(w.tags||[]).includes(state.tagFilter));
+  // Feature 034 follow-up — same due-word cache Ordbank's filter uses.
+  if(state.sentDueFilter==="due_today"){
+    const ids=new Set(state.dueWordIds||[]);
+    words = words.filter(w=>ids.has(w.id));
+  }
   return words;
 }
 
@@ -2580,6 +2608,7 @@ function buildOrdbank(){
     if(!isOpen){
       if(state.topicFilter) headLeft.appendChild(buildRemovablePill(state.topicFilter, ()=>{state.topicFilter="";renderContent();}));
       if(state.practicedFilter==="not_practiced") headLeft.appendChild(buildRemovablePill("ikke øvd", ()=>{state.practicedFilter="";renderContent();}));
+      if(state.practicedFilter==="due_today") headLeft.appendChild(buildRemovablePill("til repetisjon i dag", ()=>{state.practicedFilter="";renderContent();}));
       if(state.learntFilter==="hide_learnt") headLeft.appendChild(buildRemovablePill("lærte skjult", ()=>{state.learntFilter="";renderContent();}));
       if(state.timeFilter) headLeft.appendChild(buildRemovablePill(({7:"siste 7 dager",30:"siste 30 dager",90:"siste 3 måneder"})[state.timeFilter], ()=>{state.timeFilter=0;renderContent();}));
       if(state.ordTagFilter) headLeft.appendChild(buildRemovablePill(state.ordTagFilter, ()=>{state.ordTagFilter="";renderContent();}));
@@ -2626,6 +2655,7 @@ function buildOrdbank(){
       }).length;
       opts.appendChild(buildFacetPill("Alle ord",!state.practicedFilter,()=>{state.practicedFilter="";renderContent();}));
       opts.appendChild(buildFacetPill("Ikke øvd ennå",state.practicedFilter==="not_practiced",()=>{state.practicedFilter="not_practiced";loadStats().then(renderContent);},null,notPracticedCount));
+      opts.appendChild(buildFacetPill("Til repetisjon i dag",state.practicedFilter==="due_today",()=>{state.practicedFilter="due_today";renderContent();loadDueWordIds();},null,state.dueLoaded&&state.practicedFilter==="due_today"?state.dueWordIds.length:undefined));
       facet.appendChild(opts);
       body.appendChild(facet);
     }
@@ -2763,6 +2793,7 @@ function resultLineText(){
   const parts=[`${n} ord`];
   if(state.topicFilter) parts.push(`tema ${state.topicFilter}`);
   if(state.practicedFilter==="not_practiced") parts.push("ikke øvd");
+  if(state.practicedFilter==="due_today") parts.push("til repetisjon i dag");
   if(state.learntFilter==="hide_learnt") parts.push("lærte skjult");
   if(state.timeFilter) parts.push(({7:"siste 7 dager",30:"siste 30 dager",90:"siste 3 måneder"})[state.timeFilter]);
   if(state.ordTagFilter) parts.push(`tagg "${state.ordTagFilter}"`);
@@ -2972,6 +3003,14 @@ function getFilteredWords(){
       const wasCorrect=lastAnswers[w.word.toLowerCase()]===true;
       return !hasSentence&&!wasCorrect;
     });
+  }
+  // Feature 034 follow-up. Due-ness comes from the server (state.dueWordIds,
+  // fetched by loadDueWordIds()), not from anything computed client-side — an
+  // empty/not-yet-loaded cache simply shows no words, same as "Ikke øvd ennå"
+  // shows none until loadStats() resolves.
+  if(state.practicedFilter==="due_today"){
+    const ids=new Set(state.dueWordIds||[]);
+    filtered=filtered.filter(w=>ids.has(w.id));
   }
   // Learnt is a separate axis from practised — a word can be practised but not learnt,
   // or marked learnt without ever being practised — so this filter stacks with the one
@@ -3471,7 +3510,7 @@ function buildSetninger(){
   const sentTags=allWordTags(state.words);
   if(topics.length>0 || sentTags.length>0){
     const isOpen=state.sentFiltersOpen ?? true;
-    const activeCount=[state.sentTopicFilter,state.tagFilter].filter(Boolean).length;
+    const activeCount=[state.sentTopicFilter,state.tagFilter,state.sentDueFilter].filter(Boolean).length;
     const panel=el("div",{class:"filter-panel",style:{marginBottom:"var(--s-4)"}});
     if(!isOpen) panel.setAttribute("data-collapsed","");
 
@@ -3484,11 +3523,12 @@ function buildSetninger(){
     if(!isOpen){
       if(state.sentTopicFilter) headLeft.appendChild(buildRemovablePill(state.sentTopicFilter, ()=>{state.sentTopicFilter="";state.wordIdx=0;renderContent();}));
       if(state.tagFilter) headLeft.appendChild(buildRemovablePill(state.tagFilter, ()=>{state.tagFilter="";state.wordIdx=0;renderContent();}));
+      if(state.sentDueFilter==="due_today") headLeft.appendChild(buildRemovablePill("til repetisjon i dag", ()=>{state.sentDueFilter="";state.wordIdx=0;renderContent();}));
     }
     head.appendChild(headLeft);
     const headRight=el("div",{style:{display:"flex",alignItems:"center",gap:"14px"}});
     if(activeCount) headRight.appendChild(el("button",{class:"btn--link",click(){
-      state.sentTopicFilter="";state.tagFilter="";state.wordIdx=0;renderContent();
+      state.sentTopicFilter="";state.tagFilter="";state.sentDueFilter="";state.wordIdx=0;renderContent();
     }},"Nullstill"));
     headRight.appendChild(el("button",{style:{background:"none",border:"none",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"13px",color:"var(--ink-2)",fontWeight:"500"},
       click(){ state.sentFiltersOpen=!isOpen; trackEvent("filters.toggled",{tab:"setninger",state:isOpen?"collapsed":"expanded"}); renderContent(); }
@@ -3525,6 +3565,18 @@ function buildSetninger(){
       facet.appendChild(opts);
       body.appendChild(facet);
     }
+    // Repetisjon facet (feature 034 follow-up) — same due-word cache as Ordbank's.
+    {
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Repetisjon"));
+      const opts=el("div",{class:"facet__options"});
+      opts.appendChild(buildFacetPill("Alle ord",!state.sentDueFilter,()=>{state.sentDueFilter="";state.wordIdx=0;renderContent();}));
+      opts.appendChild(buildFacetPill("Til repetisjon i dag",state.sentDueFilter==="due_today",()=>{
+        state.sentDueFilter="due_today"; state.wordIdx=0; renderContent(); loadDueWordIds();
+      },null,state.dueLoaded&&state.sentDueFilter==="due_today"?state.dueWordIds.length:undefined));
+      facet.appendChild(opts);
+      body.appendChild(facet);
+    }
     panel.appendChild(body);
     frag.appendChild(panel);
   }
@@ -3534,6 +3586,7 @@ function buildSetninger(){
     const parts=[];
     if(state.sentTopicFilter) parts.push(`tema "${state.sentTopicFilter}"`);
     if(state.tagFilter) parts.push(`tagg "${state.tagFilter}"`);
+    if(state.sentDueFilter==="due_today") parts.push("til repetisjon i dag");
     frag.appendChild(el("p",{class:"card__note"},
       parts.length ? `Ingen ord med ${parts.join(" og ")}.` : "Ingen ord."));
     return frag;

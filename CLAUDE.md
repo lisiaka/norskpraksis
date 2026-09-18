@@ -54,8 +54,9 @@ This is a single-file SPA (`norsk_b2_pro.html`) for Norwegian B2 language learni
 - `b2_free_access_{userId}` — free tier text tracking `{ openedTexts[], topicsUsed[] }`
 - `state.subscription` — loaded from `/api/subscription/{userId}` after login
 - `state.topicFilter` — active topic chip in Ordbank (`""` = all)
-- `state.practicedFilter` — `""` (all) or `"not_practiced"` (hides words with a sentence or correct flashcard answer)
+- `state.practicedFilter` — `""` (all), `"not_practiced"` (hides words with a sentence or correct flashcard answer), or `"due_today"` (feature 034 follow-up — only words the spaced-repetition scheduler says are due, from `state.dueWordIds`)
 - `state.learntFilter` — `""` (all) or `"hide_learnt"` (hides `learnt_auto`/`learnt_manual` words). A separate axis from `practicedFilter`, so the two stack. The bank shows learnt words by default — only flashcards exclude them by default
+- `state.sentDueFilter` — Setninger's own `""` / `"due_today"` toggle, same `state.dueWordIds` cache as Ordbank's `practicedFilter="due_today"` (feature 034 follow-up). Flashcards keeps a separate `fc.dueWords`/`loadDueWords()` — a session-size-capped fetch (`limit=20`), not a browsing filter, so it isn't shared with `loadDueWordIds()` (`limit=100`), which Ordbank and Setninger both call
 - `lesingState.readFilter` — `""` (all) or `"hide_read"` (hides texts with a `text_read` event, the same signal behind the "✓ Lest" badge). Applies to the text list only; the reader's prev/next navigation deliberately ignores it, since opening a text marks it read
 - `state.sentences` — `{ wordId: sentenceText }` — written sentences keyed by word id
 - `lesingState.savedSummaries` — `{ textId: readingSummaryObj }` — cached reading summaries keyed by text id (loaded from backend on login + on save)
