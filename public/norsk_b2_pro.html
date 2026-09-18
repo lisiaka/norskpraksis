@@ -621,7 +621,11 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
 // `includeLearnt` is off by default: practice excludes learnt words unless the learner
 // asks for them back (FR-032). The bank view is unaffected — exclusion is the default
 // for practice only.
-const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, learningFilter:"", tagFilter:"", includeLearnt:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false, autoLearnt:[]};
+const fc = {queue:[], idx:0, correct:0, wrong:0, answered:false, chosenIdx:null, topicFilter:"", timeFilter:0, maxWords:0, learningFilter:"", tagFilter:"", includeLearnt:false, started:false, writeInput:"", writeChecked:false, writeResult:false, log:[], tracked:false, autoLearnt:[],
+  // Feature 034 (US3): "Til repetisjon i dag" fetches from the server instead
+  // of filtering state.words client-side — due-ness lives in word_memory_states,
+  // not in anything the browser already has loaded.
+  dueWords:[], dueNextAt:null, dueLoaded:false};
 
 // Words the learner is done with. `not_learnt_manual` is deliberately absent: it is a
 // learner saying "not learnt", so it stays in the practice pool.
@@ -1154,6 +1158,25 @@ async function loadStats(){
   }catch(e){ return {events:[]}; }
 }
 
+// Feature 034 (US3). Fetches the due-words list for the "Til repetisjon i dag"
+// Flashcards filter and re-renders. Emits repetisjon.nothing_due once the fetch
+// resolves to an empty list — never from inside renderContent(), which runs on
+// every tab switch and filter change (would count renders, not uses).
+async function loadDueWords(){
+  fc.dueLoaded=false;
+  try{
+    const r=await api("/api/words/due?limit=20");
+    const data=r.ok?await r.json():{due:[],next_due_at:null};
+    fc.dueWords=data.due||[];
+    fc.dueNextAt=data.next_due_at||null;
+  }catch(e){
+    fc.dueWords=[]; fc.dueNextAt=null;
+  }
+  fc.dueLoaded=true;
+  if(fc.dueWords.length===0) trackEvent("repetisjon.nothing_due",{});
+  renderContent();
+}
+
 // Returns the response body for callers that need it (the flashcard session reads
 // `auto_learnt` back), but never rejects — tracking must not break the app.
 function trackEvent(type, data){
@@ -1487,6 +1510,7 @@ const ICON_PATHS = {
   filter: '<path d="M2.6 4.6h10.8M4.6 8h6.8M6.6 11.4h2.8"/>',
   sliders: '<path d="M2.6 5.4h10.8M2.6 10.6h10.8"/><circle cx="6" cy="5.4" r="1.7" fill="#ffffff"/><circle cx="10" cy="10.6" r="1.7" fill="#ffffff"/>',
   people: '<circle cx="6" cy="6.2" r="2.4"/><path d="M2.4 12.8c0-2 1.6-3.2 3.6-3.2s3.6 1.2 3.6 3.2"/><path d="M10.6 4.2a2.2 2.2 0 010 4.2M11.4 12.8c0-1.5-.6-2.5-1.6-3"/>',
+  message: '<path d="M2.6 3.6h10.8v7.2H6.8L4 13.4v-2.6H2.6z"/>',
 };
 function icon(name, extraClass){
   const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
@@ -1555,6 +1579,83 @@ function buildField({label, req, hint, inputEl, hintText}){
   f.appendChild(row);
   f.appendChild(inputEl);
   return f;
+}
+
+// ── FEEDBACK (feature 033) ──────────────────────────────────────────────
+// Reachable from both the student and teacher sidebars (renderTabs()) — the
+// same form and endpoint for both roles, no role branching here at all.
+function openFeedbackDialog(){
+  openDialog(close=>{
+    let ratingVal=null, goodVal="", improveVal="", bugVal="";
+
+    // Plain "★" glyphs, not an SVG icon — the same established exception as
+    // the app's other monochrome Unicode controls (← ▾ ✕ ✓), not a new
+    // emoji use. Click sets the rating; there is no un-rate control, since
+    // the rating is optional and simply never clicking leaves it unset.
+    const starButtons = [1,2,3,4,5].map(i => el("button",{type:"button",
+      "aria-label":`${i} av 5 stjerner`,
+      style:{fontSize:"22px",lineHeight:"1",color:"var(--line-strong)",
+        background:"none",border:"none",cursor:"pointer",padding:"2px 3px"},
+      click(){ ratingVal=i; updateStars(); }},
+      "★"));
+    function updateStars(){
+      starButtons.forEach((btn,idx) => {
+        btn.style.color = (ratingVal && idx<ratingVal) ? "var(--green)" : "var(--line-strong)";
+      });
+    }
+    const starsRow = el("div",{style:{display:"flex",gap:"2px"}}, ...starButtons);
+
+    const goodTa=el("textarea",{class:"textarea",style:{minHeight:"64px"},
+      input(e){goodVal=e.target.value;}});
+    const improveTa=el("textarea",{class:"textarea",style:{minHeight:"64px"},
+      input(e){improveVal=e.target.value;}});
+    const bugTa=el("textarea",{class:"textarea",style:{minHeight:"64px"},
+      input(e){bugVal=e.target.value;}});
+    const consentCb=el("input",{type:"checkbox",id:"feedback-consent"});
+    const consentRow=el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginTop:"var(--s-2)"}},
+      consentCb,
+      el("label",{for:"feedback-consent",style:{fontSize:"var(--font-sm)",cursor:"pointer"}},
+        "Jeg godtar at tilbakemeldingen min kan publiseres på nettsiden"));
+    const err=el("p",{class:"card__note",style:{color:"var(--danger)",display:"none"}});
+
+    async function submit(){
+      const good=goodVal.trim(), improve=improveVal.trim(), bug=bugVal.trim();
+      if(!good && !improve && !bug && !ratingVal){
+        err.textContent="Skriv inn minst ett felt eller gi en vurdering";
+        err.style.display="";
+        return;
+      }
+      err.style.display="none";
+      const r = await api("/api/feedback",{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          good_text: good||null,
+          improve_text: improve||null,
+          bug_text: bug||null,
+          rating: ratingVal,
+          publish_consent: consentCb.checked,
+        })});
+      if(r.ok){
+        close();
+        toast("✓ Takk for tilbakemeldingen!");
+      } else {
+        const d=await r.json().catch(()=>({detail:"Ukjent feil"}));
+        err.textContent = (typeof d.detail==="string" && d.detail) || "Kunne ikke sende tilbakemeldingen";
+        err.style.display="";
+      }
+    }
+
+    return buildDialog({title:"Gi tilbakemelding",
+      sub:"Tilbakemeldingen din hjelper oss å forbedre B2 Norsk, slik at enda flere får mer igjen av appen.",
+      body:el("div",{},
+        buildField({label:"Hvordan vil du vurdere opplevelsen din?",inputEl:starsRow}),
+        buildField({label:"Har B2 Norsk hjulpet deg å øve til prøven? Hvilke funksjoner har vært mest nyttige?",inputEl:goodTa}),
+        buildField({label:"Har du tanker eller forslag til hvordan vi kan gjøre systemet enda mer nyttig?",inputEl:improveTa}),
+        buildField({label:"Meld en feil",inputEl:bugTa}),
+        consentRow,
+        err),
+      primaryLabel:"Send", onPrimary:submit, close});
+  });
 }
 
 // ── HELPER: Get unique topics ────────────────────────────────────────
@@ -1645,6 +1746,8 @@ function renderTabs(){
     if(!state.isApproved){
       wrap.appendChild(buildNavItem({iconName:"sliders",label:"Innstillinger",
         active:state.tab==="innstillinger",click(){setTab("innstillinger");}}));
+      wrap.appendChild(buildNavItem({iconName:"message",label:"Gi tilbakemelding",
+        click(){openFeedbackDialog();}}));
       c.appendChild(wrap);
       return;
     }
@@ -1670,6 +1773,8 @@ function renderTabs(){
     wrap.appendChild(el("div",{class:"label-mono",style:{padding:"10px 10px 4px"}},"Konto"));
     wrap.appendChild(buildNavItem({iconName:"sliders",label:"Innstillinger",
       active:state.tab==="innstillinger",click(){setTab("innstillinger");}}));
+    wrap.appendChild(buildNavItem({iconName:"message",label:"Gi tilbakemelding",
+      click(){openFeedbackDialog();}}));
 
     c.appendChild(wrap);
     return;
@@ -1708,6 +1813,8 @@ function renderTabs(){
   wrap.appendChild(el("div",{style:{height:"1px",background:"var(--line-soft)",margin:"8px 10px"}}));
   wrap.appendChild(buildNavItem({iconName:"sliders",label:"Innstillinger",
     active:state.tab==="innstillinger",click(){setTab("innstillinger");}}));
+  wrap.appendChild(buildNavItem({iconName:"message",label:"Gi tilbakemelding",
+    click(){openFeedbackDialog();}}));
 
   c.appendChild(wrap);
 }
@@ -4710,10 +4817,12 @@ function buildFcSetup(frag){
       const facet=el("div",{class:"facet"});
       facet.appendChild(el("div",{class:"facet__label"},"Læring"));
       const opts=el("div",{class:"facet__options"});
-      [["","Alle ord"],["error_only","Flest feil"]].forEach(([val,label])=>
+      [["","Alle ord"],["error_only","Flest feil"],["due_today","Til repetisjon i dag"]].forEach(([val,label])=>
         opts.appendChild(buildFacetPill(label,fc.learningFilter===val,()=>{
           fc.learningFilter=val;
-          if(val) loadStats().then(()=>renderContent()); else renderContent();
+          if(val==="due_today"){ renderContent(); loadDueWords(); }
+          else if(val) loadStats().then(()=>renderContent());
+          else renderContent();
         })));
       opts.appendChild(buildFacetPill("Ta med lærte ord",fc.includeLearnt,()=>{fc.includeLearnt=!fc.includeLearnt;renderContent();}));
       facet.appendChild(opts);
@@ -4725,6 +4834,20 @@ function buildFcSetup(frag){
 
   const avail=getFcWords();
   const learntHidden=fc.includeLearnt?0:state.words.filter(isLearnt).length;
+  // Feature 034 (US3): due-ness is fetched, not derived from state.words, so it
+  // gets its own loading/empty copy instead of the generic count note.
+  if(fc.learningFilter==="due_today"){
+    if(!fc.dueLoaded){
+      card.appendChild(el("p",{class:"card__note"},"Henter ord til repetisjon…"));
+    }else if(avail.length===0){
+      const next=fc.dueNextAt
+        ? `Neste ord blir klart ${new Date(fc.dueNextAt).toLocaleDateString("nb-NO",{day:"numeric",month:"short"})}.`
+        : "Ingen ord har blitt øvd ennå.";
+      card.appendChild(el("p",{class:"card__note"},`Ingen ord til repetisjon nå. ${next}`));
+    }else{
+      card.appendChild(el("p",{class:"card__note"},`${avail.length} ord til repetisjon i dag`));
+    }
+  }else{
   card.appendChild(el("p",{class:"card__note"},
     `${avail.length} ord tilgjengelig med gjeldende filter`
     +(learntHidden?` (${learntHidden} lærte ord er holdt utenfor)`:"")));
@@ -4738,6 +4861,7 @@ function buildFcSetup(frag){
     hint.appendChild(el("button",{class:"btn",
       click(){fc.includeLearnt=true;renderContent();}},"Ta med lærte ord"));
     card.appendChild(hint);
+  }
   }
 
   card.appendChild(el("button",{
@@ -4959,6 +5083,12 @@ function getNetMissedWords(){
 }
 
 function getFcWords(){
+  // "Til repetisjon i dag" is exclusive — due-ness comes from the server, not
+  // from anything the other facets can compose with (research.md §10).
+  if(fc.learningFilter==="due_today"){
+    const byId=new Map(state.words.map(x=>[x.id,x]));
+    return fc.dueWords.map(d=>byId.get(d.word_id)).filter(Boolean);
+  }
   let w=state.words.slice();
   if(fc.topicFilter) w=w.filter(x=>x.topic===fc.topicFilter);
   if(fc.tagFilter) w=w.filter(x=>(x.tags||[]).includes(fc.tagFilter));
@@ -4979,6 +5109,7 @@ function getFcWords(){
 function startFlashcards(){
   const words=getFcWords();
   if(words.length<2){toast("Trenger minst 2 ord med gjeldende filter.");return;}
+  if(fc.learningFilter==="due_today") trackEvent("repetisjon.due_session_started",{count:words.length});
   // Randomly assign card type and pre-generate options so they never reshuffle on re-render
   fc.queue=shuffle(words).map(w=>{
     const type=Math.random()<0.5?"write":"choice";
@@ -11030,7 +11161,7 @@ function buildLaererBankPrompts(){
   // adminState drives which section/sub-view/drill-down is visible, the
   // same pattern teacherState.view already uses for the teacher sidebar.
   const adminState = {section:"overview", aiLogView:"adoption", drillUserId:null, drillUserName:null};
-  let overviewData=null, adoptionData=null, failuresData=null, callsData=null, templatesData=null, wordLookupsData=null;
+  let overviewData=null, adoptionData=null, failuresData=null, callsData=null, templatesData=null, wordLookupsData=null, feedbackData=null;
 
   const nav = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-3)"}});
   const subNav = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-4)",flexWrap:"wrap"}});
@@ -11055,6 +11186,9 @@ function buildLaererBankPrompts(){
     nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="teachers"?"true":"false",
       click(){ adminState.section="teachers"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
       "Lærere"));
+    nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="feedback"?"true":"false",
+      click(){ adminState.section="feedback"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
+      "Tilbakemeldinger"));
 
     subNav.innerHTML = "";
     subNav.style.display = adminState.section === "ai-logger" ? "flex" : "none";
@@ -11099,6 +11233,11 @@ function buildLaererBankPrompts(){
       else content.appendChild(missingNote());
       return;
     }
+    if(adminState.section === "feedback"){
+      if(feedbackData) renderFeedbackList(content, feedbackData);
+      else content.appendChild(missingNote());
+      return;
+    }
     // ai-logger — one active sub-view at a time (FR-003/FR-004), each
     // existing render*() function reused completely unchanged (FR-013).
     if(adminState.aiLogView === "adoption") adoptionData ? renderAdoption(content, adoptionData) : content.appendChild(missingNote());
@@ -11132,10 +11271,12 @@ function buildLaererBankPrompts(){
     get("/api/admin/calls").catch(() => null),
     get("/api/admin/templates").catch(() => null),
     get("/api/admin/word-lookups").catch(() => null),
+    get("/api/admin/feedback").catch(() => null),
   ])
-    .then(([overview, adoption, failures, calls, templates, wordLookups]) => {
+    .then(([overview, adoption, failures, calls, templates, wordLookups, feedback]) => {
       overviewData=overview; adoptionData=adoption; failuresData=failures;
       callsData=calls; templatesData=templates; wordLookupsData=wordLookups;
+      feedbackData=feedback;
 
       screen.innerHTML = "";
       screen.appendChild(nav);
@@ -11586,6 +11727,53 @@ function renderWordLookups(container, data){
       r.shared_bank_hits,
       r.misses,
       r.total_lookups,
+    ])
+  ));
+}
+
+function renderFeedbackList(container, data){
+  const h = (tag, attrs, ...children) => {
+    const el = document.createElement(tag);
+    Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+    children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return el;
+  };
+
+  container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-5) 0 var(--s-1)"},"Tilbakemeldinger"));
+
+  const rows = data.submissions || [];
+  const rated = rows.filter(s => s.rating != null);
+  const avgRating = rated.length
+    ? (rated.reduce((sum,s) => sum+s.rating, 0) / rated.length).toFixed(1)
+    : null;
+
+  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
+    "Nyeste først."
+    + (avgRating ? ` Snittvurdering: ${avgRating} av 5 (${rated.length} vurdert).` : "")
+    + (data.excluded_test_users ? ` ${data.excluded_test_users} testkonto(er) holdt utenfor.` : "")));
+
+  if(!rows.length){
+    container.appendChild(h("p",{class:"card__note"},"Ingen tilbakemeldinger registrert."));
+    return;
+  }
+
+  const consentCell = s => {
+    const dot = document.createElement("span");
+    dot.setAttribute("class", s.publish_consent ? "status status--learned" : "status");
+    dot.textContent = s.publish_consent ? "Ja" : "Nei";
+    return dot;
+  };
+
+  container.appendChild(buildAdminTable(h,
+    ["Sendt","Avsender","Vurdering","Hva er bra?","Hva kan bli bedre?","Meld en feil","Kan publiseres?"],
+    rows.map(s => [
+      s.created_at ? new Date(s.created_at).toLocaleString("no") : "",
+      `${s.user_name} (${s.user_email})`,
+      s.rating != null ? `${s.rating}/5` : "—",
+      s.good_text || "—",
+      s.improve_text || "—",
+      s.bug_text || "—",
+      consentCell(s),
     ])
   ));
 }
