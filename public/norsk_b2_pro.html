@@ -371,6 +371,9 @@ input:focus,select:focus,textarea:focus{border-color:#2d9e6b!important;box-shado
     <div style="text-align:center;margin-top:var(--s-3);font-size:var(--t-sm);color:var(--ink-3)">
       <span id="login-toggle-text">Ny bruker? </span><a id="login-toggle" href="#" style="color:var(--green);font-weight:600;text-decoration:none">Registrer deg</a>
     </div>
+    <div style="text-align:center;margin-top:var(--s-3);font-size:var(--t-sm)">
+      <a href="/salgsbetingelser" target="_blank" rel="noopener" style="color:var(--ink-3)">Salgsbetingelser</a>
+    </div>
   </div>
 </div>
 
@@ -7878,6 +7881,8 @@ function buildInnstillinger(){
   const subCard=el("div",{class:"card"});
   subCard.appendChild(el("div",{class:"card__title"},"Abonnement"));
   buildSubscriptionSection(subCard);
+  subCard.appendChild(el("p",{class:"card__note",style:{marginTop:"var(--s-3)"}},
+    el("a",{href:"/salgsbetingelser",target:"_blank",rel:"noopener",style:{color:"var(--green)"}},"Salgsbetingelser")));
   frag.appendChild(subCard);
 
   return frag;
