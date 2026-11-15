@@ -1069,3 +1069,15 @@ For additional context about technologies to be used, project structure,
 shell commands, and other important information, read that plan and its
 companion `research.md`, `data-model.md`, `contracts/api.md`, and `quickstart.md`.
 <!-- SPECKIT END -->
+
+
+## Source-text filter (feature 045)
+
+Fields: `state.sourceTextFilter` (Ordbank), `fc.sourceTextFilter`, `state.sentSourceTextFilter`,
+`ws.sourceTextFilter` — each a `"<kind>:<id>"` key (the key `sourceTextIndex.map` uses) or `""`.
+One helper set serves all of them: `sourceTextKey(w)`, `sourceTextOptions(topic)`,
+`sourceTextLabel(key)`, `sourceTextStillReachable(key, topic)`, `buildSourceTextSelect({topic,value,onChange})`.
+Do not copy the dropdown into a surface — call the builder. `onChange` runs on a real pick only, which is
+where `ordbank.source_text_filtered` is emitted (a render path would count renders). `launchPracticeWithFilter()`
+copies the pick into all four destinations. Setningsbygging reads the text body from `sourceTextIndex`
+(custom bodies included); `lesingState.texts` is built-in only.
