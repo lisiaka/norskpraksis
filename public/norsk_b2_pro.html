@@ -1788,11 +1788,14 @@ function renderTabs(){
       c.appendChild(wrap);
       return;
     }
-    const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts"].includes(teacherState.view);
+    const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts","class-sentences"].includes(teacherState.view);
 
     wrap.appendChild(el("div",{class:"label-mono",style:{padding:"6px 10px 4px"}},"Lærer"));
     wrap.appendChild(buildNavItem({iconName:"people",label:"Klassen min",count:teacherState.students?.length||null,
       active:isRoster,click(){teacherState.view="roster";setTab("laerer");}}));
+    wrap.appendChild(buildNavItem({iconName:"pen",label:"Setninger",
+      active:state.tab==="laerer"&&teacherState.view==="class-sentences",
+      click(){teacherState.view="class-sentences";setTab("laerer");}}));
     wrap.appendChild(buildNavItem({iconName:"sparkle",label:"AI assistent",
       active:state.tab==="laerer"&&teacherState.view==="ai-fokus-hub",
       click(){teacherState.view="ai-fokus-hub";setTab("laerer");}}));
@@ -8216,6 +8219,8 @@ function buildInnstillinger(){
 
 // ── LÆRER DASHBOARD ───────────────────────────────────────────────────────
 
+// Feature 046/048: the four window ids the backend defines, with their labels.
+const ACTIVITY_WINDOWS = [["1h","Siste time"],["24h","Siste 24 timer"],["7d","Siste 7 dager"],["30d","Siste 30 dager"]];
 const teacherState = {
   view: "roster",        // "roster" | "progress" | "essays" | "essay-detail" | "texts" | "words" | "sentences" | "summaries" | "assignments" | "bank-texts" | "bank-prompts" | "ai-fokus"
   // ordbankMode / aggXxxFilter (feature 022) live below, near the other Ordbank-related
@@ -8242,6 +8247,9 @@ const teacherState = {
   // the backend defines (1h/24h/7d/30d) and survives leaving and returning to Klassen min;
   // `byId` is the last response indexed by student id; `seq` discards a stale response.
   classActivity: { window: "7d", data: null, byId: {}, loading: false, error: false, seq: 0 },
+  // Feature 048: the class-wide Setninger view. Shares `classActivity.window` with Klassen min
+  // on purpose (one window per teacher session); topic/tagId are "" for "Alle".
+  classSentences: { data: null, topic: "", tagId: "", loading: false, error: false, seq: 0 },
 
   // ── "Elevenes ord" in Ordbank (feature 022) ───────────────────────────────
   // A toggle within Ordbank, not a sidebar view — a teacher's roster-wide,
@@ -8297,6 +8305,7 @@ function buildLaerer(){
   else if(teacherState.view === "texts")      wrap.appendChild(buildLaererTexts());
   else if(teacherState.view === "words")      wrap.appendChild(buildLaererWords());
   else if(teacherState.view === "sentences")  wrap.appendChild(buildLaererSentences());
+  else if(teacherState.view === "class-sentences") wrap.appendChild(buildLaererClassSentences());
   else if(teacherState.view === "plan")       wrap.appendChild(buildLaererPlan());
   else if(teacherState.view === "summaries")  wrap.appendChild(buildLaererSummaries());
   else if(teacherState.view === "assignments") wrap.appendChild(buildLaererAssignments());
@@ -8339,7 +8348,6 @@ function buildLaererRoster(){
   frag.appendChild(classCard);
 
   // Klasseoversikt (feature 046): one window selector governs every student's counts.
-  const ACTIVITY_WINDOWS = [["1h","Siste time"],["24h","Siste 24 timer"],["7d","Siste 7 dager"],["30d","Siste 30 dager"]];
   const activityBar = el("div",{style:{display:"none",flexWrap:"wrap",alignItems:"center",gap:"var(--s-2)",marginTop:"var(--s-3)"}});
   const activitySummary = el("div",{class:"card__sub",style:{width:"100%"}});
   const activityError = el("div",{class:"card__note",style:{color:"var(--danger)",width:"100%",display:"none"}});
@@ -9687,6 +9695,138 @@ function buildLaererSentences(){
       wrap.appendChild(card);
     });
   }
+  load();
+  return frag;
+}
+
+// ── Klassens setninger (feature 048) ───────────────────────────────────────
+// Every sentence the roster wrote in the window, grouped by word. The window is shared with
+// Klassen min (teacherState.classActivity.window). Events fire on clicks only — never here,
+// because renderContent() runs on every tab switch.
+function buildLaererClassSentences(){
+  const frag = document.createDocumentFragment();
+  const cs = teacherState.classSentences;
+  const ca = teacherState.classActivity;
+
+  frag.appendChild(el("div",{class:"topbar__title",style:{marginBottom:"var(--s-1)"}},"Setninger"));
+  frag.appendChild(el("p",{class:"card__note",style:{margin:"0 0 var(--s-3)"}},
+    "Setningene elevene dine har skrevet, gruppert etter ordet de skulle bruke."));
+
+  const bar = el("div",{style:{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"var(--s-2)"}});
+  const filters = el("div",{style:{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"var(--s-2)",marginTop:"var(--s-2)"}});
+  const summary = el("div",{class:"card__sub",style:{margin:"var(--s-3) 0 var(--s-2)"}});
+  const list = el("div",{style:{display:"flex",flexDirection:"column",gap:"var(--s-3)"}});
+  [bar,filters,summary,list].forEach(n=>frag.appendChild(n));
+
+  const noun = (n,one,many)=>`${n} ${n===1?one:many}`;
+
+  function setFilter(kind,apply){
+    apply();
+    trackEvent("teacher.class_sentences_filter",{kind,window:ca.window});
+    load();
+  }
+
+  function buildBar(){
+    bar.innerHTML="";
+    ACTIVITY_WINDOWS.forEach(([id,label])=>{
+      bar.appendChild(el("button",{class:"pill","data-window":id,
+        "aria-pressed":ca.window===id?"true":"false",
+        click:()=>{ if(ca.window===id) return; setFilter("window",()=>{ca.window=id;}); }},label));
+    });
+    bar.appendChild(el("button",{class:"btn","data-refresh":"1",disabled:cs.loading,
+      click:()=>{ trackEvent("teacher.class_sentences_refresh",{window:ca.window}); load(); }},"↻ Oppdater"));
+  }
+
+  function buildFilters(){
+    filters.innerHTML="";
+    const sel = (label,value,options,onChange)=>{
+      const s = el("select",{"aria-label":label,style:{padding:"6px 10px",border:"1px solid var(--color-border)",
+        borderRadius:"var(--radius-sm)",fontSize:"var(--font-sm)"},
+        change:(e)=>onChange(e.target.value)});
+      s.appendChild(el("option",{value:""},`${label}: Alle`));
+      options.forEach(([v,t])=>s.appendChild(el("option",{value:v,selected:v===value},t)));
+      s.value = value;
+      return s;
+    };
+    filters.appendChild(sel("Tema",cs.topic,VALID_TOPIC_LIST.map(t=>[t,t]),
+      v=>setFilter("topic",()=>{cs.topic=v;})));
+    const tags = teacherState.wordTags||[];
+    if(tags.length){
+      filters.appendChild(sel("Tagg",cs.tagId,tags.map(t=>[t.id,t.label]),
+        v=>setFilter("tag",()=>{cs.tagId=v;})));
+    }
+    if(cs.topic||cs.tagId){
+      filters.appendChild(el("button",{class:"btn",click:()=>{
+        cs.topic=""; cs.tagId="";
+        trackEvent("teacher.class_sentences_filter",{kind:"clear",window:ca.window});
+        load();
+      }},"Nullstill filtre"));
+    }
+  }
+
+  function paint(){
+    buildBar(); buildFilters();
+    list.innerHTML=""; summary.textContent="";
+    if(cs.error){
+      const msg = el("div",{class:"card__note",style:{color:"var(--danger)"}},"Kunne ikke hente setninger. ");
+      msg.appendChild(el("button",{class:"btn",click:load},"Prøv igjen"));
+      list.appendChild(msg); return;
+    }
+    const d = cs.data;
+    if(!d){ if(cs.loading) list.appendChild(el("p",{class:"card__note"},"Henter setninger …")); return; }
+    const filtered = !!(cs.topic||cs.tagId);
+    if(!d.groups.length){
+      const p = el("p",{class:"card__note"},filtered
+        ? "Ingen setninger passer med filtrene i denne perioden. "
+        : "Ingen setninger skrevet i denne perioden.");
+      if(filtered) p.appendChild(el("button",{class:"btn",click:()=>{cs.topic="";cs.tagId="";load();}},"Nullstill filtre"));
+      list.appendChild(p); return;
+    }
+    summary.textContent = `${noun(d.sentence_count,"setning","setninger")} · ${noun(d.word_count,"ord","ord")} · ${noun(d.student_count,"elev","elever")}`;
+    if(d.truncated){
+      list.appendChild(el("p",{class:"card__note",style:{color:"var(--danger)"}},
+        `Viser de ${d.sentence_count} nyeste setningene. Velg en kortere periode eller et filter for å se resten.`));
+    }
+    d.groups.forEach(g=>{
+      const card = el("div",{class:"card"});
+      const head = el("div",{style:{display:"flex",alignItems:"baseline",gap:"var(--s-2)",marginBottom:"var(--s-2)",flexWrap:"wrap"}});
+      head.appendChild(el("span",{style:{fontWeight:"600",color:g.word?"var(--green)":"inherit",fontSize:"var(--t-base)"}},
+        g.word===null ? "Ord som ikke lenger finnes" : $esc(g.word)));
+      head.appendChild(el("span",{class:"card__note"},noun(g.sentences.length,"setning","setninger")));
+      card.appendChild(head);
+      g.sentences.forEach(s=>{
+        const row = el("div",{style:{padding:"6px 0",borderTop:"1px solid var(--color-border)"}});
+        const meta = el("div",{style:{display:"flex",gap:"var(--s-2)",flexWrap:"wrap",alignItems:"center",marginBottom:"2px"}});
+        meta.appendChild(el("span",{style:{fontWeight:"600"}},$esc(s.student_name)));
+        if(s.topic){ const tema=topicTema(s.topic); meta.appendChild(el("span",{class:"tag",style:{background:tema.bg,color:tema.fg}},$esc(s.topic))); }
+        meta.appendChild(el("span",{class:"card__note",style:{marginLeft:"auto"}},
+          new Date(s.created_at).toLocaleString("nb-NO",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})));
+        row.appendChild(meta);
+        row.appendChild(el("div",{style:{lineHeight:"1.5"}},$esc(s.text)));
+        card.appendChild(row);
+      });
+      list.appendChild(card);
+    });
+  }
+
+  // A stale response (window/filter changed while in flight) is dropped via `seq`.
+  async function load(){
+    const mySeq = ++cs.seq;
+    cs.loading = true; cs.error = false; paint();
+    const q = new URLSearchParams({window:ca.window});
+    if(cs.topic) q.set("topic",cs.topic);
+    if(cs.tagId) q.set("tag_id",cs.tagId);
+    const r = await api(`/api/teacher/class-sentences?${q}`).catch(()=>null);
+    const body = r?.ok ? await r.json().catch(()=>null) : null;
+    if(mySeq !== cs.seq) return;
+    cs.loading = false;
+    if(body){ cs.data = body; } else { cs.error = true; }
+    paint();
+  }
+
+  // Tags are needed for the filter; a failure just leaves the tag filter out.
+  ensureWordTags().then(()=>{ buildFilters(); });
+  trackEvent("teacher.class_sentences_open",{window:ca.window});
   load();
   return frag;
 }
