@@ -13,6 +13,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="b2-norsk.css"/>
 <style>
+/* Feature 048: author name on the class Setninger rows, shown on hover. Inline (not in
+   b2-norsk.css) so it always ships with the markup that uses it. */
+.cs-author{opacity:0;transition:opacity .12s;white-space:nowrap}
+.cs-row:hover .cs-author,.cs-row:focus-within .cs-author{opacity:1}
+@media (hover:none){.cs-author{display:none}}
+
 :root{--color-primary:#1a6b4a;--color-primary-hover:#2d9e6b;--color-border-light:#eee;--color-border:#ccc;--color-text-muted:#888;--color-danger:#c0392b;--color-warning:#e8901a;--radius-sm:4px;--radius-md:12px;--radius-lg:24px;--font-xs:11px;--font-sm:13px;--font-base:15px;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',system-ui,sans-serif;background:#f0f4f8;min-height:100vh;color:#1a1a1a;font-size:var(--font-base);line-height:1.5;}
@@ -1793,9 +1799,6 @@ function renderTabs(){
     wrap.appendChild(el("div",{class:"label-mono",style:{padding:"6px 10px 4px"}},"Lærer"));
     wrap.appendChild(buildNavItem({iconName:"people",label:"Klassen min",count:teacherState.students?.length||null,
       active:isRoster,click(){teacherState.view="roster";setTab("laerer");}}));
-    wrap.appendChild(buildNavItem({iconName:"pen",label:"Setninger",
-      active:state.tab==="laerer"&&teacherState.view==="class-sentences",
-      click(){teacherState.view="class-sentences";setTab("laerer");}}));
     wrap.appendChild(buildNavItem({iconName:"sparkle",label:"AI assistent",
       active:state.tab==="laerer"&&teacherState.view==="ai-fokus-hub",
       click(){teacherState.view="ai-fokus-hub";setTab("laerer");}}));
@@ -1809,6 +1812,9 @@ function renderTabs(){
       click(){teacherState.view="bank-prompts";setTab("laerer");}}));
     wrap.appendChild(buildNavItem({iconName:"words",label:"Ordbank",count:state.words.length||null,
       active:state.tab==="ordbank",click(){setTab("ordbank");}}));
+    wrap.appendChild(buildNavItem({iconName:"pen",label:"Setninger",
+      active:state.tab==="laerer"&&teacherState.view==="class-sentences",
+      click(){teacherState.view="class-sentences";setTab("laerer");}}));
 
     wrap.appendChild(el("div",{class:"label-mono",style:{padding:"10px 10px 4px"}},"Konto"));
     wrap.appendChild(buildNavItem({iconName:"sliders",label:"Innstillinger",
@@ -9794,15 +9800,40 @@ function buildLaererClassSentences(){
         g.word===null ? "Ord som ikke lenger finnes" : $esc(g.word)));
       head.appendChild(el("span",{class:"card__note"},noun(g.sentences.length,"setning","setninger")));
       card.appendChild(head);
+      // Tema belongs to the word, so it sits on the heading once rather than on every sentence.
+      const topic = g.sentences.find(x=>x.topic)?.topic;
+      if(topic){ const tema=topicTema(topic); head.appendChild(el("span",{class:"tag",style:{background:tema.bg,color:tema.fg}},$esc(topic))); }
       g.sentences.forEach(s=>{
-        const row = el("div",{style:{padding:"6px 0",borderTop:"1px solid var(--color-border)"}});
-        const meta = el("div",{style:{display:"flex",gap:"var(--s-2)",flexWrap:"wrap",alignItems:"center",marginBottom:"2px"}});
-        meta.appendChild(el("span",{style:{fontWeight:"600"}},$esc(s.student_name)));
-        if(s.topic){ const tema=topicTema(s.topic); meta.appendChild(el("span",{class:"tag",style:{background:tema.bg,color:tema.fg}},$esc(s.topic))); }
-        meta.appendChild(el("span",{class:"card__note",style:{marginLeft:"auto"}},
+        const row = el("div",{class:"cs-row",style:{padding:"6px 0",borderTop:"1px solid var(--color-border)"}});
+        const line = el("div",{style:{display:"flex",gap:"var(--s-2)",alignItems:"baseline"}});
+        line.appendChild(el("div",{style:{lineHeight:"1.5",flex:"1"}},$esc(s.text)));
+        // Hover reveals the author; touch screens have no hover, so the arrow does it too.
+        line.appendChild(el("span",{class:"cs-author card__note"},$esc(s.student_name)));
+        line.appendChild(el("span",{class:"card__note",style:{whiteSpace:"nowrap"}},
           new Date(s.created_at).toLocaleString("nb-NO",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})));
-        row.appendChild(meta);
-        row.appendChild(el("div",{style:{lineHeight:"1.5"}},$esc(s.text)));
+        const detail = el("div",{style:{display:"none",margin:"var(--s-2) 0 var(--s-1)",paddingLeft:"var(--s-3)",
+          borderLeft:"2px solid var(--color-border)"}});
+        detail.appendChild(el("div",{style:{fontWeight:"600"}},"Skrevet av "+$esc(s.student_name)));
+        let fbDone = false;
+        const arrow = el("button",{"aria-expanded":"false","aria-label":"Vis detaljer",
+          style:{border:"none",background:"none",cursor:"pointer",padding:"0 6px",fontSize:"15px",lineHeight:"1",color:"var(--ink-2)"},
+          click:()=>{
+            const open = detail.style.display==="none";
+            detail.style.display = open ? "" : "none";
+            arrow.textContent = open ? "▾" : "▸";
+            arrow.setAttribute("aria-expanded",open?"true":"false");
+            if(open && !fbDone){
+              fbDone = true;
+              const fb = el("div",{style:{marginTop:"var(--s-2)"}});
+              let shown = false;
+              if(s.claude_feedback){ try{ renderClaudeResult(JSON.parse(s.claude_feedback), fb); shown = true; }catch{} }
+              if(!shown) fb.appendChild(el("p",{class:"card__note"},"Ingen tilbakemelding fra Claude for denne setningen."));
+              detail.appendChild(fb);
+            }
+          }},"▸");
+        line.appendChild(arrow);
+        row.appendChild(line);
+        row.appendChild(detail);
         card.appendChild(row);
       });
       list.appendChild(card);
