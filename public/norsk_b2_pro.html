@@ -8236,6 +8236,10 @@ const teacherState = {
   aiChatTurnCount: 0,    // number of user turns sent this chat session
   aiRatings: null,       // cached list of ai_feedback_ratings for selectedStudent
   classes: null,         // cached [{id,name,student_count,created_at}] — feature 018
+  // Feature 046: per-student activity counts on the roster. `window` is one of the four ids
+  // the backend defines (1h/24h/7d/30d) and survives leaving and returning to Klassen min;
+  // `byId` is the last response indexed by student id; `seq` discards a stale response.
+  classActivity: { window: "7d", data: null, byId: {}, loading: false, error: false, seq: 0 },
 
   // ── "Elevenes ord" in Ordbank (feature 022) ───────────────────────────────
   // A toggle within Ordbank, not a sidebar view — a teacher's roster-wide,
@@ -8335,6 +8339,13 @@ function buildLaererRoster(){
   classCard.appendChild(classListWrap);
   frag.appendChild(classCard);
 
+  // Klasseoversikt (feature 046): one window selector governs every student's counts.
+  const ACTIVITY_WINDOWS = [["1h","Siste time"],["24h","Siste 24 timer"],["7d","Siste 7 dager"],["30d","Siste 30 dager"]];
+  const activityBar = el("div",{style:{display:"none",flexWrap:"wrap",alignItems:"center",gap:"var(--s-2)",marginTop:"var(--s-3)"}});
+  const activitySummary = el("div",{class:"card__sub",style:{width:"100%"}});
+  const activityError = el("div",{class:"card__note",style:{color:"var(--danger)",width:"100%",display:"none"}});
+  frag.appendChild(activityBar);
+
   // Student list
   const listWrap = el("div",{style:{display:"flex",flexDirection:"column",gap:"var(--s-2)"}});
   frag.appendChild(listWrap);
@@ -8425,6 +8436,9 @@ function buildLaererRoster(){
     const nameCol=el("div",{style:{minWidth:"0"}});
     nameCol.appendChild(el("div",{class:"card__title",style:{fontSize:"14.5px"}},$esc(s.name)));
     nameCol.appendChild(el("div",{class:"card__sub"},$esc(s.email)));
+    // Feature 046. Filled in place by paintActivity() so the roster never waits on it.
+    nameCol.appendChild(el("div",{class:"card__sub","data-activity":s.id,
+      style:{marginTop:"2px",lineHeight:"1.5"}}));
     info.appendChild(nameCol);
 
     // One control for place, move and unassign — a student is in at most one class,
@@ -8489,6 +8503,87 @@ function buildLaererRoster(){
     });
   }
 
+  const nb = (n, one, many) => `${n} ${n===1?one:many}`;
+
+  // One entry per figure, so a narrow row wraps between figures and never inside one.
+  function activityParts(a){
+    // Nothing assigned in the window reads as "–", not "0 av 0" (spec edge case).
+    return [
+      nb(a.texts_read,"tekst","tekster"), nb(a.essays,"essay","essays"),
+      nb(a.sentences,"setning","setninger"), `${a.words_added} ord`,
+      a.items_assigned ? `${a.items_done} av ${nb(a.items_assigned,"oppgave","oppgaver")}` : "– oppgaver",
+    ];
+  }
+
+  function paintActivity(){
+    const ca = teacherState.classActivity;
+    listWrap.querySelectorAll("[data-activity]").forEach(node=>{
+      const a = ca.byId[node.getAttribute("data-activity")];
+      node.textContent = "";
+      if(ca.error) return;
+      if(!a){ node.textContent = ca.loading ? "Henter aktivitet …" : ""; return; }
+      activityParts(a).forEach((t,i)=>{
+        node.appendChild(el("span",{style:{whiteSpace:"nowrap"}},(i?" · ":"")+t));
+        node.appendChild(document.createTextNode(" "));
+      });
+    });
+    activityError.style.display = ca.error ? "" : "none";
+    const d = ca.data;
+    activitySummary.textContent = (!ca.error && d && d.roster_size)
+      ? `${d.active_count} av ${nb(d.roster_size,"elev","elever")} har vært aktive i perioden`
+      : "";
+    activityBar.querySelectorAll("[data-window]").forEach(b=>{
+      b.setAttribute("aria-pressed", b.getAttribute("data-window")===ca.window ? "true" : "false");
+    });
+    const rb = activityBar.querySelector("[data-refresh]");
+    if(rb) rb.disabled = ca.loading;
+  }
+
+  // Never blocks or breaks the roster: a failure shows one message and a retry (FR-013).
+  async function loadClassActivity(){
+    const ca = teacherState.classActivity;
+    const mySeq = ++ca.seq, win = ca.window;
+    ca.loading = true; ca.error = false; paintActivity();
+    const r = await api(`/api/teacher/class-activity?window=${encodeURIComponent(win)}`).catch(()=>null);
+    const body = r?.ok ? await r.json().catch(()=>null) : null;
+    if(mySeq !== ca.seq) return; // the window changed while this was in flight
+    ca.loading = false;
+    if(body){
+      ca.data = body;
+      ca.byId = Object.fromEntries(body.students.map(x=>[x.student_id, x]));
+    } else {
+      ca.error = true;
+    }
+    paintActivity();
+  }
+
+  function buildActivityBar(){
+    activityBar.innerHTML = "";
+    activityBar.style.display = "flex";
+    ACTIVITY_WINDOWS.forEach(([id,label])=>{
+      activityBar.appendChild(el("button",{class:"pill","data-window":id,
+        "aria-pressed":teacherState.classActivity.window===id?"true":"false",
+        click:()=>{
+          const ca = teacherState.classActivity;
+          if(ca.window===id) return;
+          ca.window = id;
+          // On the click, never in a render path — renderContent() runs on every tab switch.
+          trackEvent("teacher.class_overview_window",{window:id});
+          loadClassActivity();
+        }},label));
+    });
+    activityBar.appendChild(el("button",{class:"btn","data-refresh":"1",
+      click:()=>{
+        trackEvent("teacher.class_overview_refresh",{window:teacherState.classActivity.window});
+        loadClassActivity();
+      }},"↻ Oppdater"));
+    activityBar.appendChild(activitySummary);
+    const retry = el("button",{class:"btn",style:{marginLeft:"var(--s-2)"},click:loadClassActivity},"Prøv igjen");
+    activityError.textContent = "Kunne ikke hente aktivitet. ";
+    activityError.appendChild(retry);
+    activityBar.appendChild(activityError);
+  }
+
   async function loadStudents(){
     await ensureTeacherRoster();
     topbarMeta.textContent = `${teacherState.students.length} ${teacherState.students.length===1?"elev":"elever"}`;
@@ -8520,6 +8615,10 @@ function buildLaererRoster(){
     });
 
     giOppgaverWrap.appendChild(buildGiOppgaver(teacherState.students));
+
+    // Feature 046: after the roster has painted, so a slow or failed fetch costs nothing.
+    buildActivityBar();
+    loadClassActivity();
   }
   loadStudents();
   return frag;
