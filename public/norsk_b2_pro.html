@@ -1071,7 +1071,7 @@ function appendAiAccessUpsellButton(container){
   container.appendChild(btn);
 }
 
-// ── AI STEERING (teacher AI-fokus instructions + feedback ratings) ─────────
+// ── AI STEERING (teacher AI assistent instructions + feedback ratings) ─────────
 //
 // ⚠️ **Nothing to do here any more.** Feature 012 fetched the teacher's steering
 // context and composed it into every Claude prompt from the browser. Feature 020
@@ -1791,7 +1791,7 @@ function renderTabs(){
     wrap.appendChild(el("div",{class:"label-mono",style:{padding:"6px 10px 4px"}},"Lærer"));
     wrap.appendChild(buildNavItem({iconName:"people",label:"Klassen min",count:teacherState.students?.length||null,
       active:isRoster,click(){teacherState.view="roster";setTab("laerer");}}));
-    wrap.appendChild(buildNavItem({label:"AI-fokus",
+    wrap.appendChild(buildNavItem({label:"AI assistent",
       active:state.tab==="laerer"&&teacherState.view==="ai-fokus-hub",
       click(){teacherState.view="ai-fokus-hub";setTab("laerer");}}));
 
@@ -2912,7 +2912,7 @@ function resultLineText(){
 function buildOrdbankModeToggle(){
   const mode = teacherState.ordbankMode || "mine";
   // A toggle maps onto the same selected-pill treatment as every other
-  // exclusive-choice control in the app (AI-fokus scope, report-layout surface,
+  // exclusive-choice control in the app (AI assistent scope, report-layout surface,
   // Gi oppgaver's mode switch) — never a filled primary/accent colour.
   const row = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-4)"}});
   row.appendChild(el("button",{class:"pill","aria-pressed":mode==="mine"?"true":"false",
@@ -8231,7 +8231,7 @@ const teacherState = {
   studentAssignments: null, // list of assignments from teacher view
   bankTexts: null,       // cached teacher text bank
   bankPrompts: null,     // cached teacher prompt bank
-  aiInstructions: null,  // { instructions, updated_at } | null — cached AI-fokus for selectedStudent
+  aiInstructions: null,  // { instructions, updated_at } | null — cached AI assistent for selectedStudent
   aiChatMessages: [],    // refinement chat history for the open session
   aiChatTurnCount: 0,    // number of user turns sent this chat session
   aiRatings: null,       // cached list of ai_feedback_ratings for selectedStudent
@@ -8255,9 +8255,7 @@ const teacherState = {
   // cached GET .../report-config per surface (021). `essay` never gets
   // populated any more — feature 030 follow-up retired it from this system —
   // the key is kept only so a stale reference to it reads as "empty", not "undefined".
-  reportConfigs: {essay:null, reading_summary:null},
-  promptTestResults: [], // session-scoped list of {source, reply} from "Test mot essay" (021, US2) — dead, buildPromptTestPanel() is unreachable now
-  // ── AI-fokus hub (021 teacher/class scope) ──────────────────────────────
+  // ── AI assistent hub (021 teacher/class scope) ──────────────────────────────
   // Draft instructions/blocks are NOT cached here — buildLaererAiFokusHub()
   // reloads them fresh from the server every time it's built, so the editor
   // always starts from the actual current structure rather than a possibly
@@ -8265,7 +8263,6 @@ const teacherState = {
   aiFokusScope: "all",          // "all" | "class" | "students"
   aiFokusScopeClassId: null,
   aiFokusScopeStudentIds: new Set(),
-  aiFokusPreviewResults: [],    // session-scoped, same pattern as promptTestResults
 
   wordTags: null,        // feature 023 — cached [{id,label,created_at}] from GET
                           // /api/teacher/word-tags, null = not loaded yet
@@ -8282,7 +8279,7 @@ function buildLaerer(){
     const card = el("div",{class:"card",style:{maxWidth:"600px",margin:"32px auto"}});
     card.appendChild(el("div",{class:"card__title"},"Venter på godkjenning"));
     card.appendChild(el("p",{class:"card__sub"},
-      "Lærerkontoen din venter på godkjenning før du får tilgang til Klassen min, bankene og AI-fokus. Du får beskjed når kontoen er godkjent."));
+      "Lærerkontoen din venter på godkjenning før du får tilgang til Klassen min, bankene og AI assistent. Du får beskjed når kontoen er godkjent."));
     frag.appendChild(card);
     return frag;
   }
@@ -8666,7 +8663,7 @@ function buildLaererProgress(){
       ["Setninger",p.sentences_written,()=>{teacherState.studentSentences=null;laererSetView("sentences");}],
       ["Stiler levert",p.essays_submitted,p.essays_submitted>0?()=>{teacherState.studentEssays=null;laererSetView("essays");}:null],
       ["Gjenfortellinger",(p.summaries_written||0),()=>{teacherState.studentSummaries=null;laererSetView("summaries");}],
-      ["AI-fokus",null,()=>{teacherState.aiInstructions=null;teacherState.reportConfigs={essay:null,reading_summary:null};teacherState.promptTestResults=[];laererSetView("ai-fokus");}],
+      ["AI assistent",null,()=>{teacherState.aiInstructions=null;laererSetView("ai-fokus");}],
     ].forEach(([label,val,onClick])=>{
       const card=el("div",{class:"card",style:{textAlign:"center",cursor:onClick?"pointer":"default"},
         ...(onClick?{click:onClick}:{})});
@@ -8681,7 +8678,7 @@ function buildLaererProgress(){
   return frag;
 }
 
-// ── AI-fokus view (feature 012) ───────────────────────────────────────────
+// ── AI assistent view (feature 012) ───────────────────────────────────────────
 function buildLaererAiFokus(){
   const frag = document.createDocumentFragment();
   const s = teacherState.selectedStudent;
@@ -8689,7 +8686,7 @@ function buildLaererAiFokus(){
   const back = el("button",{class:"btn",style:{marginBottom:"var(--s-3)"},
     click:()=>laererSetView("progress")},"← Tilbake");
   frag.appendChild(back);
-  frag.appendChild(el("div",{class:"topbar__title",style:{marginBottom:"var(--s-1)"}},`AI-fokus: ${$esc(s?.name||"")}`));
+  frag.appendChild(el("div",{class:"topbar__title",style:{marginBottom:"var(--s-1)"}},`AI assistent: ${$esc(s?.name||"")}`));
   frag.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-4)"}},
     "Instruksjoner du skriver her blir automatisk lagt til i alle Claude-tilbakemeldinger denne eleven får (stiler, setninger og gjenfortellinger)."));
 
@@ -8716,7 +8713,7 @@ function buildLaererAiFokus(){
       if(r.ok){
         teacherState.aiInstructions = await r.json();
         textarea.value = value;
-        toast("✓ AI-fokus lagret");
+        toast("✓ AI assistent lagret");
         saveBtn.textContent="Lagret ✓";
         saveBtn.disabled=false;
         clearBtn.disabled=false;
@@ -8748,7 +8745,7 @@ function buildLaererAiFokus(){
         if(r.ok){
           teacherState.aiInstructions = {instructions:null, updated_at:null};
           textarea.value="";
-          toast("✓ AI-fokus fjernet");
+          toast("✓ AI assistent fjernet");
           clearBtn.disabled=true;
         } else {
           clearBtn.disabled=false;
@@ -8816,7 +8813,7 @@ function buildLaererAiFokus(){
       if(m.proposedInstructions){
         const saveProposalBtn = el("button",{class:"btn btn--primary",style:{marginTop:"4px"},
           click: async ()=>{ await saveInstructions(m.proposedInstructions); }
-        },"Lagre som AI-fokus");
+        },"Lagre som AI assistent");
         chatMessagesEl.appendChild(saveProposalBtn);
       }
     });
@@ -8867,305 +8864,233 @@ function buildLaererAiFokus(){
   }
   loadInstructions();
 
-  frag.appendChild(buildReportLayoutCard(s));
 
   return frag;
 }
 
-// ── Report layout (feature 021, US1) ─────────────────────────────────────
-// Which sections appear in this student's essay/reading-summary feedback,
-// and in what order. A separate card from the free-text instruction above —
-// different mechanism (structural, not a sentence the model reads), same
-// screen. Config is per (student, surface): essay and reading-summary have
-// different default shapes, so the two are edited independently via tabs.
-const REPORT_BLOCK_TYPES = ["errors","rules","strengths","improvements","prose"];
-const REPORT_BLOCK_LABELS = {
-  errors:"Grammatikkfeil", rules:"Regler", strengths:"Styrker",
-  improvements:"Forbedring", prose:"Fritekst",
-};
+// ── Siste tilbakemeldinger fra AI + test av instruksjon (feature 047) ─────
+// The latest 5 AI feedback replies the teacher's own students received, read
+// from GET /api/teacher/ai-feedback/recent (fenced to the roster). The reply is
+// parsed and drawn with the same renderers the student sees; anything unparsable
+// degrades to plain text.
+//
+// Each item that the backend could trace to a saved piece of the student's work
+// (`item.submission`, recovered by matching the saved reply — nothing new is
+// stored) also gets: the student's text, a 👍/👎 + comment, "Foreslå instruksjon"
+// (comment + text + reply -> the refinement chat -> a proposal in the instruction
+// box) and "Test instruksjonen" (the DRAFT instruction run against that text).
+// An item with no traceable text gets none of these — a comment about a text the
+// teacher cannot see is the noise this feature removed from the prompt.
+//
+// ⚠️ The base prompt is hidden: the browser sends the draft instruction and the
+// student's text only, and the server composes and never returns the prompt.
+const AI_FEEDBACK_SURFACE_LABELS = {essay:"Stil", sentence:"Setning", reading_summary:"Gjenfortelling"};
 
-function buildReportLayoutCard(student){
+function renderAiReplyInto(surface, rawText, out){
+  out.innerHTML="";
+  let parsed=null;
+  try{ parsed=JSON.parse(rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim()); }catch{}
+  try{
+    if(parsed && surface==="essay") renderEssayClaudeResult(parsed,out);
+    else if(parsed && surface==="sentence") renderClaudeResult(parsed,out);
+    else if(parsed && surface==="reading_summary") renderGjenfortellResult(parsed,out);
+    else parsed=null;
+  }catch{ parsed=null; out.innerHTML=""; }
+  if(!parsed) out.appendChild(el("p",{style:{whiteSpace:"pre-wrap",fontSize:"var(--t-sm)"}},rawText));
+}
+
+// The user message each surface's real call sends (checkEssayWithClaude,
+// checkWithClaude, checkGjenfortellWithClaude) — the test must feed the model the
+// same shape or it would not be testing the instruction.
+async function composeTestUserMessage(item){
+  const sub=item.submission;
+  if(item.surface==="essay") return `Please evaluate this Norwegian essay:\n\n${sub.text}`;
+  if(item.surface==="sentence")
+    return `Jeg er en norsk-elev og øver på ordet/uttrykket: "${sub.word||""}"\n\nVennligst vurder denne setningen:\n"${sub.text}"`;
+  const texts=await loadLesingTexts();
+  const src=(texts||[]).find(t=>t.id===sub.reading_text_id);
+  if(!src) return null;  // a teacher's own text is not in the shipped corpus
+  return `Originaltekst:\n${src.text}\n\nElevens sammendrag:\n${sub.text}\n\nVurder sammendraget med tanke på: tekstforståelse, bruk av ord fra originalteksten, grammatikk og språknivå.`;
+}
+
+async function runInstructionTest({surface, instructions, userMessage, studentId, out, btn}){
+  if(!instructions.trim()){ toast("Skriv en instruksjon først"); return; }
+  const label=btn.textContent; btn.disabled=true; btn.textContent="Tester…";
+  out.innerHTML=""; out.appendChild(el("p",{class:"card__note"},"Kjører…"));
+  const r=await api("/api/ai/instruction-test",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({surface,instructions,user_message:userMessage,student_id:studentId||null})}).catch(()=>null);
+  btn.disabled=false; btn.textContent=label;
+  out.innerHTML="";
+  if(!r?.ok){
+    const d=await r?.json?.().catch(()=>({}))||{};
+    const rateLimited=r?.status===429;
+    out.appendChild(el("p",{class:"card__note",style:{color:"var(--danger)"}},
+      rateLimited ? "Du har testet mye nå. Vent noen minutter."
+                  : aiFailureMessage(r?.status||0, d?.detail?.reason||"", "")));
+    return;
+  }
+  const data=await r.json();
+  out.appendChild(el("div",{class:"label-mono",style:{margin:"var(--s-2) 0"}},"Svar med utkastet ditt"));
+  const body=el("div",{}); out.appendChild(body);
+  renderAiReplyInto(surface,data.reply,body);
+}
+
+function renderRecentAiFeedbackCard(host, ctx){
+  ctx = ctx || {getInstructions:()=>"", setInstructions:()=>{}};
+  host.innerHTML="";
   const card = el("div",{class:"card",style:{marginTop:"var(--s-4)"}});
-  card.appendChild(el("div",{class:"card__title"},"Rapportlayout"));
-
-  // Feature 030 follow-up (2026-09-14): essay retired from this system — it
-  // always uses the fixed 4-criteria structure now (Innhold og formidling,
-  // Tekstoppbygging, Ord og uttrykk, Grammatikk), for every student, and can
-  // no longer be tailored here. The backend refuses surface=essay on every
-  // one of these endpoints now (routers/teacher.py's
-  // _reject_essay_report_config), so there is nothing left to offer a
-  // teacher a tab for — only reading-summary is still block-configurable.
-  // The previous two-tab toggle (Stil / Gjenfortelling) is gone; this card
-  // is reading-summary-only now.
-  card.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-2)"}},
-    "Stil-tilbakemelding følger nå faste kriterier (Innhold og formidling, Tekstoppbygging, Ord og uttrykk, Grammatikk) og kan ikke lenger tilpasses her."));
+  host.appendChild(card);
+  const head = el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--s-2)",marginBottom:"var(--s-1)"}});
+  head.appendChild(el("div",{class:"card__title",style:{margin:"0"}},"Siste tilbakemeldinger fra AI"));
+  head.appendChild(el("button",{class:"btn",click:()=>renderRecentAiFeedbackCard(host,ctx)},"Oppdater"));
+  card.appendChild(head);
   card.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}},
-    "Velg hvilke seksjoner denne eleven får i tilbakemeldingen på gjenfortelling, og i hvilken rekkefølge. Uten endringer her ser eleven akkurat det samme som før."));
+    "De 5 siste AI-tilbakemeldingene elevene dine har fått. Skriv en kommentar, la AI foreslå en endring i instruksjonen, og test den før du lagrer."));
+  const body = el("div",{});
+  card.appendChild(body);
+  body.appendChild(el("p",{class:"card__note"},"Laster…"));
 
-  const surface = "reading_summary";
-  const bodyHost = el("div",{});
-  card.appendChild(bodyHost);
-
-  const err = el("p",{class:"card__note",style:{color:"var(--danger)",marginTop:"var(--s-2)",display:"none"}});
-
-  // The draft being edited — starts from whatever is loaded (saved config or
-  // default), and is only sent to the server on "Lagre". Nothing here writes
-  // until then, so reloading discards an unsaved change.
-  let draft = null;
-
-  async function loadConfig(surface){
-    if(!teacherState.reportConfigs[surface]){
-      const r = await api(`/api/teacher/students/${encodeURIComponent(student.id)}/report-config?surface=${surface}`).catch(()=>null);
-      teacherState.reportConfigs[surface] = r?.ok ? await r.json() : null;
+  (async ()=>{
+    const r = await api("/api/teacher/ai-feedback/recent").catch(()=>null);
+    body.innerHTML="";
+    if(!r?.ok){
+      body.appendChild(el("p",{class:"card__note",style:{color:"var(--danger)"}},"Kunne ikke laste tilbakemeldingene."));
+      return;
     }
-    return teacherState.reportConfigs[surface];
+    const items = await r.json();
+    if(!items.length){
+      body.appendChild(el("p",{class:"card__note",style:{fontStyle:"italic"}},
+        "Ingen tilbakemeldinger ennå. De dukker opp her når elevene dine får AI-tilbakemelding på stiler, setninger eller gjenfortellinger."));
+      return;
+    }
+    items.forEach(item=>body.appendChild(buildRecentFeedbackItem(item,ctx)));
+  })();
+}
+
+function buildRecentFeedbackItem(item, ctx){
+  const box = el("div",{style:{marginBottom:"var(--s-4)",paddingBottom:"var(--s-4)",borderBottom:"1px solid var(--line-soft)"}});
+  const kind = AI_FEEDBACK_SURFACE_LABELS[item.surface]||"Tilbakemelding";
+  box.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-2)",fontWeight:"600"}},
+    `${item.student_name} · ${kind} · ${new Date(item.created_at).toLocaleString("nb-NO",{dateStyle:"short",timeStyle:"short"})}`));
+
+  const sub=item.submission;
+  if(sub){
+    const what = item.surface==="essay" ? `Elevens stil${sub.title?`: «${sub.title}»`:""}`
+      : item.surface==="sentence" ? `Elevens setning${sub.word?` (ordet «${sub.word}»)`:""}`
+      : "Elevens gjenfortelling";
+    const det=el("details",{style:{marginBottom:"var(--s-3)"}});
+    det.appendChild(el("summary",{style:{cursor:"pointer",fontSize:"var(--t-sm)",fontWeight:"600"}},what));
+    det.appendChild(el("div",{style:{background:"var(--surface-head)",borderRadius:"var(--r-btn)",padding:"12px 14px",marginTop:"var(--s-2)",
+      whiteSpace:"pre-wrap",lineHeight:"1.7",fontSize:"var(--t-base)"}},sub.text));
+    box.appendChild(det);
   }
 
-  function renderBlockRow(list, index, container){
-    const block = list[index];
-    const row = el("div",{style:{display:"flex",alignItems:"center",gap:"var(--s-2)",padding:"8px 10px",
-      background:"var(--surface-head)",borderRadius:"var(--r-btn)",marginBottom:"var(--s-1)"}});
-    row.appendChild(el("span",{style:{flex:"1",fontSize:"var(--t-sm)",fontWeight:"600"}},
-      REPORT_BLOCK_LABELS[block.type]||block.type));
-    row.appendChild(el("button",{class:"icon-btn",disabled:index===0,
-      click:()=>{ [list[index-1],list[index]]=[list[index],list[index-1]]; container(); }},"↑"));
-    row.appendChild(el("button",{class:"icon-btn",disabled:index===list.length-1,
-      click:()=>{ [list[index+1],list[index]]=[list[index],list[index+1]]; container(); }},"↓"));
-    row.appendChild(el("button",{class:"icon-btn",style:{color:"var(--danger)"},
-      click:()=>{ list.splice(index,1); container(); }},"✕"));
-    return row;
+  const out=el("div",{}); box.appendChild(out);
+  renderAiReplyInto(item.surface,item.response_text,out);
+
+  if(!sub){
+    box.appendChild(el("p",{class:"card__note",style:{marginTop:"var(--s-2)",fontStyle:"italic"}},
+      "Eleven har ikke lagret teksten (eller har endret den etterpå), så den kan ikke vurderes eller testes her."));
+    return box;
   }
 
-  function renderBody(){
-    bodyHost.innerHTML="";
-    err.style.display="none";
-    bodyHost.appendChild(el("p",{class:"card__note"},"Laster…"));
+  // ── Rating + comment ────────────────────────────────────────────────
+  let rating=item.rating?.rating||null;
+  const rate=el("div",{style:{marginTop:"var(--s-3)",paddingTop:"var(--s-3)",borderTop:"1px solid var(--line-soft)"}});
+  box.appendChild(rate);
+  rate.appendChild(el("div",{class:"field__label",style:{marginBottom:"2px"}},"Din vurdering"));
+  const pills=el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-2)"}});
+  const pillEls={};
+  [["up","👍 Bra"],["down","👎 Dårlig"]].forEach(([v,label])=>{
+    pillEls[v]=el("button",{class:"pill","aria-pressed":rating===v?"true":"false",
+      click:()=>{ rating=v; Object.entries(pillEls).forEach(([k,b])=>b.setAttribute("aria-pressed",k===v?"true":"false")); }},label);
+    pills.appendChild(pillEls[v]);
+  });
+  rate.appendChild(pills);
+  const comment=el("textarea",{class:"textarea",rows:"3",maxlength:"1000",
+    placeholder:"Hva var bra eller dårlig med denne tilbakemeldingen? F.eks. «For streng på ordstilling i bisetninger.»",
+    style:{marginBottom:"var(--s-2)"}});
+  comment.value=item.rating?.comment||"";
+  rate.appendChild(comment);
+  const actions=el("div",{class:"actions",style:{flexWrap:"wrap"}});
+  rate.appendChild(actions);
+  const note=el("p",{class:"card__note",style:{marginTop:"var(--s-2)"}});
+  rate.appendChild(note);
 
-    loadConfig(surface).then(cfg=>{
-      bodyHost.innerHTML="";
-      if(!cfg){
-        bodyHost.appendChild(el("p",{class:"card__note",style:{color:"var(--danger)"}},"Kunne ikke laste rapportlayout."));
-        return;
-      }
-      draft = cfg.blocks.map(b=>({type:b.type, params:b.params||{}, instruction:b.instruction||null}));
+  const saveBtn=el("button",{class:"btn",click:async ()=>{
+    if(!rating){ note.textContent="Velg Bra eller Dårlig først."; return; }
+    saveBtn.disabled=true;
+    const r=await api("/api/teacher/ai-ratings",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({student_id:item.student_id,source_type:sub.rating_source_type,source_id:sub.source_id,
+        rating,comment:comment.value.trim()||null})}).catch(()=>null);
+    saveBtn.disabled=false;
+    note.textContent=r?.ok?"✓ Vurdering lagret. Den sendes ikke til eleven og endrer ikke instruksjonen av seg selv.":"Kunne ikke lagre vurderingen.";
+  }},"Lagre vurdering");
+  actions.appendChild(saveBtn);
 
-      if(cfg.is_default){
-        bodyHost.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-2)"}},
-          "Standard rapport — ingen endringer lagret for denne eleven."));
-      }else{
-        bodyHost.appendChild(el("p",{class:"card__note",style:{color:"var(--green)",marginBottom:"var(--s-2)"}},
-          "Tilpasset rapport lagret."+ (cfg.updated_at ? " Sist endret "+new Date(cfg.updated_at).toLocaleDateString("nb-NO")+"." : "")));
-      }
+  // ── Foreslå instruksjon ──────────────────────────────────────────────
+  const suggestBtn=el("button",{class:"btn",click:async ()=>{
+    const c=comment.value.trim();
+    if(!c){ note.textContent="Skriv en kommentar først — den forteller AI hva som skal endres."; return; }
+    suggestBtn.disabled=true; const label=suggestBtn.textContent; suggestBtn.textContent="Tenker…";
+    const current=ctx.getInstructions().trim();
+    const prompt=[
+      "Vurder denne AI-tilbakemeldingen og foreslå en revidert instruksjon.",
+      `Elevens tekst:\n${sub.text}`,
+      `AI-tilbakemeldingen eleven fikk:\n${item.response_text}`,
+      `Min kommentar som lærer (${rating==="down"?"dårlig":rating==="up"?"bra":"uten vurdering"}):\n${c}`,
+      `Nåværende instruksjon:\n${current||"(ingen)"}`,
+      "Gi én kort, generell instruksjon som gjelder for fremtidige tilbakemeldinger (ikke bare denne teksten). Behold det som allerede står i den nåværende instruksjonen og er bra. Svar med instruksjonen i en ```instruks```-blokk med en kort forklaring før.",
+    ].join("\n\n");
+    const r=await api(`/api/teacher/students/${encodeURIComponent(item.student_id)}/ai-chat`,{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({messages:[{role:"user",content:prompt}],turn_count:1})}).catch(()=>null);
+    suggestBtn.disabled=false; suggestBtn.textContent=label;
+    if(!r?.ok){ note.textContent="Kunne ikke lage et forslag akkurat nå."; return; }
+    const data=await r.json();
+    if(data.proposed_instructions){
+      ctx.setInstructions(data.proposed_instructions);
+      note.textContent="✓ Forslaget står nå i Instruksjon-feltet øverst. Les det over, test det og lagre når du er fornøyd.";
+    }else{
+      note.textContent="AI ga ikke et ferdig forslag: "+data.reply.slice(0,300);
+    }
+  }},"✨ Foreslå instruksjon");
+  actions.appendChild(suggestBtn);
 
-      const listEl = el("div",{});
-      bodyHost.appendChild(listEl);
+  // ── Test ─────────────────────────────────────────────────────────────
+  const testOut=el("div",{});
+  const testBtn=el("button",{class:"btn btn--primary",click:async ()=>{
+    const msg=await composeTestUserMessage(item);
+    if(!msg){ note.textContent="Denne teksten finnes ikke i tekstbanken, så gjenfortellingen kan ikke testes."; return; }
+    note.textContent="";
+    runInstructionTest({surface:item.surface,instructions:ctx.getInstructions(),userMessage:msg,
+      studentId:item.student_id,out:testOut,btn:testBtn});
+  }},"Test instruksjonen på denne");
+  actions.appendChild(testBtn);
+  box.appendChild(testOut);
+  return box;
+}
 
-      function renderList(){
-        listEl.innerHTML="";
-        draft.forEach((_,i)=>listEl.appendChild(renderBlockRow(draft, i, renderList)));
-      }
-      renderList();
-
-      const addRow = el("div",{style:{display:"flex",gap:"var(--s-2)",marginTop:"var(--s-2)",marginBottom:"var(--s-3)"}});
-      const addSelect = el("select",{class:"select",style:{flex:"1"}},
-        ...REPORT_BLOCK_TYPES.map(t=>el("option",{value:t},REPORT_BLOCK_LABELS[t])));
-      addRow.appendChild(addSelect);
-      addRow.appendChild(el("button",{class:"btn",
-        click:()=>{ draft.push({type:addSelect.value, params:{}, instruction:null}); renderList(); }
-      },icon("plus"),"Legg til blokk"));
-      bodyHost.appendChild(addRow);
-
-      bodyHost.appendChild(err);
-
-      const btnRow = el("div",{class:"actions",style:{marginTop:"var(--s-2)"}});
-      const saveBtn = el("button",{class:"btn btn--primary",
-        click: async ()=>{
-          if(!draft.length){
-            err.textContent="Rapporten må ha minst én seksjon.";
-            err.style.display="";
-            return;
-          }
-          err.style.display="none";
-          saveBtn.disabled=true; saveBtn.textContent="Lagrer…";
-          try{
-            const r = await api(`/api/teacher/students/${encodeURIComponent(student.id)}/report-config?surface=${surface}`,{
-              method:"PUT",
-              headers:{"Content-Type":"application/json"},
-              body:JSON.stringify({blocks:draft}),
-            });
-            if(r.ok){
-              teacherState.reportConfigs[surface] = await r.json();
-              toast("✓ Rapportlayout lagret");
-              renderBody();
-            }else{
-              const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
-              err.textContent = typeof d.detail==="string" ? d.detail : "Kunne ikke lagre";
-              err.style.display="";
-            }
-          }catch(e){
-            err.textContent="Nettverksfeil";
-            err.style.display="";
-          }
-          saveBtn.disabled=false; saveBtn.textContent="Lagre rapportlayout";
-        }
-      },"Lagre rapportlayout");
-      btnRow.appendChild(saveBtn);
-
-      if(!cfg.is_default){
-        btnRow.appendChild(el("button",{class:"btn",
-          click: async ()=>{
-            const r = await api(`/api/teacher/students/${encodeURIComponent(student.id)}/report-config?surface=${surface}`,{method:"DELETE"});
-            if(r.ok){
-              teacherState.reportConfigs[surface] = null;
-              toast("✓ Tilbakestilt til standard");
-              renderBody();
-            }
-          }
-        },"Tilbakestill til standard"));
-      }
-      bodyHost.appendChild(btnRow);
-      // No prompt-test panel any more — it only ever covered essay
-      // (reading-summary was never supported; see
-      // PromptTestRequest.surface's docstring in the backend), and essay
-      // has no draft block config left to preview. buildPromptTestPanel()
-      // is unreachable now, left defined rather than deleted — same call
-      // the backend made keeping the endpoint in place, permanently
-      // refusing, instead of removing it outright.
-    });
-  }
-
-  renderBody();
+// A small "paste an essay" test, for when there is no feedback to test against yet.
+function buildPasteTestCard(ctx){
+  const card=el("div",{class:"card",style:{marginTop:"var(--s-4)"}});
+  card.appendChild(el("div",{class:"card__title"},"Test instruksjonen"));
+  card.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}},
+    "Kjør instruksjonen over — slik den står nå, ulagret — på en stil du limer inn. Ingenting lagres, og eleven ser ingenting. Standardprompten er skjult; instruksjonen din legges til på slutten."));
+  const ta=el("textarea",{class:"textarea",rows:"5",placeholder:"Lim inn en stil å teste mot …",style:{marginBottom:"var(--s-2)"}});
+  card.appendChild(ta);
+  const out=el("div",{});
+  const btn=el("button",{class:"btn btn--primary",click:()=>{
+    const t=ta.value.trim();
+    if(!t){ toast("Lim inn en tekst først"); return; }
+    runInstructionTest({surface:"essay",instructions:ctx.getInstructions(),
+      userMessage:`Please evaluate this Norwegian essay:\n\n${t}`,out,btn});
+  }},"Test på innlimt stil");
+  card.appendChild(btn); card.appendChild(out);
   return card;
 }
 
-// "Test mot essay" (feature 021, US2) — run the draft config (not necessarily
-// saved) against one of the student's essays, or pasted text, and see a real
-// AI reply before adopting it. `getDraft()` reads the live draft array from
-// the enclosing buildReportLayoutCard closure, so a test always reflects
-// whatever the teacher currently has on screen, saved or not.
-function buildPromptTestPanel(student, getDraft){
-  const wrap = el("div",{style:{marginTop:"var(--s-4)",paddingTop:"var(--s-4)",borderTop:"1px solid var(--line-soft)"}});
-
-  const toggleBtn = el("button",{class:"btn",
-    click:()=>{
-      const willOpen = panel.style.display==="none";
-      panel.style.display = willOpen ? "" : "none";
-      if(willOpen) renderResults();
-    }
-  },"Test mot stil");
-  wrap.appendChild(toggleBtn);
-
-  const panel = el("div",{style:{marginTop:"var(--s-3)",display:"none"}});
-  wrap.appendChild(panel);
-
-  panel.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}},
-    "Kjør den ulagrede layouten over mot en ekte stil. Testen lagres ikke til eleven og påvirker ikke det eleven ser."));
-
-  const sourceRow = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-2)"}});
-  const essaySelect = el("select",{class:"select",style:{flex:"1"}});
-  sourceRow.appendChild(essaySelect);
-  panel.appendChild(sourceRow);
-
-  const pasteArea = el("textarea",{class:"textarea",rows:"4",placeholder:"…eller lim inn en tekst å teste mot",
-    style:{marginBottom:"var(--s-2)"}});
-  panel.appendChild(pasteArea);
-
-  const err = el("p",{class:"card__note",style:{color:"var(--danger)",marginBottom:"var(--s-2)",display:"none"}});
-  panel.appendChild(err);
-
-  const runBtn = el("button",{class:"btn btn--primary",
-    click: async ()=>{
-      const draft = getDraft();
-      if(!draft || !draft.length){
-        err.textContent="Rapporten må ha minst én seksjon før du kan teste den.";
-        err.style.display=""; return;
-      }
-      const pasted = pasteArea.value.trim();
-      const essayId = essaySelect.value;
-      let source, sourceLabel;
-      if(pasted){
-        source = {kind:"pasted", text:pasted};
-        sourceLabel = "Innlimt tekst";
-      }else if(essayId){
-        source = {kind:"essay", essay_id:essayId};
-        sourceLabel = essaySelect.selectedOptions[0]?.textContent || "Stil";
-      }else{
-        err.textContent="Velg en stil eller lim inn en tekst.";
-        err.style.display=""; return;
-      }
-      err.style.display="none";
-      runBtn.disabled=true; runBtn.textContent="Kjører test…";
-      try{
-        const r = await api(`/api/teacher/students/${encodeURIComponent(student.id)}/prompt-test`,{
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({surface:"essay", blocks:draft, source}),
-        });
-        if(r.ok){
-          const data = await r.json();
-          const rawText = claudeText(data.reply);
-          const jsonText = rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
-          let parsed;
-          try{ parsed = JSON.parse(jsonText); }
-          catch(e){
-            err.textContent="Svaret kunne ikke tolkes. Prøv igjen.";
-            err.style.display=""; return;
-          }
-          teacherState.promptTestResults.unshift({sourceLabel, parsed, at:new Date()});
-          renderResults();
-        }else{
-          const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
-          err.textContent = aiFailureMessage(r.status, d?.detail?.reason||"", "");
-          err.style.display="";
-        }
-      }catch(e){
-        err.textContent="Nettverksfeil";
-        err.style.display="";
-      }
-      runBtn.disabled=false; runBtn.textContent="Kjør test";
-    }
-  },"Kjør test");
-  panel.appendChild(runBtn);
-
-  const resultsHost = el("div",{style:{marginTop:"12px"}});
-  panel.appendChild(resultsHost);
-
-  async function loadEssayOptions(){
-    if(!teacherState.studentEssays){
-      const r = await api(`/api/teacher/students/${encodeURIComponent(student.id)}/essays`).catch(()=>null);
-      teacherState.studentEssays = r?.ok ? await r.json() : [];
-    }
-    essaySelect.innerHTML="";
-    essaySelect.appendChild(el("option",{value:""},
-      teacherState.studentEssays.length ? "Velg en stil…" : "Ingen stiler levert ennå"));
-    teacherState.studentEssays.forEach(essay=>{
-      essaySelect.appendChild(el("option",{value:essay.id},
-        `${essay.title} (${new Date(essay.created_at).toLocaleDateString("nb-NO")})`));
-    });
-  }
-  loadEssayOptions();
-
-  // FR-008: every run this session stays visible so two or more can be
-  // compared side by side — nothing here is persisted past the session.
-  function renderResults(){
-    resultsHost.innerHTML="";
-    if(!teacherState.promptTestResults.length) return;
-    resultsHost.appendChild(el("div",{class:"label-mono",style:{marginBottom:"var(--s-2)"}},"Testresultater denne økten"));
-    teacherState.promptTestResults.forEach(entry=>{
-      const box = el("div",{style:{marginBottom:"var(--s-3)",paddingBottom:"var(--s-3)",borderBottom:"1px solid var(--line-soft)"}});
-      box.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-1)"}},
-        `${$esc(entry.sourceLabel)} · ${entry.at.toLocaleTimeString("nb-NO")}`));
-      const resultContainer = el("div",{});
-      box.appendChild(resultContainer);
-      renderEssayClaudeResult(entry.parsed, resultContainer);
-      resultsHost.appendChild(box);
-    });
-  }
-
-  return wrap;
-}
-
-// ── AI-fokus hub (021 teacher/class scope) ──────────────────────────────
+// ── AI assistent hub (021 teacher/class scope) ──────────────────────────────
 // Reached from the main teacher sidebar, not nested under a student. ONE
 // editor — the teacher picks who it applies to (everyone / a class /
 // particular students), and that choice only changes *where* "Lagre"/"Bruk"
@@ -9177,12 +9102,12 @@ function buildPromptTestPanel(student, getDraft){
 // "Hele klassen" already set for assignments elsewhere in this app: a
 // student who joins that class afterward is unaffected until the teacher
 // applies again. A student's own override (Klassen min → eleven →
-// AI-fokus) always wins over either.
+// AI assistent) always wins over either.
 function buildLaererAiFokusHub(){
   const frag = document.createDocumentFragment();
-  frag.appendChild(el("div",{class:"topbar__title",style:{marginBottom:"var(--s-1)"}},"AI-fokus"));
+  frag.appendChild(el("div",{class:"topbar__title",style:{marginBottom:"var(--s-1)"}},"AI assistent"));
   frag.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-4)"}},
-    "Skriv instruksjonen og rapportlayouten du vil bruke, velg hvem det skal gjelde for, og forhåndsvis mot en ekte elevtekst før du lagrer. En elevs egen innstilling går alltid foran."));
+    "Skriv instruksjonen du vil bruke og velg hvem den skal gjelde for. En elevs egen innstilling går alltid foran."));
 
   // ── Shared draft state for this screen — always reloaded fresh below,
   // never cached across visits, so the editor always starts from what is
@@ -9191,8 +9116,6 @@ function buildLaererAiFokusHub(){
   let scopeClassId = teacherState.aiFokusScopeClassId;
   let scopeStudentIds = teacherState.aiFokusScopeStudentIds || new Set();
   let instructionsDraft = "";
-  const blocksDraft = {essay:null, reading_summary:null};
-  let activeSurface = "essay";
 
   function currentTarget(){
     if(scopeType==="class") return scopeClassId ? {type:"class", class_id:scopeClassId} : null;
@@ -9229,8 +9152,8 @@ function buildLaererAiFokusHub(){
         [...scopeTypeRow.children].forEach((btn,i)=>{
           btn.setAttribute("aria-pressed", ["all","class","students"][i]===type ? "true" : "false");
         });
-        renderScopePicker(); renderPreviewStudentOptions();
-        updateInstrButtonLabel(); updateRcButtonLabel();
+        renderScopePicker();
+        updateInstrButtonLabel();
       }
     }, label));
   });
@@ -9246,7 +9169,7 @@ function buildLaererAiFokusHub(){
       select.addEventListener("change",()=>{
         scopeClassId = select.value || null;
         teacherState.aiFokusScopeClassId = scopeClassId;
-        renderPreviewStudentOptions(); updateInstrButtonLabel(); updateRcButtonLabel();
+        updateInstrButtonLabel();
       });
       scopePickerHost.appendChild(select);
       if(!(teacherState.classes||[]).length){
@@ -9260,7 +9183,7 @@ function buildLaererAiFokusHub(){
         const cb = el("input",{type:"checkbox",checked:scopeStudentIds.has(s.id)});
         cb.addEventListener("change",()=>{
           if(cb.checked) scopeStudentIds.add(s.id); else scopeStudentIds.delete(s.id);
-          renderPreviewStudentOptions(); updateInstrButtonLabel(); updateRcButtonLabel();
+          updateInstrButtonLabel();
         });
         row.appendChild(cb);
         row.appendChild(el("span",{},s.name));
@@ -9315,236 +9238,26 @@ function buildLaererAiFokusHub(){
   }
   frag.appendChild(instrCard);
 
-  // ── Rapportlayout ────────────────────────────────────────────────────
-  const rcCard = el("div",{class:"card",style:{marginBottom:"var(--s-4)"}});
-  rcCard.appendChild(el("div",{class:"card__title"},"Rapportlayout"));
-  const rcDesc = el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}});
-  rcCard.appendChild(rcDesc);
-
-  const rcTabRow = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-3)"}});
-  rcCard.appendChild(rcTabRow);
-  [["essay","Stil"],["reading_summary","Gjenfortelling"]].forEach(([surface,label])=>{
-    rcTabRow.appendChild(el("button",{
-      class:"pill", "aria-pressed": activeSurface===surface ? "true" : "false",
-      click: ()=>{
-        activeSurface=surface;
-        [...rcTabRow.children].forEach((btn,i)=>{
-          btn.setAttribute("aria-pressed", ["essay","reading_summary"][i]===surface ? "true" : "false");
-        });
-        loadAndRenderBlocks();
-      }
-    }, label));
-  });
-
-  const rcBodyHost = el("div",{});
-  rcCard.appendChild(rcBodyHost);
-
-  async function loadAndRenderBlocks(){
-    rcBodyHost.innerHTML="";
-    rcBodyHost.appendChild(el("p",{class:"card__note"},"Laster…"));
-    if(!blocksDraft[activeSurface]){
-      blocksDraft[activeSurface] = await fetchDefaultBlocks(activeSurface);
-    }
-    renderBlockRows();
-  }
-
-  async function fetchDefaultBlocks(surface){
-    const r = await api(`/api/teacher/ai-defaults/report-config?surface=${surface}`).catch(()=>null);
-    const cfg = r?.ok ? await r.json() : null;
-    return cfg ? cfg.blocks.map(b=>({type:b.type, params:b.params||{}, instruction:b.instruction||null})) : [];
-  }
-
-  function renderBlockRows(){
-    rcBodyHost.innerHTML="";
-    const draft = blocksDraft[activeSurface];
-    const listEl = el("div",{});
-    rcBodyHost.appendChild(listEl);
-    function renderList(){
-      listEl.innerHTML="";
-      if(!draft.length){
-        listEl.appendChild(el("p",{class:"card__note",style:{fontStyle:"italic",padding:"6px 0"}},"Ingen seksjoner valgt."));
-      }
-      draft.forEach((block,i)=>{
-        const row = el("div",{style:{display:"flex",alignItems:"center",gap:"var(--s-2)",padding:"8px 10px",
-          background:"var(--surface-head)",borderRadius:"var(--r-btn)",marginBottom:"var(--s-1)"}});
-        row.appendChild(el("span",{style:{flex:"1",fontSize:"var(--t-sm)",fontWeight:"600"}}, REPORT_BLOCK_LABELS[block.type]||block.type));
-        row.appendChild(el("button",{class:"icon-btn",disabled:i===0,
-          click:()=>{ [draft[i-1],draft[i]]=[draft[i],draft[i-1]]; renderList(); }},"↑"));
-        row.appendChild(el("button",{class:"icon-btn",disabled:i===draft.length-1,
-          click:()=>{ [draft[i+1],draft[i]]=[draft[i],draft[i+1]]; renderList(); }},"↓"));
-        row.appendChild(el("button",{class:"icon-btn",style:{color:"var(--danger)"},
-          click:()=>{ draft.splice(i,1); renderList(); }},"✕"));
-        listEl.appendChild(row);
-      });
-    }
-    renderList();
-
-    const addRow = el("div",{style:{display:"flex",gap:"var(--s-2)",marginTop:"var(--s-2)",marginBottom:"var(--s-1)"}});
-    const addSelect = el("select",{class:"select",style:{flex:"1"}},
-      ...REPORT_BLOCK_TYPES.map(t=>el("option",{value:t},REPORT_BLOCK_LABELS[t])));
-    addRow.appendChild(addSelect);
-    addRow.appendChild(el("button",{class:"btn",
-      click:()=>{ draft.push({type:addSelect.value, params:{}, instruction:null}); renderList(); }
-    },icon("plus"),"Legg til blokk"));
-    rcBodyHost.appendChild(addRow);
-  }
-
-  const rcErr = el("p",{class:"card__note",style:{color:"var(--danger)",margin:"var(--s-2) 0",display:"none"}});
-  rcCard.appendChild(rcErr);
-  const rcBtn = el("button",{class:"btn btn--primary",
-    click: async ()=>{
-      const draft = blocksDraft[activeSurface];
-      const target = currentTarget();
-      if(!draft.length){ rcErr.textContent="Rapporten må ha minst én seksjon."; rcErr.style.display=""; return; }
-      if(scopeType!=="all" && !target){ rcErr.textContent="Velg en klasse eller minst én elev først."; rcErr.style.display=""; return; }
-      rcErr.style.display="none"; rcBtn.disabled=true; rcBtn.textContent="Lagrer…";
-      const r = scopeType==="all"
-        ? await api(`/api/teacher/ai-defaults/report-config?surface=${activeSurface}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({blocks:draft})})
-        : await api(`/api/teacher/ai-defaults/report-config/apply?surface=${activeSurface}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,blocks:draft})});
-      if(r.ok){
-        const data = await r.json();
-        toast(scopeType==="all" ? "✓ Standard rapportlayout lagret" : `✓ Brukt på ${data.student_count} elev(er)`);
-      }else{
-        const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
-        rcErr.textContent = typeof d.detail==="string" ? d.detail : "Kunne ikke lagre";
-        rcErr.style.display="";
-      }
-      rcBtn.disabled=false; updateRcButtonLabel();
-    }
-  },"Lagre");
-  rcCard.appendChild(rcBtn);
-  function updateRcButtonLabel(){
-    rcDesc.textContent = scopeType==="all"
-      ? "Gjelder automatisk for enhver elev som ikke har sin egen rapportlayout."
-      : `Skrives rett inn i rapportlayouten til ${scopeLabel()}.`;
-    rcBtn.textContent = scopeType==="all" ? "Lagre som standard" : `Bruk på ${scopeLabel()}`;
-  }
-  frag.appendChild(rcCard);
-
-  // ── Forhåndsvis ──────────────────────────────────────────────────────
-  // Prompt-testing only supports the essay surface (backend constraint —
-  // the reading corpus lives only in this file's own lesing-tekster.json,
-  // not on the server), so this always previews the essay layout above,
-  // regardless of which Rapportlayout tab is open.
-  const previewCard = el("div",{class:"card"});
-  previewCard.appendChild(el("div",{class:"card__title"},"Forhåndsvis"));
-  previewCard.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-3)"}},
-    "Kjør instruksjonen og rapportlayouten for stiler over — slik de står nå, ulagret — mot en ekte elevtekst. Påvirker ingenting før du trykker Lagre/Bruk over."));
-
-  const previewStudentSelect = el("select",{class:"select",style:{marginBottom:"var(--s-2)"}});
-  previewCard.appendChild(previewStudentSelect);
-  const previewEssaySelect = el("select",{class:"select",style:{marginBottom:"var(--s-2)"}});
-  previewCard.appendChild(previewEssaySelect);
-  const previewPasteArea = el("textarea",{class:"textarea",rows:"4",placeholder:"…eller lim inn en tekst å teste mot",
-    style:{marginBottom:"var(--s-2)"}});
-  previewCard.appendChild(previewPasteArea);
-
-  const previewErr = el("p",{class:"card__note",style:{color:"var(--danger)",marginBottom:"var(--s-2)",display:"none"}});
-  previewCard.appendChild(previewErr);
-
-  const previewBtn = el("button",{class:"btn btn--primary",
-    click: async ()=>{
-      const studentId = previewStudentSelect.value;
-      if(!studentId){ previewErr.textContent="Velg en elev å forhåndsvise mot."; previewErr.style.display=""; return; }
-      const pasted = previewPasteArea.value.trim();
-      const essayId = previewEssaySelect.value;
-      let source, sourceLabel;
-      if(pasted){ source={kind:"pasted",text:pasted}; sourceLabel="Innlimt tekst"; }
-      else if(essayId){ source={kind:"essay",essay_id:essayId}; sourceLabel=previewEssaySelect.selectedOptions[0]?.textContent||"Stil"; }
-      else{ previewErr.textContent="Velg en stil eller lim inn en tekst."; previewErr.style.display=""; return; }
-      if(!blocksDraft.essay){ blocksDraft.essay = await fetchDefaultBlocks("essay"); }
-      if(!blocksDraft.essay.length){ previewErr.textContent="Rapportlayouten for stiler må ha minst én seksjon."; previewErr.style.display=""; return; }
-      previewErr.style.display="none"; previewBtn.disabled=true; previewBtn.textContent="Kjører…";
-      const r = await api(`/api/teacher/students/${encodeURIComponent(studentId)}/prompt-test`,{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({surface:"essay", blocks:blocksDraft.essay, source, instructions_override: instructionsDraft.trim()||null}),
-      });
-      if(r.ok){
-        const data = await r.json();
-        const rawText = claudeText(data.reply);
-        const jsonText = rawText.replace(/```json?\n?/gi,"").replace(/```/g,"").trim();
-        try{
-          const parsed = JSON.parse(jsonText);
-          const studentName = (teacherState.students||[]).find(s=>s.id===studentId)?.name || "eleven";
-          teacherState.aiFokusPreviewResults.unshift({sourceLabel:`${studentName} — ${sourceLabel}`, parsed, at:new Date()});
-          renderPreviewResults();
-        }catch(e){
-          previewErr.textContent="Svaret kunne ikke tolkes. Prøv igjen.";
-          previewErr.style.display="";
-        }
-      }else{
-        const d = await r.json().catch(()=>({detail:"Ukjent feil"}));
-        previewErr.textContent = aiFailureMessage(r.status, d?.detail?.reason||"", "");
-        previewErr.style.display="";
-      }
-      previewBtn.disabled=false; previewBtn.textContent="Kjør forhåndsvisning";
-    }
-  },"Kjør forhåndsvisning");
-  previewCard.appendChild(previewBtn);
-
-  const previewResultsHost = el("div",{style:{marginTop:"12px"}});
-  previewCard.appendChild(previewResultsHost);
-  function renderPreviewResults(){
-    previewResultsHost.innerHTML="";
-    if(!teacherState.aiFokusPreviewResults.length) return;
-    previewResultsHost.appendChild(el("div",{class:"label-mono",style:{marginBottom:"var(--s-2)"}},"Forhåndsvisninger denne økten"));
-    teacherState.aiFokusPreviewResults.forEach(entry=>{
-      const box = el("div",{style:{marginBottom:"var(--s-3)",paddingBottom:"var(--s-3)",borderBottom:"1px solid var(--line-soft)"}});
-      box.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-1)"}},
-        `${$esc(entry.sourceLabel)} · ${entry.at.toLocaleTimeString("nb-NO")}`));
-      const resultContainer = el("div",{});
-      box.appendChild(resultContainer);
-      renderEssayClaudeResult(entry.parsed, resultContainer);
-      previewResultsHost.appendChild(box);
-    });
-  }
-
-  async function loadPreviewEssayOptions(){
-    const studentId = previewStudentSelect.value;
-    previewEssaySelect.innerHTML="";
-    if(!studentId){
-      previewEssaySelect.appendChild(el("option",{value:""},"Velg elev først"));
-      return;
-    }
-    previewEssaySelect.appendChild(el("option",{value:""},"Laster stiler…"));
-    const r = await api(`/api/teacher/students/${encodeURIComponent(studentId)}/essays`).catch(()=>null);
-    const essays = r?.ok ? await r.json() : [];
-    previewEssaySelect.innerHTML="";
-    previewEssaySelect.appendChild(el("option",{value:""}, essays.length?"Velg en stil…":"Ingen stiler levert ennå"));
-    essays.forEach(e=>previewEssaySelect.appendChild(el("option",{value:e.id},`${e.title} (${new Date(e.created_at).toLocaleDateString("nb-NO")})`)));
-  }
-  previewStudentSelect.addEventListener("change", loadPreviewEssayOptions);
-
-  function renderPreviewStudentOptions(){
-    let ids = null;
-    if(scopeType==="students") ids = [...scopeStudentIds];
-    else if(scopeType==="class" && scopeClassId) ids = (teacherState.students||[]).filter(s=>s.class_id===scopeClassId).map(s=>s.id);
-    const pool = ids ? (teacherState.students||[]).filter(s=>ids.includes(s.id)) : (teacherState.students||[]);
-    const prevValue = previewStudentSelect.value;
-    previewStudentSelect.innerHTML="";
-    previewStudentSelect.appendChild(el("option",{value:""},"Velg en elev…"));
-    pool.forEach(s=>previewStudentSelect.appendChild(el("option",{value:s.id},s.name)));
-    if(pool.some(s=>s.id===prevValue)){ previewStudentSelect.value=prevValue; }
-    loadPreviewEssayOptions();
-  }
-
-  frag.appendChild(previewCard);
-  renderPreviewResults();
+  // ── Siste tilbakemeldinger fra AI (feature 047) ─────────────────────
+  const testCtx = {
+    getInstructions: ()=>instructionsDraft,
+    setInstructions: (t)=>{ instructionsDraft=t; instrTextarea.value=t; instrTextarea.scrollIntoView({behavior:"smooth",block:"center"}); },
+  };
+  frag.appendChild(buildPasteTestCard(testCtx));
+  const recentHost = el("div",{});
+  frag.appendChild(recentHost);
+  renderRecentAiFeedbackCard(recentHost, testCtx);
 
   // ── Initial load ─────────────────────────────────────────────────────
   (async ()=>{
     await ensureTeacherRoster();
     renderScopePicker();
-    renderPreviewStudentOptions();
 
     const r = await api("/api/teacher/ai-defaults/instructions").catch(()=>null);
     const data = r?.ok ? await r.json() : {instructions:null};
     instructionsDraft = data.instructions || "";
     instrTextarea.value = instructionsDraft;
     updateInstrButtonLabel();
-
-    await loadAndRenderBlocks();
-    updateRcButtonLabel();
   })();
 
   return frag;
@@ -9557,7 +9270,7 @@ function buildAiRatingWidget(sourceType, sourceId){
   wrap.appendChild(el("div",{class:"field__label",style:{marginBottom:"2px"}},
     "Vurder AI-tilbakemeldingen"));
   wrap.appendChild(el("p",{class:"card__note",style:{marginBottom:"var(--s-2)"}},
-    "Skriv hva AI-en bør gjøre annerledes. Kommentaren sendes ikke til eleven — den brukes til å styre framtidige AI-tilbakemeldinger til denne eleven."));
+    "Skriv hva AI-en bør gjøre annerledes. Kommentaren sendes ikke til eleven og legges ikke automatisk inn i neste tilbakemelding. Bruk den under AI assistent → «Siste tilbakemeldinger» for å la AI foreslå en endring i instruksjonen."));
 
   const commentInput = el("textarea",{class:"textarea",rows:"3",
     placeholder:"F.eks: Du var for streng på ordstilling. Legg mer vekt på substantivbøying neste gang.",
@@ -11228,7 +10941,7 @@ function buildLaererBankTexts(){
   (async ()=>{ await ensureTeacherRoster(); renderAssignPanel(); })();
 
   // ── Tab setup — a three-way exclusive toggle, same pill treatment as the
-  // Stil/Gjenfortelling switch in AI-fokus, not filled buttons.
+  // Stil/Gjenfortelling switch in AI assistent, not filled buttons.
   let bankTab="system";
   const tabBar=el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-4)"}});
   const tabContent=el("div",{});
@@ -12390,7 +12103,7 @@ function renderAdminTeachers(container, users, post, onChanged){
     const actionBtn = t.is_approved
       ? el("button",{class:"btn btn--destructive",
           click(e){ runAction(e.target, `/api/admin/teachers/${t.id}/revoke`,
-            `Trekke tilbake godkjenningen for ${t.name}? Læreren mister tilgang til Klassen min, bankene og AI-fokus umiddelbart, og lærerkoden slutter å virke.`); }},
+            `Trekke tilbake godkjenningen for ${t.name}? Læreren mister tilgang til Klassen min, bankene og AI assistent umiddelbart, og lærerkoden slutter å virke.`); }},
           "Trekk tilbake")
       : el("button",{class:"btn btn--primary",
           click(e){ runAction(e.target, `/api/admin/teachers/${t.id}/approve`); }},
