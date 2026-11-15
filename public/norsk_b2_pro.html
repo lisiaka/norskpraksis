@@ -587,7 +587,7 @@ const TIPS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────
-const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", learntFilter:"", ordTagFilter:"", sentDueFilter:"", currentTopic:null, currentPrompt:null, essay:"",
+const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0, practicedFilter:"", learntFilter:"", ordTagFilter:"", sourceTextFilter:"", sentDueFilter:"", currentTopic:null, currentPrompt:null, essay:"",
   // Feature 034 follow-up: "Til repetisjon i dag" in Ordbank (practicedFilter="due_today")
   // and Setninger (sentDueFilter="due_today") share this cache — same underlying set of
   // due word ids regardless of which tab asks. Flashcards keeps its own separate fc.dueWords
@@ -2012,7 +2012,7 @@ function refreshShareBar(){
 // is a new intention — otherwise stale ticks from a previous topic would ride along
 // invisibly.
 function shareFilterKey(){
-  return [state.topicFilter,state.search,state.practicedFilter,state.learntFilter,state.timeFilter].join("|");
+  return [state.topicFilter,state.search,state.practicedFilter,state.learntFilter,state.timeFilter,state.sourceTextFilter].join("|");
 }
 
 // The per-send cap exists to stop one classmate filling another's inbox. A teacher
@@ -2605,7 +2605,10 @@ function buildOrdbank(){
   // ── Filter panel (§ "Filters") ──
   if(state.words.length>0){
     const isOpen = state.ordbankFiltersOpen ?? true;
-    const activeCount = [state.topicFilter,state.practicedFilter,state.learntFilter,state.timeFilter,state.ordTagFilter].filter(Boolean).length;
+    // A text picked under one tema can vanish from the dropdown when the tema changes;
+    // drop the stale selection here, before anything below filters on it.
+    if(state.sourceTextFilter && !sourceTextOptions().some(o=>o.key===state.sourceTextFilter)) state.sourceTextFilter="";
+    const activeCount = [state.topicFilter,state.practicedFilter,state.learntFilter,state.timeFilter,state.ordTagFilter,state.sourceTextFilter].filter(Boolean).length;
     const panel=el("div",{class:"filter-panel",style:{marginBottom:"var(--s-4)"}});
     if(!isOpen) panel.setAttribute("data-collapsed","");
 
@@ -2624,11 +2627,12 @@ function buildOrdbank(){
       if(state.learntFilter==="hide_learnt") headLeft.appendChild(buildRemovablePill("lærte skjult", ()=>{state.learntFilter="";renderContent();}));
       if(state.timeFilter) headLeft.appendChild(buildRemovablePill(({7:"siste 7 dager",30:"siste 30 dager",90:"siste 3 måneder"})[state.timeFilter], ()=>{state.timeFilter=0;renderContent();}));
       if(state.ordTagFilter) headLeft.appendChild(buildRemovablePill(state.ordTagFilter, ()=>{state.ordTagFilter="";renderContent();}));
+      if(state.sourceTextFilter) headLeft.appendChild(buildRemovablePill(sourceTextFilterLabel(), ()=>{state.sourceTextFilter="";renderContent();}));
     }
     head.appendChild(headLeft);
     const headRight=el("div",{style:{display:"flex",alignItems:"center",gap:"14px"}});
     if(activeCount) headRight.appendChild(el("button",{class:"btn--link",click(){
-      state.topicFilter="";state.practicedFilter="";state.learntFilter="";state.timeFilter=0;state.ordTagFilter="";
+      state.topicFilter="";state.practicedFilter="";state.learntFilter="";state.timeFilter=0;state.ordTagFilter="";state.sourceTextFilter="";
       renderContent();
     }},"Nullstill"));
     // Plain text + ▼, not an icon button — matches the reference mockup exactly
@@ -2692,6 +2696,27 @@ function buildOrdbank(){
         opts.appendChild(buildFacetPill(label,state.timeFilter===val,()=>{state.timeFilter=val;renderContent();}));
       });
       facet.appendChild(opts);
+      body.appendChild(facet);
+    }
+
+    // KILDETEKST facet — a dropdown, not pills: a learner can have words from dozens of
+    // texts. Offers only the texts that have banked words under the picked tema, with a
+    // count per text, so choosing one can never produce an empty list.
+    if(state.words.some(w=>w.source_text_id)){
+      // Titles come from the lazily built text index; re-render once it arrives.
+      if(!sourceTextIndex.map && !sourceTextIndex.loading) loadSourceTextIndex().then(renderContent);
+      const facet=el("div",{class:"facet"});
+      facet.appendChild(el("div",{class:"facet__label"},"Tekst"));
+      const sel=el("select",{class:"select",style:{width:"auto",maxWidth:"100%"},"aria-label":"Filtrer på kildetekst",
+        change(e){ state.sourceTextFilter=e.target.value; renderContent(); }});
+      sel.appendChild(el("option",{value:""},"Alle tekster"));
+      sourceTextOptions().forEach(o=>{
+        const opt=el("option",{value:o.key},`${o.title} (${o.count})`);
+        if(o.key===state.sourceTextFilter) opt.selected=true;
+        sel.appendChild(opt);
+      });
+      sel.value=state.sourceTextFilter;
+      facet.appendChild(sel);
       body.appendChild(facet);
     }
 
@@ -2792,6 +2817,23 @@ function buildRemovablePill(label,onRemove){
 // getFilteredWords() minus one named filter, so a facet can show "how many
 // results would THIS option give" without that option's own current value
 // narrowing the count it's describing.
+// Texts the learner has banked words from, limited to the picked tema (by the *word's*
+// topic, so every option is guaranteed to match at least one word).
+function sourceTextOptions(){
+  const counts=new Map();
+  state.words.forEach(w=>{
+    if(!w.source_text_id) return;
+    if(state.topicFilter && w.topic!==state.topicFilter) return;
+    const key=`${w.source_text_kind||"builtin"}:${w.source_text_id}`;
+    counts.set(key,(counts.get(key)||0)+1);
+  });
+  return [...counts].map(([key,count])=>({key,count,title:sourceTextIndex.map?.[key]?.title||"Tekst"}))
+    .sort((a,b)=>a.title.localeCompare(b.title,"nb"));
+}
+function sourceTextFilterLabel(){
+  return sourceTextIndex.map?.[state.sourceTextFilter]?.title||"valgt tekst";
+}
+
 function getFilteredWordsExcept(skip){
   const saved=state[skip]; state[skip]="";
   const out=getFilteredWords();
@@ -2809,6 +2851,7 @@ function resultLineText(){
   if(state.learntFilter==="hide_learnt") parts.push("lærte skjult");
   if(state.timeFilter) parts.push(({7:"siste 7 dager",30:"siste 30 dager",90:"siste 3 måneder"})[state.timeFilter]);
   if(state.ordTagFilter) parts.push(`tagg "${state.ordTagFilter}"`);
+  if(state.sourceTextFilter) parts.push(`tekst «${sourceTextFilterLabel()}»`);
   if(state.search) parts.push(`søk «${state.search}»`);
   return parts.join(" · ");
 }
@@ -3030,6 +3073,8 @@ function getFilteredWords(){
   // default: this is the learner's record of what they know, not a practice pool.
   if(state.learntFilter==="hide_learnt") filtered=filtered.filter(w=>!isLearnt(w));
   if(state.ordTagFilter) filtered=filtered.filter(w=>(w.tags||[]).includes(state.ordTagFilter));
+  if(state.sourceTextFilter) filtered=filtered.filter(w=>
+    w.source_text_id && `${w.source_text_kind||"builtin"}:${w.source_text_id}`===state.sourceTextFilter);
   if(state.search) filtered=filtered.filter(w=>
     w.word.toLowerCase().includes(state.search.toLowerCase())||
     w.meaning.toLowerCase().includes(state.search.toLowerCase()));
@@ -3287,9 +3332,9 @@ function renderWordList(){
     // produced it and offers Nullstill — distinct from "empty because new" above.
     const empty=el("div",{class:"empty-state"});
     empty.appendChild(el("p",{class:"card__sub"},state.search?`Ingen ord matcher søket "${state.search}"`:state.topicFilter?`Ingen ord med tema "${state.topicFilter}"`:"Ingen ord med disse filtrene"));
-    if(state.topicFilter||state.practicedFilter||state.learntFilter||state.timeFilter||state.search){
+    if(state.topicFilter||state.practicedFilter||state.learntFilter||state.timeFilter||state.sourceTextFilter||state.search){
       empty.appendChild(el("button",{class:"btn--link",style:{marginTop:"6px"},click(){
-        state.topicFilter="";state.practicedFilter="";state.learntFilter="";state.timeFilter=0;state.search="";
+        state.topicFilter="";state.practicedFilter="";state.learntFilter="";state.timeFilter=0;state.sourceTextFilter="";state.search="";
         renderContent();
       }},"Nullstill"));
     }
