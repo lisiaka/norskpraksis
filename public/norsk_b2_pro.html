@@ -605,6 +605,9 @@ const state = { tab:"ordbank", words:[], search:"", topicFilter:"", timeFilter:0
   // Feature 018. myClass is {class, classmates} — a null `class` means the student
   // is in no class, which is ordinary and must be explained rather than hidden.
   myClass:null, sharedInbox:null, shareOpen:false,
+  // Feature 044. {connected, account_name} from GET /api/dropbox/status, or null until
+  // loaded (and for teachers, who never see the feature).
+  dropbox:null,
   // Which words are ticked for sharing, and a signature of the filters they were
   // seeded from. Changing a filter re-seeds (the new filter is a new intention);
   // toggling individual words refines within it.
@@ -2572,6 +2575,12 @@ function buildOrdbank(){
   if(state.words.length>0){
     actions.appendChild(el("button",{class:"btn",click(){printWords("list");}},icon("printer"),"Skriv ut"));
     actions.appendChild(el("button",{class:"btn",click:exportWords},icon("upload"),"Eksporter"));
+    if(state.userRole!=="teacher"){
+      const dbx=dropboxButton("Eksporter til Dropbox",b=>exportWordsToDropbox(b));
+      // Nothing to export under the current filters: explain rather than fail (US3.3).
+      if(!getFilteredWords().length){ dbx.disabled=true; dbx.title="Ingen ord å eksportere med disse filtrene."; }
+      actions.appendChild(dbx);
+    }
   }
   const fileIn=el("input",{id:"import-file",type:"file",accept:".json,.csv,.txt",style:{display:"none"},
     change(e){const f=e.target.files[0];if(f)importWords(f);e.target.value="";}});
@@ -5967,6 +5976,15 @@ function buildLesingReader(text){
   });
   card.appendChild(tagRow);
 
+  // Feature 044 — students only. A disconnected student still sees these: the click
+  // leads them to Innstillinger rather than the control being hidden (FR-013).
+  if(state.userRole!=="teacher"){
+    const dbxRow=el("div",{style:{display:"flex",gap:"var(--s-2)",flexWrap:"wrap",marginBottom:"var(--s-4)"}});
+    dbxRow.appendChild(dropboxButton("Eksporter til Dropbox",b=>exportTextToDropbox(text,b)));
+    dbxRow.appendChild(dropboxButton("Eksporter øvelsespakke",b=>exportPackToDropbox(text,b)));
+    card.appendChild(dbxRow);
+  }
+
   // Main text. Always rendered as one span per word (feature 027) — the highlight for the
   // student's own words needs that structure on every device, not just one with a
   // Norwegian voice. The TTS marker (feature 016) is layered on the same spans as an
@@ -7445,6 +7463,22 @@ async function onLoginSuccess(token, user){
   if(state.userRole !== "teacher"){
     refreshSharing().then(()=>renderContent());
   }
+  // Feature 044. Runs once per login, never from a render path. The backend redirects
+  // the browser back here with ?dropbox=connected|denied|error after the Dropbox step.
+  state.dropbox=null;
+  await loadDropboxStatus();
+  const dropboxReturn=new URLSearchParams(window.location.search).get("dropbox");
+  if(dropboxReturn){
+    history.replaceState(null,"",window.location.pathname);
+    if(state.userRole!=="teacher"){
+      const msgs={
+        connected:"Dropbox er koblet til.",
+        denied:"Tilkoblingen ble ikke fullført.",
+        error:"Noe gikk galt under tilkoblingen til Dropbox. Prøv igjen.",
+      };
+      if(msgs[dropboxReturn]){ toast(msgs[dropboxReturn]); setTab("innstillinger"); }
+    }
+  }
 
   // Handle return from payment provider (e.g. ?subscriptionStatus=success)
   const urlParams=new URLSearchParams(window.location.search);
@@ -7702,6 +7736,155 @@ function buildSubscriptionSection(container){
 }
 
 // ── INNSTILLINGER TAB ─────────────────────────────────────────────────
+// ── DROPBOX EXPORT (feature 044) ─────────────────────────────────────────────
+// The browser never sees a Dropbox credential: connecting, the refresh token and every
+// upload live on the backend. This side only asks, and reports what the server says.
+// A success is shown only after the server returned 200 — never optimistically (FR-012).
+const DROPBOX_ERRORS = {
+  dropbox_not_connected:   "Dropbox er ikke koblet til. Koble til under Innstillinger.",
+  dropbox_reconnect_needed:"Tilkoblingen til Dropbox er utløpt. Koble til på nytt under Innstillinger.",
+  dropbox_full:            "Dropbox-en din er full. Frigjør plass og prøv igjen.",
+  dropbox_unreachable:     "Fikk ikke kontakt med Dropbox. Ingenting ble lagret — prøv igjen om litt.",
+  export_rate_limited:     "Du har eksportert mange filer den siste timen. Prøv igjen senere.",
+  dropbox_not_configured:  "Eksport til Dropbox er ikke tilgjengelig akkurat nå.",
+  unknown_word_ids:        "Ordlisten har endret seg. Last siden på nytt og prøv igjen.",
+  students_only:           "Eksport til Dropbox er bare for elever.",
+};
+const DROPBOX_FALLBACK_ERROR = "Noe gikk galt. Ingenting ble lagret i Dropbox.";
+// Fixed note on using the file (FR-012a). Deliberately names no assistant: whether a
+// given one can open Dropbox files is outside this app's control and may change.
+const DROPBOX_HOWTO_NOTE = "Åpne filen i stemmeassistenten din og be den lese teksten og hjelpe deg å gjenfortelle den.";
+
+function dropboxConnected(){ return !!(state.dropbox && state.dropbox.connected); }
+
+async function loadDropboxStatus(){
+  if(state.userRole==="teacher" || !state.sessionToken){ state.dropbox=null; return; }
+  try{
+    const r=await api("/api/dropbox/status");
+    state.dropbox = r.ok ? await r.json() : null;
+  }catch{ state.dropbox=null; }
+}
+
+function dropboxErrorMessage(code){ return DROPBOX_ERRORS[code] || DROPBOX_FALLBACK_ERROR; }
+
+function showDropboxExported(res){
+  openDialog(close=>buildDialog({
+    title:"Lagret i Dropbox",
+    sub:`${res.file_name} · mappen ${res.folder}`,
+    body:[
+      res.word_count!=null ? el("p",{class:"card__sub"},
+        res.word_count===0 ? "Du har ingen ord på dette temaet ennå, så filen har teksten uten ordliste."
+                           : `${res.word_count} ord er med.`) : null,
+      el("p",{class:"card__sub"},DROPBOX_HOWTO_NOTE),
+    ],
+    primaryLabel:"OK", onPrimary:close, close,
+  }));
+}
+
+// One path for all three export buttons. Returns the server's response, or null.
+async function dropboxExport(path, body, btn){
+  // Known-disconnected: lead the student to Innstillinger rather than fail (FR-013).
+  if(state.dropbox && !state.dropbox.connected){
+    toast(DROPBOX_ERRORS.dropbox_not_connected); setTab("innstillinger"); return null;
+  }
+  if(btn){ btn.disabled=true; }
+  try{
+    const r=await api(path,{method:"POST",body:JSON.stringify(body)});
+    if(r.ok){
+      const res=await r.json();
+      showDropboxExported(res);
+      return res;
+    }
+    const d=await r.json().catch(()=>({}));
+    const code=d?.detail?.error;
+    toast(dropboxErrorMessage(code));
+    // The server drops a dead connection; mirror that so Innstillinger tells the truth.
+    if(code==="dropbox_reconnect_needed"||code==="dropbox_not_connected"){
+      state.dropbox={connected:false,account_name:null};
+    }
+  }catch{
+    toast("Fikk ikke kontakt med serveren. Ingenting ble lagret i Dropbox.");
+  }finally{
+    if(btn) btn.disabled=false;
+  }
+  return null;
+}
+
+function dropboxButton(label, onClick){
+  const b=el("button",{class:"btn",click(){ onClick(b); }},icon("upload"),label);
+  return b;
+}
+
+function exportTextToDropbox(text, btn){
+  return dropboxExport("/api/dropbox/export/text",
+    {title:text.title, text:text.text, topic:text.topic||null, text_id:text.id!=null?String(text.id):null}, btn);
+}
+function exportPackToDropbox(text, btn){
+  return dropboxExport("/api/dropbox/export/pack",
+    {title:text.title, text:text.text, topic:text.topic, text_id:text.id!=null?String(text.id):null}, btn);
+}
+// "Exactly the words currently shown": the ids come from the same filter the grid uses,
+// so nothing can disagree with the screen. The descriptor only names the file/heading.
+function exportWordsToDropbox(btn){
+  const shown=getFilteredWords();
+  if(!shown.length){ toast("Ingen ord å eksportere med disse filtrene."); return null; }
+  const filter={};
+  if(state.topicFilter) filter.topic=state.topicFilter;
+  if(state.practicedFilter==="not_practiced") filter.practiced="not_practiced";
+  if(state.practicedFilter==="due_today") filter.due=true;
+  if(state.learntFilter==="hide_learnt") filter.learnt="hide_learnt";
+  if([7,30,90].includes(state.timeFilter)) filter.time_days=state.timeFilter;
+  if(state.ordTagFilter) filter.tag=state.ordTagFilter;
+  return dropboxExport("/api/dropbox/export/words",{word_ids:shown.map(w=>w.id),filter},btn);
+}
+
+function buildDropboxCard(){
+  const card=el("div",{class:"card"});
+  card.appendChild(el("div",{class:"card__title"},"Dropbox"));
+  card.appendChild(el("p",{class:"card__sub",style:{marginBottom:"var(--s-3)"}},
+    "Send lesetekster og ordlister til din egen Dropbox, så stemmeassistenten din kan lese teksten høyt og hjelpe deg å gjenfortelle den med ordene dine. "+
+    "Appen får bare skrive til sin egen mappe i Dropbox — den kan ikke se eller endre andre filer. "+
+    "Vi kan ikke love at en bestemt assistent klarer å åpne filene."));
+  const msg=el("p",{class:"card__note",style:{margin:"0 0 var(--s-3)",display:"none"}});
+  const showMsg=(t,color)=>{ msg.textContent=t; msg.style.color=color; msg.style.display=""; };
+  const body=el("div",{});
+  card.appendChild(body); card.appendChild(msg);
+
+  const draw=()=>{
+    body.innerHTML="";
+    if(dropboxConnected()){
+      body.appendChild(el("p",{class:"card__sub",style:{marginBottom:"var(--s-3)"}},
+        "Koblet til"+(state.dropbox.account_name?`: ${state.dropbox.account_name}`:"")+"."));
+      const off=el("button",{class:"btn",style:{width:"100%"},click:async()=>{
+        off.disabled=true;
+        try{
+          const r=await api("/api/dropbox/connection",{method:"DELETE"});
+          if(r.ok){ state.dropbox={connected:false,account_name:null}; showMsg("Dropbox er koblet fra. Filer du allerede har eksportert ligger igjen.","var(--green)"); }
+          else showMsg("Kunne ikke koble fra. Prøv igjen.","var(--danger)");
+        }catch{ showMsg("Feil ved tilkobling.","var(--danger)"); }
+        off.disabled=false; draw();
+      }},"Koble fra");
+      body.appendChild(off);
+    } else {
+      const on=el("button",{class:"btn btn--primary",style:{width:"100%"},click:async()=>{
+        on.disabled=true;
+        try{
+          const r=await api("/api/dropbox/connect",{method:"POST"});
+          if(r.ok){ location.assign((await r.json()).authorize_url); return; }
+          const d=await r.json().catch(()=>({}));
+          showMsg(dropboxErrorMessage(d?.detail?.error),"var(--danger)");
+        }catch{ showMsg("Feil ved tilkobling.","var(--danger)"); }
+        on.disabled=false;
+      }},"Koble til Dropbox");
+      body.appendChild(on);
+    }
+  };
+  draw();
+  // The status may still be loading when Innstillinger opens; redraw once it lands.
+  if(state.dropbox===null) loadDropboxStatus().then(draw);
+  return card;
+}
+
 function buildInnstillinger(){
   const frag=document.createDocumentFragment();
 
@@ -7756,6 +7939,8 @@ function buildInnstillinger(){
 
   userCard.appendChild(el("button",{class:"btn",style:{width:"100%"},click:switchUser},"Logg ut"));
   frag.appendChild(userCard);
+
+  if(state.userRole !== "teacher") frag.appendChild(buildDropboxCard());
 
   // ── Din lærer (students) / Lærerkode (teachers) — feature 032 ──
   //
