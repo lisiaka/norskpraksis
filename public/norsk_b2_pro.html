@@ -11535,7 +11535,7 @@ function buildLaererBankPrompts(){
   // adminState drives which section/sub-view/drill-down is visible, the
   // same pattern teacherState.view already uses for the teacher sidebar.
   const adminState = {section:"overview", aiLogView:"adoption", drillUserId:null, drillUserName:null};
-  let overviewData=null, adoptionData=null, failuresData=null, callsData=null, templatesData=null, wordLookupsData=null, feedbackData=null;
+  let overviewData=null, adoptionData=null, failuresData=null, callsData=null, templatesData=null, wordLookupsData=null, feedbackData=null, contactsData=null;
 
   const nav = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-3)"}});
   const subNav = el("div",{style:{display:"flex",gap:"var(--s-2)",marginBottom:"var(--s-4)",flexWrap:"wrap"}});
@@ -11563,6 +11563,9 @@ function buildLaererBankPrompts(){
     nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="feedback"?"true":"false",
       click(){ adminState.section="feedback"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
       "Tilbakemeldinger"));
+    nav.appendChild(el("button",{class:"pill","aria-pressed":adminState.section==="contacts"?"true":"false",
+      click(){ adminState.section="contacts"; adminState.drillUserId=null; renderNav(); renderContentArea(); }},
+      "Kontakter"));
 
     subNav.innerHTML = "";
     subNav.style.display = adminState.section === "ai-logger" ? "flex" : "none";
@@ -11612,6 +11615,11 @@ function buildLaererBankPrompts(){
       else content.appendChild(missingNote());
       return;
     }
+    if(adminState.section === "contacts"){
+      if(contactsData) renderContactList(content, contactsData);
+      else content.appendChild(missingNote());
+      return;
+    }
     // ai-logger — one active sub-view at a time (FR-003/FR-004), each
     // existing render*() function reused completely unchanged (FR-013).
     if(adminState.aiLogView === "adoption") adoptionData ? renderAdoption(content, adoptionData) : content.appendChild(missingNote());
@@ -11646,11 +11654,12 @@ function buildLaererBankPrompts(){
     get("/api/admin/templates").catch(() => null),
     get("/api/admin/word-lookups").catch(() => null),
     get("/api/admin/feedback").catch(() => null),
+    get("/api/admin/contact-interests").catch(() => null),
   ])
-    .then(([overview, adoption, failures, calls, templates, wordLookups, feedback]) => {
+    .then(([overview, adoption, failures, calls, templates, wordLookups, feedback, contacts]) => {
       overviewData=overview; adoptionData=adoption; failuresData=failures;
       callsData=calls; templatesData=templates; wordLookupsData=wordLookups;
-      feedbackData=feedback;
+      feedbackData=feedback; contactsData=contacts;
 
       screen.innerHTML = "";
       screen.appendChild(nav);
@@ -12101,6 +12110,44 @@ function renderWordLookups(container, data){
       r.shared_bank_hits,
       r.misses,
       r.total_lookups,
+    ])
+  ));
+}
+
+// People who signed up on the public /kontakt page. Not users — they need no account.
+const CONTACT_ROLE_LABELS = {laerer:"Lærer", forsker:"Forsker", elev:"Elev / student", annet:"Annet"};
+function renderContactList(container, data){
+  const h = (tag, attrs, ...children) => {
+    const el = document.createElement(tag);
+    Object.entries(attrs||{}).forEach(([k,v]) => el.setAttribute(k,v));
+    children.forEach(c => el.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+    return el;
+  };
+
+  container.appendChild(h("div",{class:"card__title",style:"margin:var(--s-5) 0 var(--s-1)"},"Kontakter"));
+
+  const rows = data.sign_ups || [];
+  const counts = {};
+  rows.forEach(c => { counts[c.role] = (counts[c.role]||0) + 1; });
+  const breakdown = Object.keys(CONTACT_ROLE_LABELS)
+    .filter(r => counts[r])
+    .map(r => `${CONTACT_ROLE_LABELS[r]}: ${counts[r]}`).join(" · ");
+  container.appendChild(h("p",{class:"card__note",style:"margin:0 0 var(--s-2)"},
+    `Påmeldt via /kontakt, med samtykke til å bli kontaktet. Nyeste først. ${rows.length} totalt`
+    + (breakdown ? ` (${breakdown}).` : ".")));
+
+  if(!rows.length){
+    container.appendChild(h("p",{class:"card__note"},"Ingen kontakter registrert."));
+    return;
+  }
+
+  container.appendChild(buildAdminTable(h,
+    ["Registrert","E-post","Rolle","Sist oppdatert"],
+    rows.map(c => [
+      c.created_at ? new Date(c.created_at).toLocaleString("no") : "",
+      c.email,
+      CONTACT_ROLE_LABELS[c.role] || c.role,
+      c.updated_at && c.updated_at !== c.created_at ? new Date(c.updated_at).toLocaleString("no") : "—",
     ])
   ));
 }
