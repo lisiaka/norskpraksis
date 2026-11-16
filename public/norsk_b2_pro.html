@@ -2151,12 +2151,19 @@ async function sendWordsAsTeacher(words, studentIds, includeTranslation, tagLabe
     category: CAT_MAP[w.category] ? w.category : "enkeltord",
     topic: VALID_TOPIC_LIST.includes(w.topic) ? w.topic : FALLBACK_TOPIC,
   }));
+  // Without a deadline a slow send leaves the button on "Sender…" indefinitely. The
+  // server may still finish after we give up, so the message says to check before retrying.
+  const ctl = new AbortController();
+  const timer = setTimeout(()=>ctl.abort(), 90000);
+  let timedOut = false;
   const r = await api("/api/teacher/students/words/bulk",{method:"POST",
-    headers:{"Content-Type":"application/json"},
+    headers:{"Content-Type":"application/json"}, signal:ctl.signal,
     body:JSON.stringify({student_ids:studentIds, all_students:false,
       include_translation:includeTranslation, words:payload,
       tag_labels: tagLabels||[]})
-  }).catch(()=>null);
+  }).catch(e=>{ timedOut = e?.name==="AbortError"; return null; });
+  clearTimeout(timer);
+  if(timedOut) return {ok:false, message:"Sendingen tok for lang tid. Ordene kan likevel ha kommet fram — sjekk en elevs ordbank før du sender på nytt."};
   if(!r?.ok){
     const d = await r?.json().catch(()=>null);
     return {ok:false, message: apiErrorText(d?.detail,"Kunne ikke sende ordene")};
