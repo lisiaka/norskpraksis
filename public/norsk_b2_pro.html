@@ -9876,9 +9876,12 @@ function buildLaererClassSentences(){
 }
 
 // ── Klassedashboard (feature 049) ──────────────────────────────────────────
-// "How many of my students did X?" — one tile per activity, distinct students as the headline.
-// The window is shared with Klassen min and Setninger (teacherState.classActivity.window).
-// Events fire on clicks only — never here, because renderContent() runs on every tab switch.
+// Everything is visible at once — no clicking to see a number: a KPI strip (who in the class
+// did what), a student × activity heatmap (a silent student is a pale row), essay levels and
+// learnt words per student, and class activity over time. One hue (the app green), light → dark
+// = more; a zero is a quiet "–", never a coloured cell. The window is shared with Klassen min
+// and Setninger (teacherState.classActivity.window). Events fire on clicks only — never here,
+// because renderContent() runs on every tab switch.
 function buildLaererClassDashboard(){
   const frag = document.createDocumentFragment();
   const cd = teacherState.classDashboard;
@@ -9886,15 +9889,18 @@ function buildLaererClassDashboard(){
 
   frag.appendChild(el("div",{class:"topbar__title",style:{marginBottom:"var(--s-1)"}},"Klassedashboard"));
   frag.appendChild(el("p",{class:"card__note",style:{margin:"0 0 var(--s-3)"}},
-    "Hvor mange av elevene dine som har gjort hva i den valgte perioden."));
+    "Slik går det med klassen i den valgte perioden."));
 
   const bar = el("div",{style:{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"var(--s-2)"}});
-  const grid = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",
-    gap:"var(--s-3)",marginTop:"var(--s-3)"}});
-  [bar,grid].forEach(n=>frag.appendChild(n));
+  const body = el("div",{style:{display:"flex",flexDirection:"column",gap:"var(--s-3)",marginTop:"var(--s-3)"}});
+  [bar,body].forEach(n=>frag.appendChild(n));
 
   const noun = (n,one,many)=>`${n} ${n===1?one:many}`;
-  const nameOf = id => (teacherState.students||[]).find(s=>s.id===id)?.name || "Ukjent elev";
+  const GREEN = "var(--green,#1a6b4a)";
+  // Magnitude as one-hue intensity; text flips to white only where it stays readable on the fill.
+  const shade = (v,max)=> v>0 && max>0 ? Math.round(12 + 88*Math.min(1,v/max)) : 0;
+  const fill = pct => `color-mix(in srgb, ${GREEN} ${pct}%, var(--surface,#fff))`;
+  const ink = pct => pct>=80 ? "#fff" : "var(--ink,#222)";
 
   function buildBar(){
     bar.innerHTML="";
@@ -9912,78 +9918,196 @@ function buildLaererClassDashboard(){
       click:()=>{ trackEvent("teacher.class_dashboard_refresh",{window:ca.window}); load(); }},"↻ Oppdater"));
   }
 
-  // One tile: headline "X av N elever", optional detail rows, and an expandable name list.
-  function tile(title, icon, students, total, sub, ids, extra){
+  function section(title, note, child){
     const card = el("div",{class:"card"});
-    card.appendChild(el("div",{class:"label-mono"},`${icon} ${title}`));
-    card.appendChild(el("div",{style:{fontSize:"28px",fontWeight:"700",lineHeight:"1.2",margin:"var(--s-1) 0"}},
-      `${students} av ${noun(total,"elev","elever")}`));
-    if(sub) card.appendChild(el("div",{class:"card__note"},sub));
-    if(extra) card.appendChild(extra);
-    if(ids.length){
-      const names = el("div",{class:"card__note",style:{display:"none",marginTop:"var(--s-2)",lineHeight:"1.6"}},
-        ids.map(nameOf).sort((a,b)=>a.localeCompare(b,"nb")).join(", "));
-      const toggle = el("button",{class:"btn","aria-expanded":"false",style:{marginTop:"var(--s-2)"},
-        click:()=>{
-          const open = names.style.display==="none";
-          names.style.display = open ? "" : "none";
-          toggle.setAttribute("aria-expanded",open?"true":"false");
-          toggle.textContent = open ? "Skjul elever" : "Vis elever";
-        }},"Vis elever");
-      card.appendChild(toggle); card.appendChild(names);
-    }
+    card.appendChild(el("div",{class:"label-mono"},title));
+    if(note) card.appendChild(el("div",{class:"card__note",style:{margin:"2px 0 var(--s-2)"}},note));
+    card.appendChild(child);
     return card;
+  }
+
+  // KPI strip: "X av N" with a meter, so the whole class reads in one glance.
+  function kpi(label, icon, students, N, sub){
+    const card = el("div",{class:"card",style:{padding:"var(--s-3)"}});
+    card.appendChild(el("div",{class:"label-mono"},`${icon} ${label}`));
+    card.appendChild(el("div",{style:{display:"flex",alignItems:"baseline",gap:"6px",margin:"4px 0"}},
+      el("span",{style:{fontSize:"30px",fontWeight:"700",lineHeight:"1"}},String(students)),
+      el("span",{class:"card__note"},`av ${N}`)));
+    const track = el("div",{style:{height:"6px",borderRadius:"3px",background:fill(12),overflow:"hidden"}});
+    track.appendChild(el("div",{style:{height:"100%",width:`${N?Math.round(100*students/N):0}%`,background:GREEN}}));
+    card.appendChild(track);
+    card.appendChild(el("div",{class:"card__note",style:{marginTop:"6px"}},sub));
+    return card;
+  }
+
+  // Student × activity heatmap. Rows: most active first, silent students at the bottom.
+  function heatmap(d){
+    const cols = [
+      ["Lesing","📖",s=>s.texts_read,s=>`${noun(s.texts_read,"tekst","tekster")}`],
+      ["Essays","✍️",s=>s.essays,s=>noun(s.essays,"essay","essays")],
+      ["Setninger","🧩",s=>s.sentences,s=>`${noun(s.sentences,"setning","setninger")}, ${noun(s.distinct_words,"ulikt ord","ulike ord")}`],
+      ["Flashcards","🃏",s=>s.flashcard_sessions,s=>noun(s.flashcard_sessions,"økt","økter")],
+      ["Setningsbygging","🔤",s=>s.wordsort_sessions,s=>noun(s.wordsort_sessions,"økt","økter")],
+      ["Lærte ord","✅",s=>s.learnt_words,s=>`${noun(s.learnt_words,"ord","ord")} i perioden, ${s.learnt_total} totalt`],
+    ];
+    const maxes = cols.map(c=>Math.max(0,...d.students.map(c[2])));
+    const rank = s=>[cols.filter(c=>c[2](s)>0).length, cols.reduce((n,c)=>n+c[2](s),0)];
+    const rows = [...d.students].sort((a,b)=>{
+      const [ta,va]=rank(a),[tb,vb]=rank(b);
+      return tb-ta || vb-va || a.name.localeCompare(b.name,"nb");
+    });
+    const wrap = el("div",{style:{overflowX:"auto"}});
+    const t = el("table",{style:{borderCollapse:"separate",borderSpacing:"2px",width:"100%",minWidth:"560px"}});
+    const head = el("tr",{});
+    head.appendChild(el("th",{style:{textAlign:"left",fontWeight:"600",fontSize:"var(--font-xs)",padding:"4px 6px"}},"Elev"));
+    cols.forEach(c=>head.appendChild(el("th",{style:{fontWeight:"600",fontSize:"var(--font-xs)",padding:"4px 2px",
+      textAlign:"center",whiteSpace:"nowrap"}},`${c[1]} ${c[0]}`)));
+    t.appendChild(head);
+    rows.forEach(s=>{
+      const silent = !cols.some(c=>c[2](s)>0);
+      const tr = el("tr",{});
+      tr.appendChild(el("td",{style:{padding:"4px 6px",fontSize:"var(--font-sm)",whiteSpace:"nowrap",
+        color:silent?"var(--ink-3,#888)":"inherit"}},$esc(s.name)+(silent?" · ingen aktivitet":"")));
+      cols.forEach((c,i)=>{
+        const v = c[2](s), pct = shade(v,maxes[i]);
+        tr.appendChild(el("td",{title:`${s.name}: ${c[3](s)}`,
+          style:{textAlign:"center",fontSize:"var(--font-sm)",fontWeight:v?"600":"400",padding:"6px 2px",
+            borderRadius:"4px",minWidth:"64px",background:v?fill(pct):"var(--surface-2,#f4f4f2)",
+            color:v?ink(pct):"var(--ink-3,#aaa)"}},v?String(v):"–"));
+      });
+      t.appendChild(tr);
+    });
+    wrap.appendChild(t);
+    return wrap;
+  }
+
+  // Horizontal bars: label, track, value. `segs` are [value,color,title] stacked left to right.
+  function hbarRow(name, segs, max, valueText, nameTitle){
+    const row = el("div",{style:{display:"grid",gridTemplateColumns:"minmax(80px,140px) 1fr auto",gap:"var(--s-2)",
+      alignItems:"center",padding:"2px 0"}});
+    row.appendChild(el("div",{class:"card__note",title:nameTitle||name,style:{overflow:"hidden",textOverflow:"ellipsis",
+      whiteSpace:"nowrap",color:"var(--ink-2,#444)"}},$esc(name)));
+    const track = el("div",{style:{display:"flex",gap:"2px",height:"14px",background:"var(--surface-2,#f4f4f2)",
+      borderRadius:"3px",overflow:"hidden"}});
+    segs.filter(g=>g[0]>0).forEach(g=>track.appendChild(el("div",{title:g[2],
+      style:{width:`${max?100*g[0]/max:0}%`,background:g[1],minWidth:"3px"}})));
+    row.appendChild(track);
+    row.appendChild(el("div",{class:"card__note",style:{minWidth:"28px",textAlign:"right"}},valueText));
+    return row;
+  }
+
+  function legend(items){
+    const l = el("div",{style:{display:"flex",flexWrap:"wrap",gap:"var(--s-3)",margin:"0 0 var(--s-2)"}});
+    items.forEach(([label,color])=>l.appendChild(el("span",{class:"card__note",style:{display:"inline-flex",
+      alignItems:"center",gap:"6px"}},el("span",{style:{width:"10px",height:"10px",borderRadius:"2px",background:color}}),label)));
+    return l;
+  }
+
+  // Essays per student, stacked by CEFR level — an ordered scale, so one hue stepped light → dark.
+  const LEVELS = [["A2",fill(35),"A2"],["B1",fill(65),"B1"],["B2",GREEN,"B2"],
+                  ["other","#9aa5a0","Andre nivå"],["none","var(--surface-2,#e4e4e0)","Uten nivå ennå"]];
+  function essayLevels(d){
+    const withEssays = d.students.filter(s=>s.essays>0).sort((a,b)=>b.essays-a.essays||a.name.localeCompare(b.name,"nb"));
+    const wrap = el("div",{});
+    wrap.appendChild(legend(LEVELS.map(l=>[l[2],l[1]])));
+    // Class totals first: "how many B1s" is the first thing asked.
+    const tot = Object.fromEntries(d.essays.levels.map(l=>[l.level,l.essays]));
+    wrap.appendChild(el("div",{style:{display:"flex",gap:"var(--s-3)",flexWrap:"wrap",margin:"0 0 var(--s-2)"}},
+      ...["A2","B1","B2"].map(k=>el("span",{style:{fontSize:"var(--font-sm)"}},
+        el("b",{},k+" "),`${tot[k]||0} (${noun(d.essays.levels.find(l=>l.level===k)?.students||0,"elev","elever")})`))));
+    if(!withEssays.length){ wrap.appendChild(el("p",{class:"card__note"},"Ingen essays i perioden.")); return wrap; }
+    const max = Math.max(...withEssays.map(s=>s.essays));
+    withEssays.forEach(s=>wrap.appendChild(hbarRow(s.name,
+      LEVELS.map(l=>[s.essay_levels[l[0]]||0,l[1],`${s.name}: ${noun(s.essay_levels[l[0]]||0,"essay","essays")} – ${l[2]}`]),
+      max,String(s.essays))));
+    const none = d.students.length-withEssays.length;
+    if(none) wrap.appendChild(el("div",{class:"card__note",style:{marginTop:"var(--s-2)"}},
+      `${noun(none,"elev har","elever har")} ikke skrevet essay i perioden.`));
+    return wrap;
+  }
+
+  function learntWords(d){
+    const rows = [...d.students].sort((a,b)=>b.learnt_words-a.learnt_words||b.learnt_total-a.learnt_total||a.name.localeCompare(b.name,"nb"));
+    const max = Math.max(1,...rows.map(s=>s.learnt_words));
+    const wrap = el("div",{});
+    rows.forEach(s=>wrap.appendChild(hbarRow(s.name,
+      [[s.learnt_words,GREEN,`${s.name}: ${noun(s.learnt_words,"ord","ord")} lært i perioden`]],
+      max,`${s.learnt_words}`,`${s.name} — ${s.learnt_total} totalt`)));
+    wrap.appendChild(el("div",{class:"card__note",style:{marginTop:"var(--s-2)"}},
+      `Til sammen ${d.learnt.total_words} lærte ord i klassen.`));
+    return wrap;
+  }
+
+  // Class activity over time: one series, one hue. Bar height = activities in that slot.
+  function timeline(d){
+    const pts = d.timeline.points, max = Math.max(1,...pts.map(p=>p.activity));
+    const fmt = iso => {
+      const dt = new Date(iso);
+      return d.timeline.bucket_seconds<86400
+        ? dt.toLocaleTimeString("nb-NO",{hour:"2-digit",minute:"2-digit"})
+        : dt.toLocaleDateString("nb-NO",{day:"numeric",month:"short"});
+    };
+    const wrap = el("div",{});
+    const chart = el("div",{style:{display:"flex",alignItems:"flex-end",gap:"2px",height:"120px",
+      borderBottom:"1px solid var(--color-border-light,#eee)"}});
+    pts.forEach(p=>chart.appendChild(el("div",{style:{flex:"1",height:"100%",display:"flex",alignItems:"flex-end"},
+      title:`${fmt(p.start)}: ${noun(p.activity,"aktivitet","aktiviteter")}, ${noun(p.active_students,"aktiv elev","aktive elever")}`},
+      el("div",{style:{width:"100%",height:p.activity?`${Math.max(3,100*p.activity/max)}%`:"1px",
+        background:p.activity?GREEN:"var(--color-border-light,#ddd)",borderRadius:"2px 2px 0 0"}}))));
+    wrap.appendChild(chart);
+    wrap.appendChild(el("div",{class:"card__note",style:{display:"flex",justifyContent:"space-between",marginTop:"4px"}},
+      el("span",{},fmt(pts[0].start)),el("span",{},fmt(pts[Math.floor(pts.length/2)].start)),el("span",{},"nå")));
+    const peak = pts.reduce((a,p)=>p.activity>a.activity?p:a,pts[0]);
+    wrap.appendChild(el("div",{class:"card__note",style:{marginTop:"var(--s-2)"}},
+      peak.activity ? `Travleste: ${fmt(peak.start)} (${noun(peak.activity,"aktivitet","aktiviteter")}, ${noun(peak.active_students,"elev","elever")}).`
+                    : "Ingen aktivitet i perioden."));
+    return wrap;
   }
 
   function paint(){
     buildBar();
-    grid.innerHTML="";
+    body.innerHTML="";
     if(cd.error){
       const msg = el("div",{class:"card__note",style:{color:"var(--danger)"}},"Kunne ikke hente dashboardet. ");
       msg.appendChild(el("button",{class:"btn",click:load},"Prøv igjen"));
-      grid.appendChild(msg); return;
+      body.appendChild(msg); return;
     }
     const d = cd.data;
-    if(!d){ if(cd.loading) grid.appendChild(el("p",{class:"card__note"},"Henter dashboard …")); return; }
+    if(!d){ if(cd.loading) body.appendChild(el("p",{class:"card__note"},"Henter dashboard …")); return; }
     if(!d.roster_size){
-      grid.appendChild(el("p",{class:"card__note"},"Du har ingen elever ennå. Legg til elever i Klassen min.")); return;
+      body.appendChild(el("p",{class:"card__note"},"Du har ingen elever ennå. Legg til elever i Klassen min.")); return;
     }
     const N = d.roster_size;
 
-    // Lesing, with the text filter.
-    const sel = el("select",{"aria-label":"Tekst",style:{marginTop:"var(--s-2)",padding:"6px 10px",maxWidth:"100%",
+    // Tekst filter belongs to Lesing; it sits with the heading so the cause of the change is obvious.
+    const sel = el("select",{"aria-label":"Tekst",style:{padding:"6px 10px",maxWidth:"100%",
       border:"1px solid var(--color-border)",borderRadius:"var(--radius-sm)",fontSize:"var(--font-sm)"},
       change:(e)=>{ cd.textId = e.target.value; trackEvent("teacher.class_dashboard_text_filter",{window:ca.window}); load(); }});
-    sel.appendChild(el("option",{value:""},"Alle tekster"));
+    sel.appendChild(el("option",{value:""},"Lesing: alle tekster"));
     d.reading.texts.forEach(t=>sel.appendChild(el("option",{value:t.text_id},
       `${t.title} (${noun(t.students,"elev","elever")})`)));
-    // Keep a pick that nobody read in this window visible rather than silently resetting it.
     if(cd.textId && !d.reading.texts.some(t=>t.text_id===cd.textId)){
       sel.appendChild(el("option",{value:cd.textId},"Valgt tekst (ingen har lest den i perioden)"));
     }
     sel.value = cd.textId;
-    grid.appendChild(tile("Lesing","📖",d.reading.students,N,
-      noun(d.reading.reads,"lesing","lesinger")+(cd.textId?" av valgt tekst":""),d.reading.student_ids,sel));
+    body.appendChild(el("div",{style:{display:"flex",alignItems:"center",gap:"var(--s-2)",flexWrap:"wrap"}},
+      el("span",{class:"card__note"},"Filtrer lesing på tekst:"),sel));
 
-    // Essays by level.
-    const lv = el("div",{style:{marginTop:"var(--s-2)",display:"flex",flexDirection:"column",gap:"2px"}});
-    const LABEL = {other:"Andre nivå (A1/C1/C2)",none:"Uten nivå ennå"};
-    d.essays.levels.filter(l=>["A2","B1","B2"].includes(l.level)||l.essays>0).forEach(l=>{
-      lv.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",gap:"var(--s-2)"}},
-        el("span",{},LABEL[l.level]||l.level),
-        el("span",{class:"card__note"},`${noun(l.essays,"essay","essays")} · ${noun(l.students,"elev","elever")}`)));
-    });
-    grid.appendChild(tile("Essays","✍️",d.essays.students,N,noun(d.essays.essays,"essay","essays"),d.essays.student_ids,lv));
+    const strip = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"var(--s-2)"}});
+    strip.appendChild(kpi("Lesing","📖",d.reading.students,N,noun(d.reading.reads,"lesing","lesinger")));
+    strip.appendChild(kpi("Essays","✍️",d.essays.students,N,noun(d.essays.essays,"essay","essays")));
+    strip.appendChild(kpi("Setninger","🧩",d.sentences.students,N,`${d.sentences.sentences} setn. · ${d.sentences.distinct_words} ord`));
+    strip.appendChild(kpi("Flashcards","🃏",d.flashcards.students,N,noun(d.flashcards.sessions,"økt","økter")));
+    strip.appendChild(kpi("Setningsbygging","🔤",d.wordsort.students,N,noun(d.wordsort.sessions,"økt","økter")));
+    strip.appendChild(kpi("Lærte ord","✅",d.learnt.students,N,noun(d.learnt.words,"ord","ord")));
+    body.appendChild(strip);
 
-    grid.appendChild(tile("Setninger","🧩",d.sentences.students,N,
-      `${noun(d.sentences.sentences,"setning","setninger")} · ${noun(d.sentences.distinct_words,"ulikt ord","ulike ord")} brukt`,
-      d.sentences.student_ids));
-    grid.appendChild(tile("Flashcards","🃏",d.flashcards.students,N,
-      noun(d.flashcards.sessions,"økt","økter"),d.flashcards.student_ids));
-    grid.appendChild(tile("Setningsbygging","🔤",d.wordsort.students,N,
-      noun(d.wordsort.sessions,"økt","økter"),d.wordsort.student_ids));
-    grid.appendChild(tile("Lærte ord","✅",d.learnt.students,N,
-      `${noun(d.learnt.words,"ord","ord")} lært i perioden · ${d.learnt.total_words} totalt`,d.learnt.student_ids));
+    body.appendChild(section("Elev for elev","Mørkere = mer. «–» betyr ingen aktivitet. Mest aktive øverst.",heatmap(d)));
+    const two = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))",gap:"var(--s-3)"}});
+    two.appendChild(section("Essays etter nivå","Nivået er det Claude ga i tilbakemeldingen.",essayLevels(d)));
+    two.appendChild(section("Lærte ord per elev","Ord markert som lært i perioden.",learntWords(d)));
+    body.appendChild(two);
+    body.appendChild(section("Aktivitet over tid","Alt elevene gjorde, per tidsrom.",timeline(d)));
   }
 
   // A stale response (window/text changed while in flight) is dropped via `seq`.
@@ -9993,17 +10117,16 @@ function buildLaererClassDashboard(){
     const q = new URLSearchParams({window:ca.window});
     if(cd.textId) q.set("text_id",cd.textId);
     const r = await api(`/api/teacher/class-dashboard?${q}`).catch(()=>null);
-    const body = r?.ok ? await r.json().catch(()=>null) : null;
+    const res = r?.ok ? await r.json().catch(()=>null) : null;
     if(mySeq !== cd.seq) return;
     cd.loading = false;
-    if(body) cd.data = body; else cd.error = true;
+    if(res) cd.data = res; else cd.error = true;
     paint();
   }
 
   trackEvent("teacher.class_dashboard_open",{window:ca.window});
   paint();
-  // The roster supplies the names for "Vis elever"; load it first, then the figures.
-  ensureTeacherRoster().catch(()=>{}).then(load);
+  load();
   return frag;
 }
 
