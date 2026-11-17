@@ -1794,11 +1794,14 @@ function renderTabs(){
       c.appendChild(wrap);
       return;
     }
-    const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts","class-sentences"].includes(teacherState.view);
+    const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts","class-sentences","class-dashboard"].includes(teacherState.view);
 
     wrap.appendChild(el("div",{class:"label-mono",style:{padding:"6px 10px 4px"}},"Lærer"));
     wrap.appendChild(buildNavItem({iconName:"people",label:"Klassen min",count:teacherState.students?.length||null,
       active:isRoster,click(){teacherState.view="roster";setTab("laerer");}}));
+    wrap.appendChild(buildNavItem({iconName:"chart",label:"Klassedashboard",
+      active:state.tab==="laerer"&&teacherState.view==="class-dashboard",
+      click(){teacherState.view="class-dashboard";setTab("laerer");}}));
     wrap.appendChild(buildNavItem({iconName:"sparkle",label:"AI assistent",
       active:state.tab==="laerer"&&teacherState.view==="ai-fokus-hub",
       click(){teacherState.view="ai-fokus-hub";setTab("laerer");}}));
@@ -8263,6 +8266,8 @@ const teacherState = {
   // Feature 048: the class-wide Setninger view. Shares `classActivity.window` with Klassen min
   // on purpose (one window per teacher session); topic/tagId are "" for "Alle".
   classSentences: { data: null, topic: "", tagId: "", loading: false, error: false, seq: 0 },
+  // Feature 049: the class dashboard. Shares `classActivity.window`; textId "" means all texts.
+  classDashboard: { data: null, textId: "", loading: false, error: false, seq: 0 },
 
   // ── "Elevenes ord" in Ordbank (feature 022) ───────────────────────────────
   // A toggle within Ordbank, not a sidebar view — a teacher's roster-wide,
@@ -8319,6 +8324,7 @@ function buildLaerer(){
   else if(teacherState.view === "words")      wrap.appendChild(buildLaererWords());
   else if(teacherState.view === "sentences")  wrap.appendChild(buildLaererSentences());
   else if(teacherState.view === "class-sentences") wrap.appendChild(buildLaererClassSentences());
+  else if(teacherState.view === "class-dashboard") wrap.appendChild(buildLaererClassDashboard());
   else if(teacherState.view === "plan")       wrap.appendChild(buildLaererPlan());
   else if(teacherState.view === "summaries")  wrap.appendChild(buildLaererSummaries());
   else if(teacherState.view === "assignments") wrap.appendChild(buildLaererAssignments());
@@ -9866,6 +9872,138 @@ function buildLaererClassSentences(){
   ensureWordTags().then(()=>{ buildFilters(); });
   trackEvent("teacher.class_sentences_open",{window:ca.window});
   load();
+  return frag;
+}
+
+// ── Klassedashboard (feature 049) ──────────────────────────────────────────
+// "How many of my students did X?" — one tile per activity, distinct students as the headline.
+// The window is shared with Klassen min and Setninger (teacherState.classActivity.window).
+// Events fire on clicks only — never here, because renderContent() runs on every tab switch.
+function buildLaererClassDashboard(){
+  const frag = document.createDocumentFragment();
+  const cd = teacherState.classDashboard;
+  const ca = teacherState.classActivity;
+
+  frag.appendChild(el("div",{class:"topbar__title",style:{marginBottom:"var(--s-1)"}},"Klassedashboard"));
+  frag.appendChild(el("p",{class:"card__note",style:{margin:"0 0 var(--s-3)"}},
+    "Hvor mange av elevene dine som har gjort hva i den valgte perioden."));
+
+  const bar = el("div",{style:{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"var(--s-2)"}});
+  const grid = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",
+    gap:"var(--s-3)",marginTop:"var(--s-3)"}});
+  [bar,grid].forEach(n=>frag.appendChild(n));
+
+  const noun = (n,one,many)=>`${n} ${n===1?one:many}`;
+  const nameOf = id => (teacherState.students||[]).find(s=>s.id===id)?.name || "Ukjent elev";
+
+  function buildBar(){
+    bar.innerHTML="";
+    ACTIVITY_WINDOWS.forEach(([id,label])=>{
+      bar.appendChild(el("button",{class:"pill","data-window":id,
+        "aria-pressed":ca.window===id?"true":"false",
+        click:()=>{
+          if(ca.window===id) return;
+          ca.window = id;
+          trackEvent("teacher.class_dashboard_window",{window:id});
+          load();
+        }},label));
+    });
+    bar.appendChild(el("button",{class:"btn","data-refresh":"1",disabled:cd.loading,
+      click:()=>{ trackEvent("teacher.class_dashboard_refresh",{window:ca.window}); load(); }},"↻ Oppdater"));
+  }
+
+  // One tile: headline "X av N elever", optional detail rows, and an expandable name list.
+  function tile(title, icon, students, total, sub, ids, extra){
+    const card = el("div",{class:"card"});
+    card.appendChild(el("div",{class:"label-mono"},`${icon} ${title}`));
+    card.appendChild(el("div",{style:{fontSize:"28px",fontWeight:"700",lineHeight:"1.2",margin:"var(--s-1) 0"}},
+      `${students} av ${noun(total,"elev","elever")}`));
+    if(sub) card.appendChild(el("div",{class:"card__note"},sub));
+    if(extra) card.appendChild(extra);
+    if(ids.length){
+      const names = el("div",{class:"card__note",style:{display:"none",marginTop:"var(--s-2)",lineHeight:"1.6"}},
+        ids.map(nameOf).sort((a,b)=>a.localeCompare(b,"nb")).join(", "));
+      const toggle = el("button",{class:"btn","aria-expanded":"false",style:{marginTop:"var(--s-2)"},
+        click:()=>{
+          const open = names.style.display==="none";
+          names.style.display = open ? "" : "none";
+          toggle.setAttribute("aria-expanded",open?"true":"false");
+          toggle.textContent = open ? "Skjul elever" : "Vis elever";
+        }},"Vis elever");
+      card.appendChild(toggle); card.appendChild(names);
+    }
+    return card;
+  }
+
+  function paint(){
+    buildBar();
+    grid.innerHTML="";
+    if(cd.error){
+      const msg = el("div",{class:"card__note",style:{color:"var(--danger)"}},"Kunne ikke hente dashboardet. ");
+      msg.appendChild(el("button",{class:"btn",click:load},"Prøv igjen"));
+      grid.appendChild(msg); return;
+    }
+    const d = cd.data;
+    if(!d){ if(cd.loading) grid.appendChild(el("p",{class:"card__note"},"Henter dashboard …")); return; }
+    if(!d.roster_size){
+      grid.appendChild(el("p",{class:"card__note"},"Du har ingen elever ennå. Legg til elever i Klassen min.")); return;
+    }
+    const N = d.roster_size;
+
+    // Lesing, with the text filter.
+    const sel = el("select",{"aria-label":"Tekst",style:{marginTop:"var(--s-2)",padding:"6px 10px",maxWidth:"100%",
+      border:"1px solid var(--color-border)",borderRadius:"var(--radius-sm)",fontSize:"var(--font-sm)"},
+      change:(e)=>{ cd.textId = e.target.value; trackEvent("teacher.class_dashboard_text_filter",{window:ca.window}); load(); }});
+    sel.appendChild(el("option",{value:""},"Alle tekster"));
+    d.reading.texts.forEach(t=>sel.appendChild(el("option",{value:t.text_id},
+      `${t.title} (${noun(t.students,"elev","elever")})`)));
+    // Keep a pick that nobody read in this window visible rather than silently resetting it.
+    if(cd.textId && !d.reading.texts.some(t=>t.text_id===cd.textId)){
+      sel.appendChild(el("option",{value:cd.textId},"Valgt tekst (ingen har lest den i perioden)"));
+    }
+    sel.value = cd.textId;
+    grid.appendChild(tile("Lesing","📖",d.reading.students,N,
+      noun(d.reading.reads,"lesing","lesinger")+(cd.textId?" av valgt tekst":""),d.reading.student_ids,sel));
+
+    // Essays by level.
+    const lv = el("div",{style:{marginTop:"var(--s-2)",display:"flex",flexDirection:"column",gap:"2px"}});
+    const LABEL = {other:"Andre nivå (A1/C1/C2)",none:"Uten nivå ennå"};
+    d.essays.levels.filter(l=>["A2","B1","B2"].includes(l.level)||l.essays>0).forEach(l=>{
+      lv.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",gap:"var(--s-2)"}},
+        el("span",{},LABEL[l.level]||l.level),
+        el("span",{class:"card__note"},`${noun(l.essays,"essay","essays")} · ${noun(l.students,"elev","elever")}`)));
+    });
+    grid.appendChild(tile("Essays","✍️",d.essays.students,N,noun(d.essays.essays,"essay","essays"),d.essays.student_ids,lv));
+
+    grid.appendChild(tile("Setninger","🧩",d.sentences.students,N,
+      `${noun(d.sentences.sentences,"setning","setninger")} · ${noun(d.sentences.distinct_words,"ulikt ord","ulike ord")} brukt`,
+      d.sentences.student_ids));
+    grid.appendChild(tile("Flashcards","🃏",d.flashcards.students,N,
+      noun(d.flashcards.sessions,"økt","økter"),d.flashcards.student_ids));
+    grid.appendChild(tile("Setningsbygging","🔤",d.wordsort.students,N,
+      noun(d.wordsort.sessions,"økt","økter"),d.wordsort.student_ids));
+    grid.appendChild(tile("Lærte ord","✅",d.learnt.students,N,
+      `${noun(d.learnt.words,"ord","ord")} lært i perioden · ${d.learnt.total_words} totalt`,d.learnt.student_ids));
+  }
+
+  // A stale response (window/text changed while in flight) is dropped via `seq`.
+  async function load(){
+    const mySeq = ++cd.seq;
+    cd.loading = true; cd.error = false; paint();
+    const q = new URLSearchParams({window:ca.window});
+    if(cd.textId) q.set("text_id",cd.textId);
+    const r = await api(`/api/teacher/class-dashboard?${q}`).catch(()=>null);
+    const body = r?.ok ? await r.json().catch(()=>null) : null;
+    if(mySeq !== cd.seq) return;
+    cd.loading = false;
+    if(body) cd.data = body; else cd.error = true;
+    paint();
+  }
+
+  trackEvent("teacher.class_dashboard_open",{window:ca.window});
+  paint();
+  // The roster supplies the names for "Vis elever"; load it first, then the figures.
+  ensureTeacherRoster().catch(()=>{}).then(load);
   return frag;
 }
 
