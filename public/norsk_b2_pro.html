@@ -1794,14 +1794,11 @@ function renderTabs(){
       c.appendChild(wrap);
       return;
     }
-    const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts","class-sentences","class-dashboard"].includes(teacherState.view);
+    const isRoster = state.tab==="laerer" && !["bank-texts","bank-prompts","class-sentences"].includes(teacherState.view);
 
     wrap.appendChild(el("div",{class:"label-mono",style:{padding:"6px 10px 4px"}},"Lærer"));
     wrap.appendChild(buildNavItem({iconName:"people",label:"Klassen min",count:teacherState.students?.length||null,
       active:isRoster,click(){teacherState.view="roster";setTab("laerer");}}));
-    wrap.appendChild(buildNavItem({iconName:"chart",label:"Klassedashboard",
-      active:state.tab==="laerer"&&teacherState.view==="class-dashboard",
-      click(){teacherState.view="class-dashboard";setTab("laerer");}}));
     wrap.appendChild(buildNavItem({iconName:"sparkle",label:"AI assistent",
       active:state.tab==="laerer"&&teacherState.view==="ai-fokus-hub",
       click(){teacherState.view="ai-fokus-hub";setTab("laerer");}}));
@@ -8266,8 +8263,9 @@ const teacherState = {
   // Feature 048: the class-wide Setninger view. Shares `classActivity.window` with Klassen min
   // on purpose (one window per teacher session); topic/tagId are "" for "Alle".
   classSentences: { data: null, topic: "", tagId: "", loading: false, error: false, seq: 0 },
-  // Feature 049: the class dashboard. Shares `classActivity.window`; textId "" means all texts.
-  classDashboard: { data: null, textId: "", loading: false, error: false, seq: 0 },
+  // Feature 049: one class's dashboard, opened from the class name in Klassen min. Shares
+  // `classActivity.window`; textId "" means all texts.
+  classDashboard: { classId: "", data: null, textId: "", loading: false, error: false, seq: 0 },
 
   // ── "Elevenes ord" in Ordbank (feature 022) ───────────────────────────────
   // A toggle within Ordbank, not a sidebar view — a teacher's roster-wide,
@@ -8503,8 +8501,19 @@ function buildLaererRoster(){
     }
     list.forEach(c=>{
       const row = el("div",{style:{display:"flex",alignItems:"center",gap:"var(--s-2)"}});
+      // The class name opens that class's dashboard (feature 049) — a link, not a button, because
+      // it navigates. The click is the only place the view is entered.
       row.appendChild(el("span",{style:{flex:"1",fontSize:"var(--t-base)"}},
-        `${c.name} · `, el("span",{class:"pill__count"},`${c.student_count} ${c.student_count===1?"elev":"elever"}`)));
+        el("button",{title:"Åpne klassedashboard",
+          style:{background:"none",border:"none",padding:"0",cursor:"pointer",font:"inherit",fontWeight:"600",
+            color:"var(--green,#1a6b4a)",textDecoration:"underline"},
+          click:()=>{
+            const cd = teacherState.classDashboard;
+            cd.classId = c.id; cd.data = null; cd.textId = ""; cd.error = false;
+            teacherState.view = "class-dashboard";
+            renderContent();
+          }},c.name),
+        " · ", el("span",{class:"pill__count"},`${c.student_count} ${c.student_count===1?"elev":"elever"}`)));
       row.appendChild(el("button",{class:"btn",
         click: async ()=>{
           const name = prompt("Nytt navn på klassen:", c.name);
@@ -9887,7 +9896,12 @@ function buildLaererClassDashboard(){
   const cd = teacherState.classDashboard;
   const ca = teacherState.classActivity;
 
-  frag.appendChild(el("div",{class:"topbar__title",style:{marginBottom:"var(--s-1)"}},"Klassedashboard"));
+  const className = cd.data?.class_name || (teacherState.classes||[]).find(c=>c.id===cd.classId)?.name || "";
+  frag.appendChild(el("button",{class:"btn",style:{marginBottom:"var(--s-3)"},
+    click:()=>laererSetView("roster")},"← Klassen min"));
+  const titleEl = el("div",{class:"topbar__title",style:{marginBottom:"var(--s-1)"}},
+    className ? `Klassedashboard · ${className}` : "Klassedashboard");
+  frag.appendChild(titleEl);
   frag.appendChild(el("p",{class:"card__note",style:{margin:"0 0 var(--s-3)"}},
     "Slik går det med klassen i den valgte perioden."));
 
@@ -10067,6 +10081,8 @@ function buildLaererClassDashboard(){
   function paint(){
     buildBar();
     body.innerHTML="";
+    // The response carries the current name, which wins over a possibly stale roster cache.
+    if(cd.data?.class_name) titleEl.textContent = `Klassedashboard · ${cd.data.class_name}`;
     if(cd.error){
       const msg = el("div",{class:"card__note",style:{color:"var(--danger)"}},"Kunne ikke hente dashboardet. ");
       msg.appendChild(el("button",{class:"btn",click:load},"Prøv igjen"));
@@ -10075,7 +10091,7 @@ function buildLaererClassDashboard(){
     const d = cd.data;
     if(!d){ if(cd.loading) body.appendChild(el("p",{class:"card__note"},"Henter dashboard …")); return; }
     if(!d.roster_size){
-      body.appendChild(el("p",{class:"card__note"},"Du har ingen elever ennå. Legg til elever i Klassen min.")); return;
+      body.appendChild(el("p",{class:"card__note"},"Ingen elever i denne klassen ennå. Legg dem til i Klassen min.")); return;
     }
     const N = d.roster_size;
 
@@ -10114,7 +10130,7 @@ function buildLaererClassDashboard(){
   async function load(){
     const mySeq = ++cd.seq;
     cd.loading = true; cd.error = false; paint();
-    const q = new URLSearchParams({window:ca.window});
+    const q = new URLSearchParams({window:ca.window,class_id:cd.classId});
     if(cd.textId) q.set("text_id",cd.textId);
     const r = await api(`/api/teacher/class-dashboard?${q}`).catch(()=>null);
     const res = r?.ok ? await r.json().catch(()=>null) : null;
@@ -10124,6 +10140,10 @@ function buildLaererClassDashboard(){
     paint();
   }
 
+  if(!cd.classId){
+    body.appendChild(el("p",{class:"card__note"},"Velg en klasse i Klassen min for å se dashboardet."));
+    return frag;
+  }
   trackEvent("teacher.class_dashboard_open",{window:ca.window});
   paint();
   load();
